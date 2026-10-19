@@ -42,9 +42,13 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     QueryPerformanceCounter(&requestedAt);
     const HostSettings& s = settings_.Get();
     HWND hwnd = (HWND)(uintptr_t)r.hwnd;
-    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls)",
+    static const wchar_t* const kSources[] = {L"?", L"ShowWindow", L"DefWindowProc", L"SetWindowPlacement",
+                                              L"CloseWindow", L"HCBT_MINMAX", L"launch"};
+    uint32_t source = (r.flags & MW_REQ_SOURCE_MASK) >> MW_REQ_SOURCE_SHIFT;
+    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls, via %ls)",
         r.kind == MW_ANIM_MINIMIZE ? L"minimize" : (r.kind == MW_ANIM_RESTORE ? L"restore" : L"launch"),
-        (void*)hwnd, r.pid, r.rawW, r.rawH, (r.flags & MW_REQ_HAS_SNAPSHOT) ? L", snapshot" : L"");
+        (void*)hwnd, r.pid, r.rawW, r.rawH, (r.flags & MW_REQ_HAS_SNAPSHOT) ? L", snapshot" : L"",
+        source < 7 ? kSources[source] : L"?");
     if (r.version != MW_IPC_VERSION || !s.enabled || !IsWindow(hwnd)) {
         Log(L"ipc: rejected (version %u, enabled %d, window %d)", r.version, (int)s.enabled, (int)IsWindow(hwnd));
         return MW_REPLY_FAIL;
@@ -139,27 +143,32 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     } else {
         SystemParametersInfoW(SPI_GETWORKAREA, 0, &work, 0);
     }
-    int dockX = 0;
-    if (!PtInRect(&work, pt)) {
-        dockX = pt.x;
-        locator_.Learn(hwnd, dockX);
-    } else if (!locator_.TryResolve(hwnd, job->hMon, &dockX)) {
-        int fallback = locator_.Fallback(hwnd, job->hMon, DefaultDockX(job->hMon));
+    // Pointer outside the work area = on the taskbar: most likely a press on this
+    // window's own button.
+    const bool onTaskbar = !PtInRect(&work, pt);
+    DockTarget dock;
+    if (!locator_.TryResolve(hwnd, job->hMon, onTaskbar ? &pt : nullptr, &dock)) {
+        DockTarget fallback = locator_.Fallback(hwnd, job->hMon, DefaultDockX(job->hMon));
         if (active) {
             // Joins / reverses a running genie, which keeps its own dock target.
-            dockX = fallback;
+            dock = fallback;
         } else {
-            locator_.ResolveAsync(hwnd, job->hMon, fallback, [this, job](int x) { Dispatch(job, x); });
+            locator_.ResolveAsync(hwnd, job->hMon, fallback, [this, job](DockTarget t) { Dispatch(job, t); });
             return MW_REPLY_OK;
         }
     }
-    Dispatch(job, dockX);
+    Dispatch(job, dock);
     return MW_REPLY_OK;
 }
 
 // Called on the IPC thread, or on the locator thread after a UIA scan.
-void IpcServer::Dispatch(GenieJob* job, int dockX) {
-    if (!ComputeGenieParams(job->winRect, job->hMon, dockX, job->style, &job->params)) {
+void IpcServer::Dispatch(GenieJob* job, const DockTarget& dock) {
+    if (dock.hasRect) {
+        Log(L"ipc: %p docks into its taskbar icon at %d,%d (icon %d px)", (void*)job->hwnd, dock.x, dock.y, dock.size);
+    } else {
+        Log(L"ipc: %p docks at x %d on the taskbar edge (button unknown)", (void*)job->hwnd, dock.x);
+    }
+    if (!ComputeGenieParams(job->winRect, job->hMon, dock, job->style, &job->params)) {
         renderer_.FailJob(job);
         return;
     }

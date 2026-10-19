@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include "common/ipc.h"
+#include "host/render/genie_effect.h"
 
 class Renderer;
 class SettingsStore;
@@ -18,7 +19,7 @@ public:
 private:
     uint32_t HandleAnim(const AnimRequest& req);
     bool UploadSnapshot(HANDLE hSection, GenieJob* job, int rawW, int rawH);
-    void Dispatch(GenieJob* job, int dockX);
+    void Dispatch(GenieJob* job, const DockTarget& dock);
 
     Renderer& renderer_;
     SettingsStore& settings_;

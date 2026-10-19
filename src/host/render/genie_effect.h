@@ -14,6 +14,15 @@ struct Geometry {
     float x, y, width, height;
 };
 
+// Where the genie goes: the center of the window's taskbar button (and the size of the
+// icon in it) when the button is known, else just an x on the taskbar.
+struct DockTarget {
+    int x = 0;
+    int y = 0;      // valid with hasRect
+    int size = 0;   // icon size, valid with hasRect
+    bool hasRect = false;
+};
+
 struct GenieParams {
     int style;
     Geometry win;    // window (DWM extended frame) rect
@@ -30,7 +39,7 @@ HWND FindTaskbarForMonitor(HMONITOR hMon);
 // taskbars start near the monitor's left, centered ones at its middle.
 int DefaultDockX(HMONITOR hMon);
 
-bool ComputeGenieParams(const RECT& winRect, HMONITOR hDockMon, int dockX, int style, GenieParams* out);
+bool ComputeGenieParams(const RECT& winRect, HMONITOR hDockMon, const DockTarget& dock, int style, GenieParams* out);
 
 // Time -> progress. Modern eases (smoothstep), classic is linear (its funnel eases
 // per row). Both are symmetric, f(1 - x) = 1 - f(x), which is what lets a running

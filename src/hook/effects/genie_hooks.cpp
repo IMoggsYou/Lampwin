@@ -48,6 +48,22 @@ struct ActiveAnim {
 std::unordered_map<HWND, ActiveAnim> g_AnimActive;
 uint64_t g_nextToken = 0;
 
+// Set while one of our own hooked calls (ShowWindow, SC_MINIMIZE, ...) changes a window's
+// state on this thread: the HCBT_MINMAX that comes out of it is handled already.
+thread_local int t_ownStateChange = 0;
+struct OwnStateChange {
+    OwnStateChange() { ++t_ownStateChange; }
+    ~OwnStateChange() { --t_ownStateChange; }
+};
+
+// Which path started a request (shows up in MacWin's log).
+thread_local uint32_t t_source = MW_SRC_UNKNOWN;
+struct SourceScope {
+    uint32_t old;
+    explicit SourceScope(uint32_t s) : old(t_source) { t_source = s; }
+    ~SourceScope() { t_source = old; }
+};
+
 struct Locked {
     Locked() { AcquireSRWLockExclusive(&g_lock); }
     ~Locked() { ReleaseSRWLockExclusive(&g_lock); }
@@ -348,6 +364,7 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
     req.hFirstFrame = (uint64_t)(uintptr_t)hFirst;
     req.hDone = (uint64_t)(uintptr_t)hDone;
     req.hRevealed = (uint64_t)(uintptr_t)hRevealed;
+    req.flags |= (t_source << MW_REQ_SOURCE_SHIFT) & MW_REQ_SOURCE_MASK;
 
     // Falling: capture now, while the window is still on screen. Rising: the host may
     // still hold the snapshot from the minimize; capture only if it asks.
@@ -507,6 +524,7 @@ DWORD WINAPI MacGenieLaunchThread(LPVOID lpParam) {
         if (IsWindow(hWnd)) MacGenieUndoRisingHide(hWnd, originalExStyle, hiddenByCloak);
         return 0;
     }
+    SourceScope src(MW_SRC_LAUNCH);
     StartMacGenieAnim(hWnd, TRUE, originalExStyle, hiddenByCloak);
     return 0;
 }
@@ -519,6 +537,8 @@ DWORD WINAPI MacGenieLaunchThread(LPVOID lpParam) {
 
 __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
     HookScope scope;
+    OwnStateChange own;
+    SourceScope src(MW_SRC_SHOWWINDOW);
     if (IsMinimizeCmd(nCmdShow)) {
         if (MacGenieShouldAnimate(hWnd)) {
             MacGenieSetDwmTransitions(hWnd, FALSE);
@@ -556,6 +576,8 @@ BOOL WINAPI ShowWindow_Hook(HWND hWnd, int nCmdShow) {
 template <DefWindowProc_t& Original>
 __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
     HookScope scope;
+    OwnStateChange own;
+    SourceScope src(MW_SRC_DEFWINDOWPROC);
     if (Msg == WM_DESTROY) {
         {
             Locked l;
@@ -665,29 +687,34 @@ void MacGenieTryMinimizeAnim(HWND hWnd) {
     StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
 }
 
+// Only the first-show (launch) case. An async minimize / restore runs later, in the
+// window's own thread: the HCBT_MINMAX there animates it (GenieOnMinMax). Doing it here
+// instead held the caller up per window - Explorer's "Show desktop" started its genies
+// one after another and restored windows without any.
 __attribute__((noinline)) BOOL WINAPI ShowWindowAsyncSlow(HWND hWnd, int nCmdShow) {
     HookScope scope;
-    if (IsMinimizeCmd(nCmdShow)) {
-        MacGenieTryMinimizeAnim(hWnd);
-    } else {
-        LONG_PTR launchOrigEx;
-        BOOL launchCloaked;
-        if (MacGenieLaunchPrepare(hWnd, nCmdShow, &launchOrigEx, &launchCloaked)) {
-            BOOL res = ShowWindowAsync_Original(hWnd, nCmdShow);
-            MacGenieLaunchCommit(hWnd, launchOrigEx, launchCloaked);
-            return res;
-        }
+    SourceScope src(MW_SRC_LAUNCH);
+    LONG_PTR launchOrigEx;
+    BOOL launchCloaked;
+    if (MacGenieLaunchPrepare(hWnd, nCmdShow, &launchOrigEx, &launchCloaked)) {
+        BOOL res = ShowWindowAsync_Original(hWnd, nCmdShow);
+        MacGenieLaunchCommit(hWnd, launchOrigEx, launchCloaked);
+        return res;
     }
     return ShowWindowAsync_Original(hWnd, nCmdShow);
 }
 
 BOOL WINAPI ShowWindowAsync_Hook(HWND hWnd, int nCmdShow) {
-    if (!EffectsActiveHere()) MW_MUSTTAIL return ShowWindowAsync_Original(hWnd, nCmdShow);
+    if (IsMinimizeCmd(nCmdShow) || !EffectsActiveHere() || !LaunchEnabled()) {
+        MW_MUSTTAIL return ShowWindowAsync_Original(hWnd, nCmdShow);
+    }
     MW_MUSTTAIL return ShowWindowAsyncSlow(hWnd, nCmdShow);
 }
 
 __attribute__((noinline)) BOOL WINAPI SetWindowPlacementSlow(HWND hWnd, const WINDOWPLACEMENT* lpwndpl) {
     HookScope scope;
+    OwnStateChange own;
+    SourceScope src(MW_SRC_SETWINDOWPLACEMENT);
     MacGenieTryMinimizeAnim(hWnd);
     return SetWindowPlacement_Original(hWnd, lpwndpl);
 }
@@ -701,6 +728,8 @@ BOOL WINAPI SetWindowPlacement_Hook(HWND hWnd, const WINDOWPLACEMENT* lpwndpl) {
 
 __attribute__((noinline)) BOOL WINAPI CloseWindowSlow(HWND hWnd) {
     HookScope scope;
+    OwnStateChange own;
+    SourceScope src(MW_SRC_CLOSEWINDOW);
     MacGenieTryMinimizeAnim(hWnd);
     return CloseWindow_Original(hWnd);
 }
@@ -714,6 +743,7 @@ BOOL WINAPI CloseWindow_Hook(HWND hWnd) {
 __attribute__((noinline)) BOOL WINAPI SetWindowPosSlow(HWND hWnd, HWND hWndInsertAfter, int X, int Y,
                                                 int cx, int cy, UINT uFlags) {
     HookScope scope;
+    SourceScope src(MW_SRC_LAUNCH);
     LONG_PTR launchOrigEx;
     BOOL launchCloaked;
     if (MacGenieLaunchPrepare(hWnd, SW_SHOW, &launchOrigEx, &launchCloaked)) {
@@ -732,7 +762,60 @@ BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int
     MW_MUSTTAIL return SetWindowPosSlow(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 }
 
+// A restore seen in HCBT_MINMAX happens right after the notification returns: wait
+// for it (the window is cloaked meanwhile), then start the rising genie.
+struct PendingRestore {
+    HWND hWnd;
+    LONG_PTR exStyle;
+};
+
+DWORD WINAPI PendingRestoreThread(LPVOID param) {
+    PendingRestore* p = (PendingRestore*)param;
+    HWND hWnd = p->hWnd;
+    LONG_PTR exStyle = p->exStyle;
+    delete p;
+    for (int i = 0; i < 60 && IsWindow(hWnd) && IsIconic(hWnd) && !g_unloading.load(); ++i) Sleep(5);
+    if (!IsWindow(hWnd)) return 0;
+    if (IsIconic(hWnd) || g_unloading.load()) {
+        MacGenieUndoRisingHide(hWnd, exStyle, TRUE);   // the restore never came
+        return 0;
+    }
+    SourceScope src(MW_SRC_CBT);
+    StartMacGenieAnim(hWnd, TRUE, exStyle, TRUE);
+    return 0;
+}
+
 }  // namespace
+
+void GenieOnMinMax(HWND hWnd, int cmd) {
+    if (t_ownStateChange > 0) return;   // one of our hooked calls on this thread
+    if (!EffectsActiveHere()) return;
+    HookScope scope;
+    SourceScope src(MW_SRC_CBT);
+    if (IsMinimizeCmd(cmd) || cmd == SW_FORCEMINIMIZE) {
+        if (IsIconic(hWnd) || !IsWindowVisible(hWnd) || !MacGenieShouldAnimate(hWnd)) return;
+        // Waits for the genie's first frame, then the minimize goes ahead.
+        MacGenieSetDwmTransitions(hWnd, FALSE);
+        StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
+        return;
+    }
+    // Any other command on a minimized window restores it (SW_RESTORE, SW_SHOWNOACTIVATE,
+    // SW_SHOWNORMAL, ...), maximized windows included.
+    if (!IsIconic(hWnd) || !RestoreEnabled() || !MacGenieShouldAnimate(hWnd)) return;
+    {
+        Locked l;
+        auto it = g_AnimActive.find(hWnd);
+        if (it != g_AnimActive.end() && it->second.rising) return;   // already coming back
+    }
+    LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
+    MacGenieSetDwmTransitions(hWnd, FALSE);
+    MacGenieSetCloak(hWnd, TRUE);
+    PendingRestore* p = new PendingRestore{hWnd, exStyle};
+    if (!SpawnWorker(PendingRestoreThread, p, false, nullptr)) {
+        delete p;
+        MacGenieUndoRisingHide(hWnd, exStyle, TRUE);
+    }
+}
 
 bool GenieInstallHooks() {
     return CreateUser32Hook("DefWindowProcW", (void*)DefWindowProcW_Hook, (void**)&DefWindowProcW_Original) &&

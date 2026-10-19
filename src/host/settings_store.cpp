@@ -75,8 +75,14 @@ bool SettingsStore::Create(uint32_t hostInstance, SECURITY_ATTRIBUTES* sa) {
     InitPath();
     // Read-only for the DLLs; may already exist if a previous host died while
     // programs still had it mapped - then it is simply reused.
-    map_ = CreateFileMappingW(INVALID_HANDLE_VALUE, sa, PAGE_READWRITE, 0, sizeof(SharedSettings),
-                              MACWIN_SETTINGS_SECTION);
+    // Access denied = the section of a previous (elevated) host is still held by DLLs
+    // that are shutting down; they let go of it within moments.
+    for (int attempt = 0; attempt < 30; ++attempt) {
+        map_ = CreateFileMappingW(INVALID_HANDLE_VALUE, sa, PAGE_READWRITE, 0, sizeof(SharedSettings),
+                                  MACWIN_SETTINGS_SECTION);
+        if (map_ || GetLastError() != ERROR_ACCESS_DENIED) break;
+        Sleep(100);
+    }
     if (!map_) {
         Log(L"CreateFileMapping(settings) failed: %lu", GetLastError());
         return false;

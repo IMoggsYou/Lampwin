@@ -70,6 +70,7 @@ BOOL WINAPI DllMain(HINSTANCE hInst, DWORD reason, LPVOID reserved) {
 // that were already running pick the DLL up right away.
 extern "C" __declspec(dllexport) LRESULT CALLBACK MacWinCbtProc(int code, WPARAM wParam, LPARAM lParam) {
     EnsureInit();
+    if (code == HCBT_MINMAX) GenieOnMinMax((HWND)wParam, (int)LOWORD(lParam));
     return CallNextHookEx(nullptr, code, wParam, lParam);
 }
 

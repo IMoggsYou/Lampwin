@@ -16,6 +16,18 @@ enum : uint32_t {
 
 enum : uint32_t {
     MW_REQ_HAS_SNAPSHOT = 1u,
+    MW_REQ_SOURCE_SHIFT = 8,        // bits 8..11: MW_SRC_*
+    MW_REQ_SOURCE_MASK = 0xF00u,
+};
+
+enum : uint32_t {
+    MW_SRC_UNKNOWN = 0,
+    MW_SRC_SHOWWINDOW,
+    MW_SRC_DEFWINDOWPROC,           // SC_MINIMIZE / SC_RESTORE
+    MW_SRC_SETWINDOWPLACEMENT,
+    MW_SRC_CLOSEWINDOW,
+    MW_SRC_CBT,                     // HCBT_MINMAX in the window's own thread
+    MW_SRC_LAUNCH,
 };
 
 enum : uint32_t {

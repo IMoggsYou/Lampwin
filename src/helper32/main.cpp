@@ -24,12 +24,14 @@ const UINT WM_APP_RESCAN = WM_APP + 2;   // posted by MacWin.exe after a setting
 struct Proc {
     HANDLE process = nullptr;   // to tell a live process from a reused PID
     HHOOK hook = nullptr;       // set for 32-bit programs the DLL went into
+    HHOOK cbt = nullptr;        // HCBT_MINMAX (async minimize / restore, e.g. "Show desktop")
     DWORD thread = 0;           // the hooked GUI thread
     bool is32 = false;
 };
 
 HMODULE g_dll = nullptr;
 HOOKPROC g_getMsgProc = nullptr;
+HOOKPROC g_cbtProc = nullptr;
 DWORD g_selfPid = 0;
 const SharedSettings* g_settings = nullptr;
 std::unordered_map<DWORD, Proc> g_procs;
@@ -62,6 +64,7 @@ void Consider(HWND hwnd) {
     if (it != g_procs.end()) {
         if (WaitForSingleObject(it->second.process, 0) == WAIT_TIMEOUT) return;   // known, still running
         if (it->second.hook) UnhookWindowsHookEx(it->second.hook);
+        if (it->second.cbt) UnhookWindowsHookEx(it->second.cbt);
         CloseHandle(it->second.process);
         g_procs.erase(it);   // the PID was reused by a new process
     }
@@ -75,6 +78,7 @@ void Consider(HWND hwnd) {
     p.is32 = IsWow64Process(process, &wow64) && wow64;
     if (p.is32 && AllowedInto(process)) {
         p.hook = SetWindowsHookExW(WH_GETMESSAGE, g_getMsgProc, g_dll, tid);
+        if (p.hook && g_cbtProc) p.cbt = SetWindowsHookExW(WH_CBT, g_cbtProc, g_dll, tid);
         // Wake the thread so the DLL loads now rather than at its next message.
         if (p.hook) PostMessageW(hwnd, WM_NULL, 0, 0);
     }
@@ -139,6 +143,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR cmdLine, int) {
     std::wstring dll = HelperDir() + L"\\MacWinHook32.dll";
     g_dll = LoadLibraryExW(dll.c_str(), nullptr, LOAD_WITH_ALTERED_SEARCH_PATH);
     g_getMsgProc = g_dll ? (HOOKPROC)GetProcAddress(g_dll, MACWIN_GETMSG_PROC) : nullptr;
+    g_cbtProc = g_dll ? (HOOKPROC)GetProcAddress(g_dll, MACWIN_CBT_PROC) : nullptr;
     if (!shutdown || !alive || !g_settings || !g_getMsgProc) return 1;
 
     HWINEVENTHOOK showHook = SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW, nullptr, OnWinEvent, 0, 0,
@@ -166,6 +171,7 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR cmdLine, int) {
     // threads lets Windows release its references to the DLL in those programs too.
     if (showHook) UnhookWinEvent(showHook);
     for (auto& [pid, p] : g_procs) {
+        if (p.cbt) UnhookWindowsHookEx(p.cbt);
         if (p.hook) {
             UnhookWindowsHookEx(p.hook);
             PostThreadMessageW(p.thread, WM_NULL, 0, 0);

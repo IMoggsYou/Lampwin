@@ -6,43 +6,50 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include "host/render/genie_effect.h"
 
-// Finds the taskbar button of a window (Potassiumuncher's UI Automation matching from
-// the mod), without running UI Automation on the app's UI thread at minimize time:
-//  - the taskbar's buttons (name + rect) are cached and refreshed on a background MTA
-//    thread whenever taskbar-relevant windows appear / disappear (debounced),
-//  - a minimize scores the window against the cached list (microseconds); only a
-//    cold or weak match waits for a fresh UIA scan.
+// Finds the taskbar button of a window, so the genie lands right in its icon.
+//
+// Windows 11 names each taskbar button after the app it groups: its UI Automation id is
+// "Appid: <AppUserModelID>". A window's AppUserModelID is its explicit one (window
+// property), its package's (Store apps), or the implicit one the shell derives from the
+// exe path - so matching on it finds exactly the right button. Matching by title /
+// process name (Potassiumuncher's scoring from the mod) is only the fallback.
+//
+// UI Automation never runs on the app's UI thread at minimize time: the buttons (id,
+// name, rect) are cached and refreshed on a background MTA thread whenever taskbar-
+// relevant windows appear or disappear (debounced); a minimize matches against the cache.
 class TaskbarLocator {
 public:
     bool Start();
     void Stop();
 
-    // Instant answer from the cached list; false if it is stale or the match is weak.
-    bool TryResolve(HWND hwnd, HMONITOR hMon, int* x);
-    // Refreshes the list if needed, then calls done(x) on the locator thread.
-    void ResolveAsync(HWND hwnd, HMONITOR hMon, int fallbackX, std::function<void(int)> done);
-    // The user clicked this window's own taskbar button (cursor over the taskbar).
-    void Learn(HWND hwnd, int x);
-    // Per-window, then per-process learned position, else defaultX.
-    int Fallback(HWND hwnd, HMONITOR hMon, int defaultX);
+    // Decides now if it can: the button under `click` (a press on the taskbar, null for a
+    // title-bar / keyboard minimize), or a strong match in the fresh cached list.
+    bool TryResolve(HWND hwnd, HMONITOR hMon, const POINT* click, DockTarget* out);
+    // Refreshes the list if needed, then calls done(target) on the locator thread.
+    void ResolveAsync(HWND hwnd, HMONITOR hMon, DockTarget fallback, std::function<void(DockTarget)> done);
+    // Per-window, then per-process learned target, else defaultX on the taskbar.
+    DockTarget Fallback(HWND hwnd, HMONITOR hMon, int defaultX);
     void Invalidate();
     void Forget(HWND hwnd);
 
 private:
     struct Button {
-        std::wstring name;   // lowercase
+        std::wstring name;    // lowercase
+        std::wstring aumid;   // lowercase AppUserModelID; empty on non-app buttons
         RECT rc;
         HWND tray;
     };
     struct WinInfo {
         std::wstring title, proc, hint, processKey;
+        std::vector<std::wstring> aumids;   // lowercase candidates, see Describe
     };
     struct Request {
         HWND hwnd;
         HMONITOR hMon;
-        int fallbackX;
-        std::function<void(int)> done;
+        DockTarget fallback;
+        std::function<void(DockTarget)> done;
     };
 
     void ThreadMain();
@@ -50,9 +57,10 @@ private:
     void ReleaseUia();
     void Refresh();
     WinInfo Describe(HWND hwnd, HMONITOR hMon) const;
-    bool MatchLocked(const WinInfo& w, HMONITOR hMon, int* x, int* score) const;
-    void LearnMatchLocked(HWND hwnd, const WinInfo& w, int x);
-    int FallbackLocked(HWND hwnd, const WinInfo& w, int defaultX) const;
+    bool MatchLocked(const WinInfo& w, HMONITOR hMon, DockTarget* out, int* score) const;
+    const Button* ButtonAtLocked(POINT pt) const;
+    void LearnLocked(HWND hwnd, const WinInfo& w, const DockTarget& t, bool perProcess);
+    DockTarget FallbackLocked(HWND hwnd, const WinInfo& w, const DockTarget& def) const;
     void Resolve(Request& r, bool* refreshed);
 
     std::thread thread_;
@@ -64,8 +72,8 @@ private:
     bool valid_ = false;
     volatile bool dirty_ = true;
     ULONGLONG refreshDue_ = 0;   // GetTickCount64 of the debounced refresh, 0 = none
-    std::unordered_map<HWND, int> perWindow_;
-    std::unordered_map<std::wstring, int> perProcess_;
+    std::unordered_map<HWND, DockTarget> perWindow_;
+    std::unordered_map<std::wstring, DockTarget> perProcess_;
     std::deque<Request> queue_;
 
     // UIA objects (locator thread only).

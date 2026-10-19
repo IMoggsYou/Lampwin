@@ -128,7 +128,8 @@ int DefaultDockX(HMONITOR hMon) {
     return alignVal == 0 ? mi.rcMonitor.left + 160 : mi.rcMonitor.left + monWidth / 2;
 }
 
-bool ComputeGenieParams(const RECT& r, HMONITOR hMon, int dockX, int style, GenieParams* out) {
+bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, int style, GenieParams* out) {
+    int dockX = dock.x;
     const int w = r.right - r.left;
     const int h = r.bottom - r.top;
     if (w <= 0 || h <= 0) return false;
@@ -151,8 +152,11 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, int dockX, int style, Geni
         // half), kept outside the window's own span so the row map stays monotonic.
         if (dockX < mon.left) dockX = mon.left;
         if (dockX > mon.right) dockX = mon.right;
+        // Into the middle of the icon when its button is known; else the screen edge
+        // on the taskbar's side, as in the mod.
         float dockY = (float)mon.bottom;
         if (haveTray && (tr.top + tr.bottom) < (mon.top + mon.bottom)) dockY = (float)mon.top;
+        if (dock.hasRect) dockY = (float)dock.y;
         const float bottomF = (float)(r.top + h);
         const bool above = dockY < ((float)r.top + bottomF) * 0.5f;
         if (above) {
@@ -178,7 +182,12 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, int dockX, int style, Geni
     if (FAILED(GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) dpiY = 96;
     float dpiScale = dpiY / 96.0f;
     float taskbarTop = haveTray ? (float)tr.top : (float)mon.bottom - COMPAT_TASKBAR_HEIGHT * dpiScale;
-    Geometry iGeom = {(float)dockX - 11.0f, taskbarTop, 22.0f, COMPAT_ICON_SIZE * dpiScale};
+    // The lamp curve pours the window into the line y = icon.y, icon.width wide: with the
+    // button known, that is the middle of its icon (the genie visibly goes into the icon,
+    // over the taskbar); otherwise the taskbar's top edge, as in the mod.
+    Geometry iGeom = dock.hasRect
+        ? Geometry{(float)dock.x - dock.size * 0.5f, (float)dock.y, (float)dock.size, dock.size * 0.5f}
+        : Geometry{(float)dockX - 11.0f, taskbarTop, 22.0f, COMPAT_ICON_SIZE * dpiScale};
     out->icon = iGeom;
 
     // Tight canvas between the window rect and the dock target. A ~W/2 pad alone can't

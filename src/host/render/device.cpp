@@ -587,7 +587,8 @@ void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     }
     Slot* s = a->slot;
     s->visual->SetClip(D2D_RECT_F{0, 0, (float)g.canvasWidth, (float)g.canvasHeight});
-    SetWindowPos(s->hwnd, HWND_TOPMOST, g.canvasLeft, g.canvasTop, g.canvasWidth, g.canvasHeight,
+    if (HWND tray = FindTaskbarForMonitor(job->hMon)) a->insertAfter = tray;
+    SetWindowPos(s->hwnd, a->insertAfter, g.canvasLeft, g.canvasTop, g.canvasWidth, g.canvasHeight,
                  SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     a->start = now;
     a->waiters.push_back(job);
@@ -672,7 +673,7 @@ void Renderer::StepAnim(Anim* a, LARGE_INTEGER now) {
                 return;
             }
             if (!a->shown) {
-                SetWindowPos(a->slot->hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+                SetWindowPos(a->slot->hwnd, a->insertAfter, 0, 0, 0, 0,
                              SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOOWNERZORDER);
                 a->shown = true;
                 a->firstPending = true;

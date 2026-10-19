@@ -56,6 +56,28 @@ bool MapSettings() {
     return true;
 }
 
+// The section is only held while active: a DLL that is shut down (but not yet unloaded
+// by Windows) must not keep an elevated host's section alive, or the next host - maybe
+// not elevated - could not create its own.
+void UnmapSettings() {
+    if (g_settings) UnmapViewOfFile(g_settings);
+    if (g_hSettingsMap) CloseHandle(g_hSettingsMap);
+    g_settings = nullptr;
+    g_hSettingsMap = nullptr;
+}
+
+// Instance of the host that published the section right now (no lasting mapping).
+bool PeekHostInstance(uint32_t* instance) {
+    HANDLE map = OpenFileMappingW(FILE_MAP_READ, FALSE, MACWIN_SETTINGS_SECTION);
+    if (!map) return false;
+    auto* s = (const SharedSettings*)MapViewOfFile(map, FILE_MAP_READ, 0, 0, sizeof(SharedSettings));
+    bool ok = s && s->magic == MACWIN_SETTINGS_MAGIC && s->size == sizeof(SharedSettings);
+    if (ok) *instance = s->hostInstance;
+    if (s) UnmapViewOfFile(s);
+    CloseHandle(map);
+    return ok;
+}
+
 bool WorkersFinished() {
     AcquireSRWLockShared(&g_workersLock);
     bool done = true;
@@ -189,6 +211,7 @@ bool Shutdown() {
     CloseWorkers();
     g_waitInstance = g_settings ? g_settings->hostInstance : 0;
     CloseHostHandles();
+    UnmapSettings();
     g_state.store(kWaitHost, std::memory_order_release);
     return true;
 }
@@ -216,10 +239,7 @@ void LoaderSetAlwaysAllowed(bool allowed) {
 void LoaderOnProcessDetach() {
     // Dynamic unload (Windows dropped the hook, our reference is gone): hooks are
     // already off. Only the settings view may still be mapped.
-    if (g_settings) UnmapViewOfFile(g_settings);
-    if (g_hSettingsMap) CloseHandle(g_hSettingsMap);
-    g_settings = nullptr;
-    g_hSettingsMap = nullptr;
+    UnmapSettings();
 }
 
 void EnsureInit() {
@@ -227,14 +247,17 @@ void EnsureInit() {
     if (s == kActive || s == kIniting || s == kDead) return;
     if (s == kWaitHost) {
         // Re-activate only once a new host instance has published its settings.
-        if (!g_settings || g_settings->hostInstance == g_waitInstance) return;
+        uint32_t instance = 0;
+        if (!PeekHostInstance(&instance) || instance == g_waitInstance) return;
     }
     if (g_isHostProcess) {
         g_state.store(kDead);
         return;
     }
     if (!g_state.compare_exchange_strong(s, kIniting, std::memory_order_acq_rel)) return;
-    g_state.store(Activate() ? kActive : kWaitHost, std::memory_order_release);
+    bool ok = Activate();
+    if (!ok) UnmapSettings();
+    g_state.store(ok ? kActive : kWaitHost, std::memory_order_release);
 }
 
 const SharedSettings* Settings() {

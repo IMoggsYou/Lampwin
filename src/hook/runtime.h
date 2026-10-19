@@ -54,3 +54,6 @@ uint32_t SendAnimRequest(HWND hHost, const AnimRequest& req);
 // effects/genie_hooks.cpp
 bool GenieInstallHooks();
 void GenieOnShutdown();
+// HCBT_MINMAX: called in the window's own thread right before it is minimized / restored,
+// whoever asked for it (also ShowWindowAsync from Explorer's "Show desktop").
+void GenieOnMinMax(HWND hWnd, int showCmd);

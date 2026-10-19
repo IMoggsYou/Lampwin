@@ -431,6 +431,8 @@ int Configure(const std::vector<std::wstring>& args) {
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    // The main thread reads windows' AppUserModelIDs (shell property stores): COM.
+    CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
     std::vector<std::wstring> args;
     int argc = 0;

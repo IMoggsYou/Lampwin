@@ -79,6 +79,9 @@ private:
         GenieParams params = {};
         SnapshotCache::Entry snap;
         Slot* slot = nullptr;
+        // Z-order: right below the taskbar the genie goes to, so the taskbar and its
+        // icons stay on top and the window seems to slip into its icon.
+        HWND insertAfter = HWND_TOPMOST;
         std::vector<GenieJob*> waiters;
         LARGE_INTEGER start = {};
         LARGE_INTEGER doneAt = {};
