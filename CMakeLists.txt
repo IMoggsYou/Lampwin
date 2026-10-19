@@ -1,0 +1,87 @@
+cmake_minimum_required(VERSION 3.25)
+project(MacWin VERSION 0.1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+
+if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+  set(MACWIN_BITS 64)
+else()
+  set(MACWIN_BITS 32)
+endif()
+
+add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
+                        _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A00000C)
+add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
+                    -Wno-cast-function-type)
+# Everything is linked statically: the hook DLL is loaded into other programs and
+# must never drag libstdc++/libgcc/winpthread DLLs (or their versions) in with it.
+add_link_options(-static -static-libgcc -static-libstdc++ $<$<CONFIG:Release>:-s>)
+
+# --- MinHook (BSD-2, third_party/minhook) ---
+add_library(minhook STATIC
+  third_party/minhook/src/buffer.c
+  third_party/minhook/src/hook.c
+  third_party/minhook/src/trampoline.c
+  third_party/minhook/src/hde/hde32.c
+  third_party/minhook/src/hde/hde64.c)
+target_include_directories(minhook PUBLIC third_party/minhook/include)
+target_compile_options(minhook PRIVATE -w)
+
+# --- Hook DLL: loaded into every GUI process, kept as small as possible ---
+add_library(MacWinHook SHARED
+  src/hook/dllmain.cpp
+  src/hook/loader.cpp
+  src/hook/hooks.cpp
+  src/hook/capture.cpp
+  src/hook/ipc_client.cpp
+  src/hook/effects/genie_hooks.cpp)
+set_target_properties(MacWinHook PROPERTIES OUTPUT_NAME MacWinHook${MACWIN_BITS} PREFIX "")
+target_include_directories(MacWinHook PRIVATE src)
+target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
+# --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
+target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
+target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32 advapi32 shell32)
+
+# --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---
+if(MACWIN_BITS EQUAL 64)
+  file(READ src/host/render/genie.hlsl MACWIN_GENIE_HLSL)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/host/render/genie.hlsl)
+  configure_file(src/host/render/genie_hlsl.h.in ${CMAKE_BINARY_DIR}/gen/genie_hlsl.h @ONLY)
+
+  add_executable(MacWin WIN32
+    src/host/main.cpp
+    src/host/app_icon.cpp
+    src/host/log.cpp
+    src/host/json.cpp
+    src/host/settings_store.cpp
+    src/host/injector.cpp
+    src/host/ipc_server.cpp
+    src/host/taskbar_locator.cpp
+    src/host/snapshot_cache.cpp
+    src/host/win_events.cpp
+    src/host/render/device.cpp
+    src/host/render/genie_effect.cpp)
+  target_include_directories(MacWin PRIVATE src ${CMAKE_BINARY_DIR}/gen)
+  target_link_options(MacWin PRIVATE -municode)
+  target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
+                        shell32 user32 gdi32 advapi32)
+  add_dependencies(MacWin MacWinHook)
+
+  # Settings app (C# / WPF, .NET 10), published next to MacWin.exe.
+  find_program(MACWIN_DOTNET dotnet)
+  if(MACWIN_DOTNET)
+    add_custom_target(MacWinSettings ALL
+      COMMAND ${MACWIN_DOTNET} publish ${CMAKE_SOURCE_DIR}/settings-app/MacWin.Settings.csproj
+              -c Release -o ${CMAKE_RUNTIME_OUTPUT_DIRECTORY} --nologo -v q
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/settings-app
+      COMMENT "Building MacWin.Settings (WPF)"
+      VERBATIM)
+  endif()
+
+  # Development helper: a window that minimizes / restores itself (--cycle N).
+  add_executable(MacWinTestWindow WIN32 tools/test_window.cpp)
+  target_link_options(MacWinTestWindow PRIVATE -municode)
+  target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
+endif()

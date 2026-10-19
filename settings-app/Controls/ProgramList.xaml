@@ -1,0 +1,56 @@
+<UserControl x:Class="MacWin.Settings.Controls.ProgramList"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Name="Self">
+    <!-- macOS-style list with +/- buttons underneath -->
+    <Border Margin="14,4,14,14" CornerRadius="7" BorderThickness="1"
+            BorderBrush="{DynamicResource Brush.GroupBorder}" Background="{DynamicResource Brush.Field}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" MinHeight="84"/>
+                <RowDefinition Height="1"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            <ListBox x:Name="List" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource PlainListItem}"
+                     MaxHeight="190" ItemsSource="{Binding Items, ElementName=Self}"
+                     SelectionChanged="List_SelectionChanged" KeyDown="List_KeyDown">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="16" Height="16" CornerRadius="4" Margin="0,0,9,0">
+                                <Border.Background>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FF9AA6B8" Offset="0"/>
+                                        <GradientStop Color="#FF6B778A" Offset="1"/>
+                                    </LinearGradientBrush>
+                                </Border.Background>
+                                <Rectangle Width="8" Height="6" RadiusX="1" RadiusY="1" Fill="#CCFFFFFF"/>
+                            </Border>
+                            <TextBlock Text="{Binding}" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock x:Name="EmptyText" Text="Brak programów na liście" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="{DynamicResource Brush.TextTertiary}" IsHitTestVisible="False"/>
+
+            <Rectangle Grid.Row="1" Fill="{DynamicResource Brush.Separator}"/>
+
+            <Grid Grid.Row="2" Margin="4,4,6,4">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <Button Style="{StaticResource ListToolButton}" Content="+" ToolTip="Wybierz program…" Click="AddFromFile_Click"/>
+                <Button x:Name="RemoveButton" Grid.Column="1" Style="{StaticResource ListToolButton}" Content="−"
+                        ToolTip="Usuń zaznaczony" IsEnabled="False" Click="Remove_Click"/>
+                <TextBox x:Name="NameBox" Grid.Column="3" Width="170" Style="{StaticResource MacTextBox}" Padding="6,1"
+                         Tag="nazwa.exe" KeyDown="NameBox_KeyDown" Margin="0,0,6,0"/>
+                <Button Grid.Column="4" Style="{StaticResource MacButton}" Padding="10,2" Content="Dodaj" Click="AddName_Click"/>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

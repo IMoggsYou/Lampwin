@@ -1,0 +1,60 @@
+using System.Diagnostics;
+using System.IO;
+
+namespace MacWin.Settings;
+
+/// <summary>Talks to the running MacWin.exe (see src/common/names.h).</summary>
+internal static class HostControl
+{
+    private const string HostWindowClass = "MacWinHost_v1";
+    private const string ReloadMessage = "MacWin_ReloadSettings_v1";
+
+    public static string HostExe { get; } = Path.Combine(AppContext.BaseDirectory, "MacWin.exe");
+    public static string TestWindowExe { get; } = Path.Combine(AppContext.BaseDirectory, "MacWinTestWindow.exe");
+    public static string LogPath { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MacWin", "host.log");
+
+    public static bool IsRunning => Native.FindWindow(HostWindowClass, null) != IntPtr.Zero;
+
+    public static void NotifyReload()
+    {
+        IntPtr host = Native.FindWindow(HostWindowClass, null);
+        if (host != IntPtr.Zero) Native.PostMessage(host, Native.RegisterWindowMessage(ReloadMessage), IntPtr.Zero, IntPtr.Zero);
+    }
+
+    public static bool Start() => Launch(HostExe, null);
+
+    /// <summary>Clean shutdown via "MacWin.exe --quit" (waits for the host to exit).</summary>
+    public static Task StopAsync() => Task.Run(() =>
+    {
+        if (!File.Exists(HostExe)) return;
+        using var p = Process.Start(new ProcessStartInfo(HostExe, "--quit") { UseShellExecute = false });
+        p?.WaitForExit(20000);
+    });
+
+    public static async Task RestartAsync()
+    {
+        await StopAsync();
+        Start();
+    }
+
+    public static bool TryOnRealWindow() => Launch(TestWindowExe, "--cycle 1");
+
+    public static bool Open(string path) => Launch(path, null);
+
+    private static bool Launch(string path, string? args)
+    {
+        try
+        {
+            if (!File.Exists(path) && !Directory.Exists(path)) return false;
+            var psi = new ProcessStartInfo(path) { UseShellExecute = true };
+            if (args is not null) psi.Arguments = args;
+            Process.Start(psi);
+            return true;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
+    }
+}

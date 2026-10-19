@@ -1,0 +1,43 @@
+<UserControl x:Class="MacWin.Settings.Pages.GeneralPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+    <StackPanel>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Animacje włączone" Description="Główny przełącznik. Wyłączony = zwykłe animacje Windows.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Enabled}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Uruchamiaj razem z Windows" Description="MacWin startuje po zalogowaniu i siedzi w zasobniku.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Autostart}"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="MacWin"/>
+        <Border Style="{StaticResource Group}">
+            <c:SettingRow x:Name="StatusRow" Title="Stan">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="StartButton" Style="{StaticResource MacPrimaryButton}" Content="Uruchom" Click="Start_Click"/>
+                    <Button x:Name="RestartButton" Style="{StaticResource MacButton}" Content="Uruchom ponownie"
+                            Margin="0,0,8,0" Click="Restart_Click"/>
+                    <Button x:Name="StopButton" Style="{StaticResource MacButton}" Content="Zatrzymaj" Click="Stop_Click"/>
+                </StackPanel>
+            </c:SettingRow>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Tryb testowy"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Tylko wybrane programy"
+                              Description="MacWin działa wyłącznie w programach z listy poniżej. Wyłącz, żeby animacje działały wszędzie.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding DevMode}"/>
+                </c:SettingRow>
+                <c:ProgramList Items="{Binding DevAllowlist}" IsEnabled="{Binding DevMode}"/>
+            </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource Text.Footnote}"
+                   Text="Programy otwarte przed zmianą tej listy trzeba zamknąć i otworzyć ponownie. Gdyby cokolwiek działało nie tak, Ctrl+Alt+Shift+F12 natychmiast wyłącza MacWin."/>
+    </StackPanel>
+</UserControl>

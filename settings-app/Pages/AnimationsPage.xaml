@@ -1,0 +1,95 @@
+<UserControl x:Class="MacWin.Settings.Pages.AnimationsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+    <StackPanel>
+        <!-- Live preview -->
+        <Border Style="{StaticResource Group}" Padding="0" ClipToBounds="True">
+            <Grid>
+                <Border CornerRadius="9" ClipToBounds="True">
+                    <c:GeniePreview Height="240" GenieStyle="{Binding Style}" DurationMs="{Binding DurationMs}"
+                                    Tiles="{Binding MeshQuality}"/>
+                </Border>
+                <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" CornerRadius="6" Padding="8,3"
+                        Background="#59000000" IsHitTestVisible="False">
+                    <TextBlock Text="Podgląd na żywo · kliknij, żeby odwrócić" FontSize="11" Foreground="White"/>
+                </Border>
+            </Grid>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Wygląd"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Styl animacji" Description="{Binding StyleDescription}">
+                    <c:SegmentedControl Width="230" Items="Nowoczesny dżin, Klasyczny dżin"
+                                        SelectedIndex="{Binding Style, Mode=TwoWay}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Czas trwania" Description="Jak długo okno wpada do paska zadań i z niego wraca.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="100" Maximum="1500"
+                                TickFrequency="10" SmallChange="10" LargeChange="100" Value="{Binding DurationMs}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding DurationMs, StringFormat={}{0:0} ms}"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Jakość siatki" IsEnabled="{Binding IsModern}"
+                              Description="Więcej kafelków to gładsza krzywa (styl nowoczesny). Na karcie graficznej koszt jest pomijalny.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="8" Maximum="96"
+                                TickFrequency="1" SmallChange="1" LargeChange="8" Value="{Binding MeshQuality}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding MeshQuality, StringFormat={}{0:0}}"/>
+                    </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Kiedy animować"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Przywracanie okien" Description="Okno wylatuje z paska zadań z powrotem na swoje miejsce.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Restore}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Otwieranie nowych okien" Description="Eksperymentalne: nowe okna pojawiają się efektem dżina.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Launch}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Wiele monitorów" Description="Eksperymentalne: dżin trafia do paska zadań na monitorze okna, a nie głównym.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding MultiMonitor}"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Automatycznie ukrywany pasek zadań"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Pokazuj pasek podczas minimalizacji"
+                              Description="Ukryty pasek wysuwa się, żeby okno miało gdzie wpaść.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UnhideTaskbar}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Jak długo pasek zostaje widoczny" IsEnabled="{Binding UnhideTaskbar}">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="0" Maximum="3000"
+                                TickFrequency="50" SmallChange="50" LargeChange="250" Value="{Binding UnhideDurationMs}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding UnhideDurationMs, StringFormat={}{0:0} ms}"/>
+                    </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <Grid Margin="0,-6,0,0">
+            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="360"
+                       HorizontalAlignment="Left" Text="Zmiany działają od razu – nie trzeba niczego zapisywać ani restartować."/>
+            <Button HorizontalAlignment="Right" Style="{StaticResource MacButton}" Content="Wypróbuj na prawdziwym oknie"
+                    Click="TryReal_Click"/>
+        </Grid>
+    </StackPanel>
+</UserControl>
