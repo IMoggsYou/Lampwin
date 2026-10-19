@@ -11,6 +11,8 @@
 #include <windows.h>
 #include <dwmapi.h>
 #include <shellapi.h>
+#include <atomic>
+#include <iterator>
 #include <unordered_map>
 #include <unordered_set>
 #include "common/strutil.h"
@@ -31,6 +33,19 @@ ShowWindow_t ShowWindowAsync_Original;
 SetWindowPlacement_t SetWindowPlacement_Original;
 CloseWindow_t CloseWindow_Original;
 SetWindowPos_t SetWindowPos_Original;
+typedef BOOL(WINAPI* IsIconic_t)(HWND);
+typedef BOOL(WINAPI* GetWindowPlacement_t)(HWND, WINDOWPLACEMENT*);
+IsIconic_t IsIconic_Original;
+GetWindowPlacement_t GetWindowPlacement_Original;
+
+// Our own code always sees the real state (IsIconic_Hook may report a window as
+// minimized a moment early).
+BOOL RealIsIconic(HWND h) {
+    return IsIconic_Original ? IsIconic_Original(h) : IsIconic(h);
+}
+BOOL RealGetWindowPlacement(HWND h, WINDOWPLACEMENT* wp) {
+    return GetWindowPlacement_Original ? GetWindowPlacement_Original(h, wp) : GetWindowPlacement(h, wp);
+}
 
 // Set on a window while our own deferred minimize (auto-hide path) runs through
 // DefWindowProc, so it is not animated a second time.
@@ -68,6 +83,43 @@ struct Locked {
     Locked() { AcquireSRWLockExclusive(&g_lock); }
     ~Locked() { ReleaseSRWLockExclusive(&g_lock); }
 };
+
+// Windows whose minimize this process handed over to their own thread (ShowWindowSlow),
+// until they really are minimized. Callers check right after ShowWindow: Explorer's
+// "Show desktop" sends a fallback SC_MINIMIZE (and waits) to a window that isn't
+// minimized yet, and its restore list keeps only the windows that are minimized a few
+// ms after its loop. Meanwhile IsIconic / GetWindowPlacement in this process report
+// such a window as minimized already. Under g_lock; value: deadline (GetTickCount64).
+std::unordered_map<HWND, ULONGLONG> g_pendingMin;
+std::atomic<int> g_pendingCount{0};   // g_pendingMin.size(): the hooks' fast path
+const ULONGLONG kPendingMinMs = 1000;   // a hung window stops pretending after this
+
+void PrunePendingLocked(ULONGLONG now) {
+    for (auto it = g_pendingMin.begin(); it != g_pendingMin.end();) {
+        it = now >= it->second ? g_pendingMin.erase(it) : std::next(it);
+    }
+    g_pendingCount.store((int)g_pendingMin.size(), std::memory_order_relaxed);
+}
+
+void AddPendingMinimize(HWND h) {
+    Locked l;
+    ULONGLONG now = GetTickCount64();
+    g_pendingMin[h] = now + kPendingMinMs;
+    PrunePendingLocked(now);
+}
+
+void ForgetPendingMinimize(HWND h) {
+    if (g_pendingCount.load(std::memory_order_relaxed) == 0) return;
+    Locked l;
+    g_pendingMin.erase(h);
+    PrunePendingLocked(GetTickCount64());
+}
+
+bool PendingMinimize(HWND h) {
+    Locked l;
+    PrunePendingLocked(GetTickCount64());
+    return g_pendingMin.count(h) != 0;
+}
 
 int DurationMs() { return Settings()->genieDurationMs; }
 bool RestoreEnabled() { return Settings()->genieRestore != 0; }
@@ -126,10 +178,10 @@ bool MacGenieShouldAnimate(HWND hWnd) {
     LONG_PTR style = GetWindowLongPtrW(hWnd, GWL_STYLE);
     if (style & WS_CHILD) return false;
     RECT r;
-    if (IsIconic(hWnd)) {
+    if (RealIsIconic(hWnd)) {
         WINDOWPLACEMENT wp;
         wp.length = sizeof(wp);
-        if (!GetWindowPlacement(hWnd, &wp)) return false;
+        if (!RealGetWindowPlacement(hWnd, &wp)) return false;
         r = wp.rcNormalPosition;
     } else if (!GetWindowRect(hWnd, &r)) {
         return false;
@@ -436,7 +488,7 @@ struct MacGenieGeckoSearch {
 
 BOOL CALLBACK MacGenieFindOtherGeckoWindow(HWND w, LPARAM lp) {
     MacGenieGeckoSearch* s = (MacGenieGeckoSearch*)lp;
-    if (w == s->self || (!IsWindowVisible(w) && !IsIconic(w)) || GetAncestor(w, GA_ROOT) != w) {
+    if (w == s->self || (!IsWindowVisible(w) && !RealIsIconic(w)) || GetAncestor(w, GA_ROOT) != w) {
         return TRUE;
     }
     DWORD pid = 0;
@@ -475,7 +527,7 @@ bool MacGenieLaunchPrepare(HWND hWnd, int nCmdShow, LONG_PTR* origExOut, BOOL* c
         nCmdShow != SW_SHOWMAXIMIZED) {
         return false;
     }
-    if (IsWindowVisible(hWnd) || IsIconic(hWnd)) return false;
+    if (IsWindowVisible(hWnd) || RealIsIconic(hWnd)) return false;
     if (!MacGenieIsLaunchWindow(hWnd)) return false;
     {
         Locked l;
@@ -531,7 +583,7 @@ DWORD WINAPI MacGenieLaunchThread(LPVOID lpParam) {
         Sleep(50);
     }
 
-    if (g_unloading.load(std::memory_order_relaxed) || !IsWindow(hWnd) || IsIconic(hWnd) ||
+    if (g_unloading.load(std::memory_order_relaxed) || !IsWindow(hWnd) || RealIsIconic(hWnd) ||
         !IsWindowVisible(hWnd)) {
         if (IsWindow(hWnd)) MacGenieUndoRisingHide(hWnd, originalExStyle, hiddenByCloak);
         return 0;
@@ -561,7 +613,8 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
         DWORD pid = 0;
         if (GetWindowThreadProcessId(hWnd, &pid) != GetCurrentThreadId() && PeerAnimatesItself(pid)) {
             BOOL wasVisible = IsWindowVisible(hWnd);
-            ShowWindowAsync_Original(hWnd, nCmdShow);
+            AddPendingMinimize(hWnd);
+            if (!ShowWindowAsync_Original(hWnd, nCmdShow)) ForgetPendingMinimize(hWnd);
             return wasVisible;
         }
         OwnStateChange own;
@@ -572,7 +625,7 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
         return ShowWindow_Original(hWnd, nCmdShow);
     }
 
-    if ((nCmdShow == SW_RESTORE || nCmdShow == SW_SHOWNORMAL) && IsIconic(hWnd)) {
+    if ((nCmdShow == SW_RESTORE || nCmdShow == SW_SHOWNORMAL) && RealIsIconic(hWnd)) {
         if (RestoreEnabled() && MacGenieShouldAnimate(hWnd)) {
             OwnStateChange own;
             MacGenieSetDwmTransitions(hWnd, FALSE);
@@ -596,6 +649,7 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
 }
 
 BOOL WINAPI ShowWindow_Hook(HWND hWnd, int nCmdShow) {
+    if (!IsMinimizeCmd(nCmdShow)) ForgetPendingMinimize(hWnd);
     if (!EffectsActiveHere()) MW_MUSTTAIL return ShowWindow_Original(hWnd, nCmdShow);
     MW_MUSTTAIL return ShowWindowSlow(hWnd, nCmdShow);
 }
@@ -646,7 +700,7 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
                         requestedUnhide = TRUE;
                         HWND hwndIter = GetWindow(hWnd, GW_HWNDNEXT);
                         while (hwndIter) {
-                            if (IsWindowVisible(hwndIter) && !IsIconic(hwndIter) &&
+                            if (IsWindowVisible(hwndIter) && !RealIsIconic(hwndIter) &&
                                 GetAncestor(hwndIter, GA_ROOT) == hwndIter &&
                                 GetWindowTextLengthW(hwndIter) > 0 && hwndIter != hWnd &&
                                 hwndIter != hTray) {
@@ -680,7 +734,7 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
         return Original(hWnd, Msg, wParam, lParam);
     }
 
-    if (cmd == SC_RESTORE && IsIconic(hWnd) && EffectsActiveHere() && RestoreEnabled() &&
+    if (cmd == SC_RESTORE && RealIsIconic(hWnd) && EffectsActiveHere() && RestoreEnabled() &&
         MacGenieShouldAnimate(hWnd)) {
         MacGenieSetDwmTransitions(hWnd, FALSE);
         MacGenieSetCloak(hWnd, TRUE);
@@ -713,7 +767,7 @@ LRESULT WINAPI DefWindowProcA_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lP
 // Custom-title-bar apps (Zed/GPUI, some Electron) minimize via ShowWindowAsync,
 // SetWindowPlacement or CloseWindow (no auto-hide handling on these paths).
 void MacGenieTryMinimizeAnim(HWND hWnd) {
-    if (!IsWindowVisible(hWnd) || IsIconic(hWnd)) return;
+    if (!IsWindowVisible(hWnd) || RealIsIconic(hWnd)) return;
     if (!MacGenieShouldAnimate(hWnd)) return;
     MacGenieSetDwmTransitions(hWnd, FALSE);
     StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
@@ -737,6 +791,7 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowAsyncSlow(HWND hWnd, int nCmdSho
 }
 
 BOOL WINAPI ShowWindowAsync_Hook(HWND hWnd, int nCmdShow) {
+    if (!IsMinimizeCmd(nCmdShow)) ForgetPendingMinimize(hWnd);
     if (IsMinimizeCmd(nCmdShow) || !EffectsActiveHere() || !LaunchEnabled()) {
         MW_MUSTTAIL return ShowWindowAsync_Original(hWnd, nCmdShow);
     }
@@ -752,6 +807,7 @@ __attribute__((noinline)) BOOL WINAPI SetWindowPlacementSlow(HWND hWnd, const WI
 }
 
 BOOL WINAPI SetWindowPlacement_Hook(HWND hWnd, const WINDOWPLACEMENT* lpwndpl) {
+    if (lpwndpl && !IsMinimizeCmd((int)lpwndpl->showCmd)) ForgetPendingMinimize(hWnd);
     if (!lpwndpl || !IsMinimizeCmd((int)lpwndpl->showCmd) || !EffectsActiveHere()) {
         MW_MUSTTAIL return SetWindowPlacement_Original(hWnd, lpwndpl);
     }
@@ -794,6 +850,41 @@ BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int
     MW_MUSTTAIL return SetWindowPosSlow(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 }
 
+// See g_pendingMin. Hot (Explorer's taskbar asks all the time): one load and a jump
+// unless a handed-over minimize is in flight.
+__attribute__((noinline)) BOOL WINAPI IsIconicSlow(HWND hWnd) {
+    HookScope scope;
+    if (IsIconic_Original(hWnd)) {
+        ForgetPendingMinimize(hWnd);
+        return TRUE;
+    }
+    return PendingMinimize(hWnd);
+}
+
+BOOL WINAPI IsIconic_Hook(HWND hWnd) {
+    if (g_pendingCount.load(std::memory_order_relaxed) == 0) MW_MUSTTAIL return IsIconic_Original(hWnd);
+    MW_MUSTTAIL return IsIconicSlow(hWnd);
+}
+
+// Explorer saves every window's placement after minimizing them and restores from it:
+// a handed-over window must already look minimized (and remember being maximized).
+__attribute__((noinline)) BOOL WINAPI GetWindowPlacementSlow(HWND hWnd, WINDOWPLACEMENT* lpwndpl) {
+    HookScope scope;
+    BOOL ok = GetWindowPlacement_Original(hWnd, lpwndpl);
+    if (ok && lpwndpl->showCmd != SW_SHOWMINIMIZED && PendingMinimize(hWnd)) {
+        if (lpwndpl->showCmd == SW_SHOWMAXIMIZED) lpwndpl->flags |= WPF_RESTORETOMAXIMIZED;
+        lpwndpl->showCmd = SW_SHOWMINIMIZED;
+    }
+    return ok;
+}
+
+BOOL WINAPI GetWindowPlacement_Hook(HWND hWnd, WINDOWPLACEMENT* lpwndpl) {
+    if (g_pendingCount.load(std::memory_order_relaxed) == 0 || !lpwndpl) {
+        MW_MUSTTAIL return GetWindowPlacement_Original(hWnd, lpwndpl);
+    }
+    MW_MUSTTAIL return GetWindowPlacementSlow(hWnd, lpwndpl);
+}
+
 // A restore seen in HCBT_MINMAX happens right after the notification returns: wait
 // for it (the window is cloaked meanwhile), then start the rising genie.
 struct PendingRestore {
@@ -804,7 +895,7 @@ struct PendingRestore {
 // WS_MINIMIZE goes a moment before the window leaves the minimized spot (-32000) for
 // its real rect; a genie started in between would use the minimized caption's size.
 bool RestoreSettled(HWND hWnd) {
-    if (IsIconic(hWnd)) return false;
+    if (RealIsIconic(hWnd)) return false;
     RECT r;
     return GetWindowRect(hWnd, &r) && r.left > -32000 && r.top > -32000;
 }
@@ -833,7 +924,7 @@ void GenieOnMinMax(HWND hWnd, int cmd) {
     HookScope scope;
     SourceScope src(MW_SRC_CBT);
     if (IsMinimizeCmd(cmd) || cmd == SW_FORCEMINIMIZE) {
-        if (IsIconic(hWnd) || !IsWindowVisible(hWnd) || !MacGenieShouldAnimate(hWnd)) return;
+        if (RealIsIconic(hWnd) || !IsWindowVisible(hWnd) || !MacGenieShouldAnimate(hWnd)) return;
         // Waits for the genie's first frame, then the minimize goes ahead.
         MacGenieSetDwmTransitions(hWnd, FALSE);
         StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
@@ -841,7 +932,7 @@ void GenieOnMinMax(HWND hWnd, int cmd) {
     }
     // Any other command on a minimized window restores it (SW_RESTORE, SW_SHOWNOACTIVATE,
     // SW_SHOWNORMAL, ...), maximized windows included.
-    if (!IsIconic(hWnd) || !RestoreEnabled() || !MacGenieShouldAnimate(hWnd)) return;
+    if (!RealIsIconic(hWnd) || !RestoreEnabled() || !MacGenieShouldAnimate(hWnd)) return;
     {
         Locked l;
         auto it = g_AnimActive.find(hWnd);
@@ -865,11 +956,16 @@ bool GenieInstallHooks() {
            CreateUser32Hook("SetWindowPlacement", (void*)SetWindowPlacement_Hook,
                             (void**)&SetWindowPlacement_Original) &&
            CreateUser32Hook("CloseWindow", (void*)CloseWindow_Hook, (void**)&CloseWindow_Original) &&
-           CreateUser32Hook("SetWindowPos", (void*)SetWindowPos_Hook, (void**)&SetWindowPos_Original);
+           CreateUser32Hook("SetWindowPos", (void*)SetWindowPos_Hook, (void**)&SetWindowPos_Original) &&
+           CreateUser32Hook("IsIconic", (void*)IsIconic_Hook, (void**)&IsIconic_Original) &&
+           CreateUser32Hook("GetWindowPlacement", (void*)GetWindowPlacement_Hook,
+                            (void**)&GetWindowPlacement_Original);
 }
 
 void GenieOnShutdown() {
     Locked l;
     g_LaunchSeen.clear();
     g_AnimActive.clear();
+    g_pendingMin.clear();
+    g_pendingCount.store(0);
 }
