@@ -11,7 +11,7 @@ cbuffer GenieCB : register(b0)
     float4 gCanvas;   // ghost canvas: left, top, width, height (screen px)
     float4 gParams;   // x = progress t, y = corner radius (snapshot px), z = tiles per side,
                       // w = global opacity
-    float4 gTex;      // snapshot width, height (px)
+    float4 gTex;      // snapshot width, height (px), corner extent (px), corner exponent
 };
 
 cbuffer PrepCB : register(b1)
@@ -102,17 +102,33 @@ GenieVSOut ClassicVS(uint id : SV_VertexID)
     return o;
 }
 
-// Premultiplied snapshot (mipmapped, anisotropic) with Windows 11 rounded corners.
+// Premultiplied snapshot (mipmapped, anisotropic) with rounded corners: a superellipse
+// |x|^n + |y|^n = 1 spanning gTex.z px from each corner (see CornerShape in device.cpp).
+// n = 2 is Windows 11's circular corner; larger n gives the smoothed macOS squircle.
 float4 GeniePS(GenieVSOut i) : SV_Target
 {
     float4 c = gSnapshot.Sample(gSampler, i.uv);
-    float r = gParams.y;
-    if (r > 0.0)
+    float p = gTex.z;
+    if (p > 0.0)
     {
-        float2 size = gTex.xy;
-        float2 px = i.uv * size;
-        float2 q = abs(px - size * 0.5) - (size * 0.5 - r);
-        float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
+        float2 halfSize = gTex.xy * 0.5;
+        float2 qe = abs(i.uv * gTex.xy - halfSize) - halfSize;   // <= 0 inside the window
+        float2 k = max(qe + p, 0.0);                             // depth into a corner box
+        float d;
+        if (k.x > 0.0 || k.y > 0.0)
+        {
+            // Distance to the curve, to first order: (m - 1) / |grad m|, m = ||k / p||_n.
+            float n = gTex.w;
+            float2 kn = k / p;
+            float2 kp = pow(kn, n);
+            float m = pow(kp.x + kp.y, 1.0 / n);
+            float2 grad = (kp / max(kn, 1e-6)) / max(pow(m, n - 1.0), 1e-6);
+            d = (m - 1.0) * p / max(length(grad), 1e-3);
+        }
+        else
+        {
+            d = max(qe.x, qe.y);
+        }
         float aa = max(fwidth(d), 0.001);
         c *= saturate(0.5 - d / aa);
     }

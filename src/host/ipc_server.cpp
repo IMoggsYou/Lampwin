@@ -125,7 +125,8 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     if (!IsZoomed(hwnd)) {
         UINT dpiX = 96, dpiY = 96;
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
-        job->cornerRadiusPx = 8.0f * (float)dpiY / 96.0f;
+        job->cornerRadiusPx = (float)s.genie.cornerRadius * (float)dpiY / 96.0f;
+        job->cornerSmoothing = (float)s.genie.cornerSmoothing / 100.0f;
         DWORD pref = 0;
         if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref))) &&
             pref == DWMWCP_DONOTROUND) {

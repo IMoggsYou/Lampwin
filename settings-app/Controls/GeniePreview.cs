@@ -23,10 +23,21 @@ public sealed class GeniePreview : Grid
         nameof(DurationMs), typeof(double), typeof(GeniePreview), new PropertyMetadata(450.0));
     public static readonly DependencyProperty TilesProperty = DependencyProperty.Register(
         nameof(Tiles), typeof(double), typeof(GeniePreview), new PropertyMetadata(48.0));
+    public static readonly DependencyProperty CornerRadiusPxProperty = DependencyProperty.Register(
+        nameof(CornerRadiusPx), typeof(double), typeof(GeniePreview), new PropertyMetadata(15.0, OnCornersChanged));
+    public static readonly DependencyProperty CornerSmoothingProperty = DependencyProperty.Register(
+        nameof(CornerSmoothing), typeof(double), typeof(GeniePreview), new PropertyMetadata(100.0, OnCornersChanged));
 
     public int GenieStyle { get => (int)GetValue(GenieStyleProperty); set => SetValue(GenieStyleProperty, value); }
     public double DurationMs { get => (double)GetValue(DurationMsProperty); set => SetValue(DurationMsProperty, value); }
     public double Tiles { get => (double)GetValue(TilesProperty); set => SetValue(TilesProperty, value); }
+    /// <summary>Corner radius of a real window (px at 100 %), drawn scaled to the miniature.</summary>
+    public double CornerRadiusPx { get => (double)GetValue(CornerRadiusPxProperty); set => SetValue(CornerRadiusPxProperty, value); }
+    /// <summary>Corner smoothing in percent (0 = Windows 11, 100 = macOS squircle).</summary>
+    public double CornerSmoothing { get => (double)GetValue(CornerSmoothingProperty); set => SetValue(CornerSmoothingProperty, value); }
+
+    private static void OnCornersChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((GeniePreview)d).ApplyTheme();
 
     // The scene is H units tall; its width follows the card's aspect ratio so the
     // miniature desktop always fills it.
@@ -251,28 +262,31 @@ public sealed class GeniePreview : Grid
             : Gradient("#FF8DB9F5", "#FFB7A6EC", "#FFF3C4D6");
         _taskbar.Background = new SolidColorBrush(dark ? Hex("#D9202022") : Hex("#D9F4F4F6"));
         _indicator.Fill = new SolidColorBrush(dark ? Hex("#FFB0B0B5") : Hex("#FF6E6E73"));
-        _texture.ImageSource = RenderWindow(dark);
+        _texture.ImageSource = RenderWindow(dark, CornerRadiusPx * CornerScale, CornerSmoothing / 100);
     }
 
-    // The window shown in the preview, rendered once into a bitmap (2x for sharpness).
-    private static BitmapSource RenderWindow(bool dark)
+    // The miniature is about a quarter of a real window; corners at this scale read like
+    // the real ones (Windows 11's 8 px used to be drawn as 9 here).
+    private const double CornerScale = 0.75;
+
+    // The window shown in the preview, rendered into a bitmap (2x for sharpness) whenever
+    // the theme or the corner shape changes. The corners clip it like the renderer does.
+    private static BitmapSource RenderWindow(bool dark, double radius, double smoothing)
     {
         double w = WinW, h = WinH;
+        Geometry shape = Squircle.Create(w, h, radius, smoothing);
         var body = new Border
         {
             Width = w,
             Height = h,
-            CornerRadius = new CornerRadius(9),
             Background = new SolidColorBrush(dark ? Hex("#FF2B2B2E") : Colors.White),
-            BorderBrush = new SolidColorBrush(dark ? Hex("#40FFFFFF") : Hex("#26000000")),
-            BorderThickness = new Thickness(0.6),
+            Clip = shape,
         };
         var grid = new Grid();
         grid.RowDefinitions.Add(new RowDefinition { Height = new GridLength(24) });
         grid.RowDefinitions.Add(new RowDefinition());
         var bar = new Border
         {
-            CornerRadius = new CornerRadius(9, 9, 0, 0),
             Background = new SolidColorBrush(dark ? Hex("#FF353538") : Hex("#FFF2F2F4")),
         };
         var title = new Grid();
@@ -308,11 +322,20 @@ public sealed class GeniePreview : Grid
         Grid.SetRow(lines, 1);
         grid.Children.Add(lines);
         body.Child = grid;
+        var window = new Grid { Width = w, Height = h };
+        window.Children.Add(body);
+        window.Children.Add(new Path
+        {
+            Data = shape,
+            Stroke = new SolidColorBrush(dark ? Hex("#40FFFFFF") : Hex("#26000000")),
+            StrokeThickness = 1.2,   // clipped to its inner half, like the old 0.6 border
+            Clip = shape,
+        });
 
-        body.Measure(new Size(w, h));
-        body.Arrange(new Rect(0, 0, w, h));
+        window.Measure(new Size(w, h));
+        window.Arrange(new Rect(0, 0, w, h));
         var bmp = new RenderTargetBitmap((int)(w * 2), (int)(h * 2), 192, 192, PixelFormats.Pbgra32);
-        bmp.Render(body);
+        bmp.Render(window);
         bmp.Freeze();
         return bmp;
     }

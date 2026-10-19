@@ -13,6 +13,10 @@ struct GenieSettings {
     bool unhideTaskbar = true;
     int unhideDurationMs = 450;
     int meshQuality = 48;
+    // Corners of the window in the genie: radius at 100 % scaling and Figma-style
+    // smoothing in percent (0 = Windows 11's circular corner, 100 = macOS squircle).
+    int cornerRadius = 15;
+    int cornerSmoothing = 100;
     std::vector<std::wstring> excluded;
 };
 

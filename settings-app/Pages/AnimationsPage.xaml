@@ -8,7 +8,8 @@
             <Grid>
                 <Border CornerRadius="9" ClipToBounds="True">
                     <c:GeniePreview Height="240" GenieStyle="{Binding Style}" DurationMs="{Binding DurationMs}"
-                                    Tiles="{Binding MeshQuality}"/>
+                                    Tiles="{Binding MeshQuality}" CornerRadiusPx="{Binding CornerRadius}"
+                                    CornerSmoothing="{Binding CornerSmoothing}"/>
                 </Border>
                 <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" CornerRadius="6" Padding="8,3"
                         Background="#59000000" IsHitTestVisible="False">
@@ -32,6 +33,22 @@
                         <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
                                    Text="{Binding DurationMs, StringFormat={}{0:0} ms}"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Rogi okna"
+                              Description="macOS: squircle z wygładzeniem 100 %, jak w Figmie. Windows 11: zwykłe zaokrąglenie. Zmaksymalizowane okno ma zawsze ostre rogi.">
+                    <c:SegmentedControl Width="230" Items="Windows 11, macOS"
+                                        SelectedIndex="{Binding CornerShape, Mode=TwoWay}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Promień rogów" Description="Przy skalowaniu 100 %. MacWin dopasowuje go do skali ekranu.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="0" Maximum="30"
+                                TickFrequency="1" SmallChange="1" LargeChange="4" Value="{Binding CornerRadius}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding CornerRadius, StringFormat={}{0:0} px}"/>
                     </StackPanel>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>

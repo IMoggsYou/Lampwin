@@ -26,6 +26,7 @@ struct GenieJob {
     RECT winRect = {};          // DWM extended frame, physical px
     HMONITOR hMon = nullptr;    // monitor whose taskbar the genie targets
     float cornerRadiusPx = 0;   // physical px, 0 for maximized windows
+    float cornerSmoothing = 0;  // 0..1, Figma-style (see CornerShape)
     int style = kGenieModern;
     GenieParams params = {};
     int durationMs = 450;
@@ -76,6 +77,7 @@ private:
         int durationMs = 450;
         int tiles = 48;
         float cornerRadiusPx = 0;
+        float cornerSmoothing = 0;
         GenieParams params = {};
         SnapshotCache::Entry snap;
         Slot* slot = nullptr;

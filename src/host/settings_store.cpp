@@ -131,6 +131,8 @@ void SettingsStore::Load() {
     s_.genie.unhideTaskbar = g->GetBool(L"unhideTaskbar", d.genie.unhideTaskbar);
     s_.genie.unhideDurationMs = Clamp(g->GetInt(L"unhideDurationMs", d.genie.unhideDurationMs), 0, 5000);
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
+    s_.genie.cornerRadius = Clamp(g->GetInt(L"cornerRadius", d.genie.cornerRadius), 0, 40);
+    s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
     Log(L"settings: loaded %ls", path_.c_str());
 }
@@ -151,6 +153,8 @@ bool SettingsStore::Save() const {
     t += L"    \"unhideTaskbar\": " + std::wstring(s.genie.unhideTaskbar ? L"true" : L"false") + L",\n";
     t += L"    \"unhideDurationMs\": " + std::to_wstring(s.genie.unhideDurationMs) + L",\n";
     t += L"    \"meshQuality\": " + std::to_wstring(s.genie.meshQuality) + L",\n";
+    t += L"    \"cornerRadius\": " + std::to_wstring(s.genie.cornerRadius) + L",\n";
+    t += L"    \"cornerSmoothing\": " + std::to_wstring(s.genie.cornerSmoothing) + L",\n";
     t += L"    \"excludedPrograms\": " + ListJson(s.genie.excluded, L"    ") + L"\n";
     t += L"  }\n}\n";
 

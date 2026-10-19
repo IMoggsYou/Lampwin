@@ -53,6 +53,33 @@ public sealed class SettingsModel : INotifyPropertyChanged
     private double _meshQuality = 48;
     public double MeshQuality { get => _meshQuality; set => Set(ref _meshQuality, Math.Round(Math.Clamp(value, 8, 96))); }
 
+    private double _cornerRadius = 15;
+    /// <summary>Corner radius of the window in the genie, px at 100 % scaling.</summary>
+    public double CornerRadius { get => _cornerRadius; set => Set(ref _cornerRadius, Math.Round(Math.Clamp(value, 0, 40))); }
+
+    private double _cornerSmoothing = 100;
+    /// <summary>Figma-style corner smoothing in percent: 0 = Windows 11, 100 = macOS squircle.</summary>
+    public double CornerSmoothing
+    {
+        get => _cornerSmoothing;
+        set
+        {
+            if (Set(ref _cornerSmoothing, Math.Round(Math.Clamp(value, 0, 100)))) Raise(nameof(CornerShape));
+        }
+    }
+
+    /// <summary>0 = Windows 11 (round, 8 px), 1 = macOS (squircle, 15 px).</summary>
+    public int CornerShape
+    {
+        get => _cornerSmoothing > 0 ? 1 : 0;
+        set
+        {
+            if (value == CornerShape) return;
+            CornerSmoothing = value == 1 ? 100 : 0;
+            CornerRadius = value == 1 ? 15 : 8;
+        }
+    }
+
     private bool _restore = true;
     public bool Restore { get => _restore; set => Set(ref _restore, value); }
 

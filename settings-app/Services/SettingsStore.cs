@@ -94,6 +94,8 @@ public sealed class SettingsStore
             m.UnhideTaskbar = Bool(genie, "unhideTaskbar", true);
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
+            m.CornerRadius = Num(genie, "cornerRadius", 15);
+            m.CornerSmoothing = Num(genie, "cornerSmoothing", 100);
             SettingsModel.Replace(m.Excluded, Strings(genie, "excludedPrograms", []));
         }
         finally
@@ -127,6 +129,8 @@ public sealed class SettingsStore
         genie["unhideTaskbar"] = m.UnhideTaskbar;
         genie["unhideDurationMs"] = (int)m.UnhideDurationMs;
         genie["meshQuality"] = (int)m.MeshQuality;
+        genie["cornerRadius"] = (int)m.CornerRadius;
+        genie["cornerSmoothing"] = (int)m.CornerSmoothing;
         genie["excludedPrograms"] = Array(m.Excluded);
         _root["genie"] = genie;
 
