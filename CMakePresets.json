@@ -17,6 +17,15 @@
       }
     },
     {
+      "name": "x64-dev",
+      "inherits": "x64",
+      "displayName": "x64 test build (own object names, host-dev.log)",
+      "binaryDir": "${sourceDir}/build/x64-dev",
+      "cacheVariables": {
+        "MACWIN_DEV_NAMES": "ON"
+      }
+    },
+    {
       "name": "x86",
       "displayName": "x86 – 32-bit hook DLL and helper (llvm-mingw, Release)",
       "generator": "Ninja",
@@ -37,6 +46,10 @@
     {
       "name": "x64",
       "configurePreset": "x64"
+    },
+    {
+      "name": "x64-dev",
+      "configurePreset": "x64-dev"
     },
     {
       "name": "x86",

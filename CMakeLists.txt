@@ -19,6 +19,11 @@ endif()
 
 add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
                         _WIN32_WINNT=0x0A00 WINVER=0x0A00 NTDDI_VERSION=0x0A00000C)
+# Test build: its own shared-object names and log (see src/common/names.h).
+option(MACWIN_DEV_NAMES "Test build that shares no objects with an installed MacWin" OFF)
+if(MACWIN_DEV_NAMES)
+  add_compile_definitions(MACWIN_DEV_NAMES)
+endif()
 add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
                     -Wno-cast-function-type)
 # Everything is linked statically: the hook DLL is loaded into other programs and

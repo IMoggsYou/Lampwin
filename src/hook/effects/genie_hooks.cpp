@@ -137,6 +137,12 @@ bool MacGenieShouldAnimate(HWND hWnd) {
     return (r.right - r.left) >= 40 && (r.bottom - r.top) >= 40;
 }
 
+// Inside a message another thread sent and is blocked on: answer it now (with 0) and
+// carry on. Only for messages whose result nobody reads (WM_SYSCOMMAND).
+void ReleaseCrossThreadSender() {
+    if ((InSendMessageEx(nullptr) & (ISMEX_SEND | ISMEX_REPLIED)) == ISMEX_SEND) ReplyMessage(0);
+}
+
 // A top-level window with a title bar (no child / tool / popup / splash windows).
 bool MacGenieIsLaunchWindow(HWND hWnd) {
     if (!hWnd) return false;
@@ -365,12 +371,18 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
     req.hDone = (uint64_t)(uintptr_t)hDone;
     req.hRevealed = (uint64_t)(uintptr_t)hRevealed;
     req.flags |= (t_source << MW_REQ_SOURCE_SHIFT) & MW_REQ_SOURCE_MASK;
+    if (InSendMessageEx(nullptr) & ISMEX_SEND) req.flags |= MW_REQ_SENT;
 
     // Falling: capture now, while the window is still on screen. Rising: the host may
     // still hold the snapshot from the minimize; capture only if it asks.
+    LARGE_INTEGER c0, c1, freq;
+    QueryPerformanceCounter(&c0);
     HANDLE hSection = rising ? nullptr : CaptureToSection(hWnd, rawW, rawH);
     if (hSection) {
-        req.flags |= MW_REQ_HAS_SNAPSHOT;
+        QueryPerformanceCounter(&c1);
+        QueryPerformanceFrequency(&freq);
+        uint64_t ms = (uint64_t)(c1.QuadPart - c0.QuadPart) * 1000 / (uint64_t)freq.QuadPart;
+        req.flags |= MW_REQ_HAS_SNAPSHOT | (uint32_t)((ms > 0xFFFF ? 0xFFFF : ms) << MW_REQ_CAPTURE_MS_SHIFT);
         req.hSection = (uint64_t)(uintptr_t)hSection;
     }
     uint32_t reply = SendAnimRequest(hHost, req);
@@ -535,11 +547,24 @@ DWORD WINAPI MacGenieLaunchThread(LPVOID lpParam) {
 // HookScope so the DLL never unloads under them.
 // ---------------------------------------------------------------------------
 
+// OwnStateChange only around the paths that animate: any other state change (e.g.
+// SW_SHOWNOACTIVATE on a minimized window, which restores it) is left to HCBT_MINMAX.
 __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
     HookScope scope;
-    OwnStateChange own;
     SourceScope src(MW_SRC_SHOWWINDOW);
     if (IsMinimizeCmd(nCmdShow)) {
+        // Another thread's window whose process animates its own (Explorer's "Show
+        // desktop" minimizes every window like this, one call after another): hand the
+        // minimize over to the window's thread, where HCBT_MINMAX animates it. Done here,
+        // each call would wait for its genie's first frame and the genies would start
+        // one by one, with Explorer deaf to a second press meanwhile.
+        DWORD pid = 0;
+        if (GetWindowThreadProcessId(hWnd, &pid) != GetCurrentThreadId() && PeerAnimatesItself(pid)) {
+            BOOL wasVisible = IsWindowVisible(hWnd);
+            ShowWindowAsync_Original(hWnd, nCmdShow);
+            return wasVisible;
+        }
+        OwnStateChange own;
         if (MacGenieShouldAnimate(hWnd)) {
             MacGenieSetDwmTransitions(hWnd, FALSE);
             StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
@@ -549,6 +574,7 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
 
     if ((nCmdShow == SW_RESTORE || nCmdShow == SW_SHOWNORMAL) && IsIconic(hWnd)) {
         if (RestoreEnabled() && MacGenieShouldAnimate(hWnd)) {
+            OwnStateChange own;
             MacGenieSetDwmTransitions(hWnd, FALSE);
             MacGenieSetCloak(hWnd, TRUE);
             BOOL res = ShowWindow_Original(hWnd, nCmdShow);
@@ -561,6 +587,7 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
     LONG_PTR launchOrigEx;
     BOOL launchCloaked;
     if (MacGenieLaunchPrepare(hWnd, nCmdShow, &launchOrigEx, &launchCloaked)) {
+        OwnStateChange own;
         BOOL res = ShowWindow_Original(hWnd, nCmdShow);
         MacGenieLaunchCommit(hWnd, launchOrigEx, launchCloaked);
         return res;
@@ -591,6 +618,10 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
         // Our own deferred minimize (auto-hide path): pass straight through.
         if (GetPropW(hWnd, kBypassProp)) return Original(hWnd, Msg, wParam, lParam);
         if (EffectsActiveHere() && MacGenieShouldAnimate(hWnd)) {
+            // Sent from another thread (Explorer's "Show desktop" sends it to one window
+            // after another): WM_SYSCOMMAND's result means nothing, so let the sender go
+            // on now instead of waiting out our capture and the genie's first frame.
+            ReleaseCrossThreadSender();
             // Auto-hide taskbar? Reveal it and defer the real minimize until the
             // animation finishes, so it doesn't slide away mid-genie.
             BOOL requestedUnhide = FALSE;
@@ -654,6 +685,7 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
         MacGenieSetDwmTransitions(hWnd, FALSE);
         MacGenieSetCloak(hWnd, TRUE);
         LRESULT res = Original(hWnd, Msg, wParam, lParam);
+        ReleaseCrossThreadSender();   // restored: the sender need not wait for the genie
         StartMacGenieAnim(hWnd, TRUE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE), TRUE);
         return res;
     }
@@ -769,14 +801,22 @@ struct PendingRestore {
     LONG_PTR exStyle;
 };
 
+// WS_MINIMIZE goes a moment before the window leaves the minimized spot (-32000) for
+// its real rect; a genie started in between would use the minimized caption's size.
+bool RestoreSettled(HWND hWnd) {
+    if (IsIconic(hWnd)) return false;
+    RECT r;
+    return GetWindowRect(hWnd, &r) && r.left > -32000 && r.top > -32000;
+}
+
 DWORD WINAPI PendingRestoreThread(LPVOID param) {
     PendingRestore* p = (PendingRestore*)param;
     HWND hWnd = p->hWnd;
     LONG_PTR exStyle = p->exStyle;
     delete p;
-    for (int i = 0; i < 60 && IsWindow(hWnd) && IsIconic(hWnd) && !g_unloading.load(); ++i) Sleep(5);
+    for (int i = 0; i < 60 && IsWindow(hWnd) && !RestoreSettled(hWnd) && !g_unloading.load(); ++i) Sleep(5);
     if (!IsWindow(hWnd)) return 0;
-    if (IsIconic(hWnd) || g_unloading.load()) {
+    if (!RestoreSettled(hWnd) || g_unloading.load()) {
         MacGenieUndoRisingHide(hWnd, exStyle, TRUE);   // the restore never came
         return 0;
     }

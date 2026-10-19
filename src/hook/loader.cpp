@@ -31,6 +31,7 @@ uint32_t g_waitInstance = 0;   // host instance we shut down for (kWaitHost)
 HANDLE g_hShutdown = nullptr;  // host's per-instance manual-reset event
 HANDLE g_hAlive = nullptr;     // host's per-instance mutex, abandoned if it crashes
 HANDLE g_hStop = nullptr;      // local: wakes our workers at shutdown
+HANDLE g_hActiveMark = nullptr;   // MACWIN_ACTIVE_FMT for this process (64-bit only)
 
 mw::ImageNames g_self;
 std::atomic<uint32_t> g_allowedGen{0xFFFFFFFFu};
@@ -99,7 +100,13 @@ void CloseWorkers() {
     ReleaseSRWLockExclusive(&g_workersLock);
 }
 
+void CloseActiveMark() {
+    if (g_hActiveMark) CloseHandle(g_hActiveMark);
+    g_hActiveMark = nullptr;
+}
+
 void CloseHostHandles() {
+    CloseActiveMark();
     if (g_hShutdown) CloseHandle(g_hShutdown);
     if (g_hAlive) CloseHandle(g_hAlive);
     if (g_hStop) CloseHandle(g_hStop);
@@ -177,6 +184,13 @@ bool Activate() {
         FreeLibrary(self);   // Windows' own reference keeps us mapped
         return false;
     }
+#ifdef _WIN64
+    // The global WH_CBT hook reaches every thread here, so HCBT_MINMAX animates any of our
+    // windows whoever minimizes it (see PeerAnimatesItself). The 32-bit helper hooks one
+    // thread per program, so 32-bit programs leave it to the caller.
+    swprintf(name, 96, MACWIN_ACTIVE_FMT, instance, GetCurrentProcessId());
+    g_hActiveMark = CreateEventW(nullptr, TRUE, FALSE, name);
+#endif
     DbgLog(L"active (host instance %08X)", instance);
     return true;
 }
@@ -184,6 +198,7 @@ bool Activate() {
 // Returns true when everything was removed and the module may be released.
 bool Shutdown() {
     g_unloading.store(true);
+    CloseActiveMark();   // other processes stop handing their minimizes to us
     SetEvent(g_hStop);
     MH_DisableHook(MH_ALL_HOOKS);
 
@@ -289,6 +304,17 @@ bool EffectsActiveHere() {
 
 HANDLE LocalStopEvent() {
     return g_hStop;
+}
+
+bool PeerAnimatesItself(DWORD pid) {
+    const SharedSettings* s = g_settings;
+    if (!s || !pid) return false;
+    wchar_t name[96];
+    swprintf(name, 96, MACWIN_ACTIVE_FMT, s->hostInstance, pid);
+    HANDLE h = OpenEventW(SYNCHRONIZE, FALSE, name);
+    if (!h) return false;   // also an elevated process we may not open: keep doing it here
+    CloseHandle(h);
+    return true;
 }
 
 bool SpawnWorker(LPTHREAD_START_ROUTINE proc, void* param, bool suspended, HANDLE* outThread) {

@@ -37,6 +37,9 @@ void EnsureInit();
 const SharedSettings* Settings();   // valid while hooks are installed
 bool EffectsActiveHere();           // enabled, not unloading, process still allowed
 HANDLE LocalStopEvent();            // manual-reset, set when the DLL starts shutting down
+// True if process `pid` runs the 64-bit DLL for the same host: its own HCBT_MINMAX
+// animates its windows, whichever thread minimizes them.
+bool PeerAnimatesItself(DWORD pid);
 // Starts a tracked worker thread (joined before unload). Refused while unloading.
 bool SpawnWorker(LPTHREAD_START_ROUTINE proc, void* param, bool suspended, HANDLE* outThread);
 void DbgLog(const wchar_t* fmt, ...);

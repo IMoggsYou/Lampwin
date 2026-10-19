@@ -45,10 +45,12 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     static const wchar_t* const kSources[] = {L"?", L"ShowWindow", L"DefWindowProc", L"SetWindowPlacement",
                                               L"CloseWindow", L"HCBT_MINMAX", L"launch"};
     uint32_t source = (r.flags & MW_REQ_SOURCE_MASK) >> MW_REQ_SOURCE_SHIFT;
-    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls, via %ls)",
+    wchar_t snap[40] = L"";
+    if (r.flags & MW_REQ_HAS_SNAPSHOT) swprintf(snap, 40, L", snapshot in %u ms", r.flags >> MW_REQ_CAPTURE_MS_SHIFT);
+    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls, via %ls%ls)",
         r.kind == MW_ANIM_MINIMIZE ? L"minimize" : (r.kind == MW_ANIM_RESTORE ? L"restore" : L"launch"),
-        (void*)hwnd, r.pid, r.rawW, r.rawH, (r.flags & MW_REQ_HAS_SNAPSHOT) ? L", snapshot" : L"",
-        source < 7 ? kSources[source] : L"?");
+        (void*)hwnd, r.pid, r.rawW, r.rawH, snap, source < 7 ? kSources[source] : L"?",
+        (r.flags & MW_REQ_SENT) ? L", sent by another thread" : L"");
     if (r.version != MW_IPC_VERSION || !s.enabled || !IsWindow(hwnd)) {
         Log(L"ipc: rejected (version %u, enabled %d, window %d)", r.version, (int)s.enabled, (int)IsWindow(hwnd));
         return MW_REPLY_FAIL;

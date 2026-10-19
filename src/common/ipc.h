@@ -16,8 +16,10 @@ enum : uint32_t {
 
 enum : uint32_t {
     MW_REQ_HAS_SNAPSHOT = 1u,
+    MW_REQ_SENT = 2u,               // asked from a message another thread sent (log only)
     MW_REQ_SOURCE_SHIFT = 8,        // bits 8..11: MW_SRC_*
     MW_REQ_SOURCE_MASK = 0xF00u,
+    MW_REQ_CAPTURE_MS_SHIFT = 16,   // bits 16..31: snapshot capture time in ms (log only)
 };
 
 enum : uint32_t {

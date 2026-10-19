@@ -34,7 +34,11 @@ std::wstring LocalDataDir() {
 }
 
 std::wstring LogPath() {
+#ifdef MACWIN_DEV_NAMES
+    return LocalDataDir() + L"\\host-dev.log";
+#else
     return LocalDataDir() + L"\\host.log";
+#endif
 }
 
 void LogInit() {
