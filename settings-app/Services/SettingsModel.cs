@@ -69,7 +69,8 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public double UnhideDurationMs { get => _unhideDurationMs; set => Set(ref _unhideDurationMs, Math.Round(Math.Clamp(value, 0, 5000))); }
 
     private bool _autostart;
-    /// <summary>Not part of settings.json: a value under HKCU\...\Run (see Autostart).</summary>
+    /// <summary>Not part of settings.json: the scheduled task or HKCU\...\Run (see Autostart).
+    /// The switch follows what really happened (e.g. a declined UAC prompt flips it back).</summary>
     public bool Autostart
     {
         get => _autostart;
@@ -78,8 +79,27 @@ public sealed class SettingsModel : INotifyPropertyChanged
             if (_autostart == value) return;
             _autostart = value;
             Raise();
-            if (!SuppressSideEffects) MacWin.Settings.Autostart.Set(value);
+            if (!SuppressSideEffects) _ = ApplyAutostartAsync(value);
         }
+    }
+
+    public string AutostartDescription => MacWin.Settings.Autostart.IsInstalled
+        ? "MacWin startuje po zalogowaniu z uprawnieniami administratora, bez pytania UAC. Zmiana wymaga jednego potwierdzenia."
+        : "MacWin startuje po zalogowaniu i siedzi w zasobniku.";
+
+    private async Task ApplyAutostartAsync(bool value)
+    {
+        await MacWin.Settings.Autostart.SetAsync(value);
+        await RefreshAutostartAsync();
+    }
+
+    /// <summary>Reads the real state off the UI thread (the Task Scheduler is slow to ask).</summary>
+    public async Task RefreshAutostartAsync()
+    {
+        bool actual = await Task.Run(MacWin.Settings.Autostart.IsEnabled);
+        if (actual == _autostart) return;
+        _autostart = actual;
+        Raise(nameof(Autostart));
     }
 
     /// <summary>Set while the store fills the model from disk.</summary>

@@ -26,6 +26,9 @@ internal static class Native
     [DllImport("user32.dll")]
     internal static extern bool PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
 
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    internal static extern int GetWindowText(IntPtr hwnd, System.Text.StringBuilder text, int maxCount);
+
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hwnd);
 

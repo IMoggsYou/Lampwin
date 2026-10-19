@@ -9,7 +9,7 @@
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Enabled}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Uruchamiaj razem z Windows" Description="MacWin startuje po zalogowaniu i siedzi w zasobniku.">
+                <c:SettingRow Title="Uruchamiaj razem z Windows" Description="{Binding AutostartDescription}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Autostart}"/>
                 </c:SettingRow>
             </StackPanel>

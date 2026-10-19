@@ -9,6 +9,14 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (ArgValue(e.Args, "--export-icon") is string iconPath)
+        {
+            Theme.Apply(false);
+            IconExport.Save(iconPath);
+            Shutdown();
+            return;
+        }
+
         _single = new Mutex(true, @"Local\MacWin_SettingsApp_v1", out bool created);
         if (!created)
         {

@@ -44,7 +44,8 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <Border Grid.Row="3" Margin="12" Padding="10,7" CornerRadius="8" Background="{DynamicResource Brush.SidebarHover}">
+            <Border x:Name="StatusPill" Grid.Row="3" Margin="12" Padding="10,7" CornerRadius="8"
+                    Background="{DynamicResource Brush.SidebarHover}" MouseLeftButtonUp="StatusPill_Click">
                 <StackPanel Orientation="Horizontal">
                     <Ellipse x:Name="StatusDot" Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"/>
                     <TextBlock x:Name="StatusText" VerticalAlignment="Center" FontSize="12"

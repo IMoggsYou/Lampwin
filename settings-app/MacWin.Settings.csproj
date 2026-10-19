@@ -9,6 +9,7 @@
     <AssemblyName>MacWin.Settings</AssemblyName>
     <RootNamespace>MacWin.Settings</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\assets\MacWin.ico</ApplicationIcon>
     <Version>0.1.0</Version>
     <Product>MacWin</Product>
     <Description>MacWin – ustawienia</Description>

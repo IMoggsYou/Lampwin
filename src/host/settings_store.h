@@ -32,7 +32,10 @@ struct HostSettings {
 // settings.json (%APPDATA%\MacWin) <-> HostSettings <-> shared section read by the DLLs.
 class SettingsStore {
 public:
-    bool Create(uint32_t hostInstance);
+    // Creates the shared section; `sa` decides who may open it (see elevation.h).
+    bool Create(uint32_t hostInstance, SECURITY_ATTRIBUTES* sa);
+    // File only (no shared section): for one-off command-line edits.
+    void InitPath();
     void SetIpcWindow(HWND hwnd);
     void Load();   // missing or broken file: defaults (a missing file is written out)
     bool Save() const;

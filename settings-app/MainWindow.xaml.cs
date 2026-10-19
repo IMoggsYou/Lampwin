@@ -39,6 +39,7 @@ public partial class MainWindow : Window
         _snapshotDir = snapshotDir;
         _store.Load();
         DataContext = _store.Model;
+        _ = _store.Model.RefreshAutostartAsync();
 
         _items = new List<NavItem>
         {
@@ -88,7 +89,13 @@ public partial class MainWindow : Window
     {
         bool running = HostControl.IsRunning;
         StatusDot.SetResourceReference(Shape.FillProperty, running ? "Brush.Good" : "Brush.Bad");
-        StatusText.Text = running ? "MacWin działa" : "MacWin nie działa";
+        StatusText.Text = running ? "MacWin działa" : "MacWin nie działa · kliknij, aby uruchomić";
+        StatusPill.Cursor = running ? null : System.Windows.Input.Cursors.Hand;
+    }
+
+    private void StatusPill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (!HostControl.IsRunning) HostControl.Start();
     }
 
     // macOS-like appearance: a quick fade with a slight zoom.

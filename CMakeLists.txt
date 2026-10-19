@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(MacWin VERSION 0.1.0 LANGUAGES C CXX)
+project(MacWin VERSION 0.1.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -49,9 +49,12 @@ if(MACWIN_BITS EQUAL 64)
   file(READ src/host/render/genie.hlsl MACWIN_GENIE_HLSL)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/host/render/genie.hlsl)
   configure_file(src/host/render/genie_hlsl.h.in ${CMAKE_BINARY_DIR}/gen/genie_hlsl.h @ONLY)
+  configure_file(src/host/host.rc.in ${CMAKE_BINARY_DIR}/gen/host.rc @ONLY)
 
   add_executable(MacWin WIN32
     src/host/main.cpp
+    src/host/elevation.cpp
+    ${CMAKE_BINARY_DIR}/gen/host.rc
     src/host/app_icon.cpp
     src/host/log.cpp
     src/host/json.cpp
@@ -78,6 +81,20 @@ if(MACWIN_BITS EQUAL 64)
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/settings-app
       COMMENT "Building MacWin.Settings (WPF)"
       VERBATIM)
+  endif()
+
+  # Installer (Inno Setup 6): cmake --build --preset x64 --target MacWinSetup
+  find_program(MACWIN_ISCC NAMES iscc ISCC PATHS "C:/Program Files (x86)/Inno Setup 6")
+  if(MACWIN_ISCC)
+    add_custom_target(MacWinSetup
+      COMMAND ${MACWIN_ISCC} /Q ${CMAKE_SOURCE_DIR}/installer/MacWin.iss
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/installer
+      COMMENT "Building MacWinSetup.exe"
+      VERBATIM)
+    add_dependencies(MacWinSetup MacWin MacWinHook MacWinTestWindow)
+    if(TARGET MacWinSettings)
+      add_dependencies(MacWinSetup MacWinSettings)
+    endif()
   endif()
 
   # Development helper: a window that minimizes / restores itself (--cycle N).

@@ -16,12 +16,27 @@ internal static class HostControl
 
     public static bool IsRunning => Native.FindWindow(HostWindowClass, null) != IntPtr.Zero;
 
+    /// <summary>MacWin titles its (hidden) window "MacWin (administrator)" when elevated.</summary>
+    public static bool IsElevated
+    {
+        get
+        {
+            IntPtr host = Native.FindWindow(HostWindowClass, null);
+            if (host == IntPtr.Zero) return false;
+            var title = new System.Text.StringBuilder(64);
+            Native.GetWindowText(host, title, title.Capacity);
+            return title.ToString().Contains("administrator", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     public static void NotifyReload()
     {
         IntPtr host = Native.FindWindow(HostWindowClass, null);
         if (host != IntPtr.Zero) Native.PostMessage(host, Native.RegisterWindowMessage(ReloadMessage), IntPtr.Zero, IntPtr.Zero);
     }
 
+    /// <summary>Starting MacWin.exe is enough: an installed copy hands over to its scheduled
+    /// task by itself and comes back with administrator rights.</summary>
     public static bool Start() => Launch(HostExe, null);
 
     /// <summary>Clean shutdown via "MacWin.exe --quit" (waits for the host to exit).</summary>

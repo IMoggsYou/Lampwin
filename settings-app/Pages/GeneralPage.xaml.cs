@@ -24,7 +24,11 @@ public partial class GeneralPage : UserControl
     private void UpdateStatus()
     {
         bool running = HostControl.IsRunning;
-        StatusRow.Description = _busy ? "Chwileczkę…" : running ? "MacWin działa w tle (ikona w zasobniku)." : "MacWin nie działa.";
+        StatusRow.Description = _busy ? "Chwileczkę…"
+            : !running ? "MacWin nie działa."
+            : HostControl.IsElevated
+                ? "Działa z uprawnieniami administratora – animuje też programy uruchomione jako administrator."
+                : "Działa bez uprawnień administratora – programy uruchomione jako administrator mają zwykłe animacje.";
         StartButton.Visibility = running ? Visibility.Collapsed : Visibility.Visible;
         RestartButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;
         StopButton.Visibility = running ? Visibility.Visible : Visibility.Collapsed;

@@ -66,12 +66,16 @@ std::wstring ListJson(const std::vector<std::wstring>& items, const wchar_t* ind
 
 }  // namespace
 
-bool SettingsStore::Create(uint32_t hostInstance) {
-    instance_ = hostInstance;
+void SettingsStore::InitPath() {
     path_ = RoamingDataDir() + L"\\settings.json";
+}
+
+bool SettingsStore::Create(uint32_t hostInstance, SECURITY_ATTRIBUTES* sa) {
+    instance_ = hostInstance;
+    InitPath();
     // Read-only for the DLLs; may already exist if a previous host died while
     // programs still had it mapped - then it is simply reused.
-    map_ = CreateFileMappingW(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, sizeof(SharedSettings),
+    map_ = CreateFileMappingW(INVALID_HANDLE_VALUE, sa, PAGE_READWRITE, 0, sizeof(SharedSettings),
                               MACWIN_SETTINGS_SECTION);
     if (!map_) {
         Log(L"CreateFileMapping(settings) failed: %lu", GetLastError());

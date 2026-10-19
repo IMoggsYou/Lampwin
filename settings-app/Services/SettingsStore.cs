@@ -95,7 +95,6 @@ public sealed class SettingsStore
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
             SettingsModel.Replace(m.Excluded, Strings(genie, "excludedPrograms", []));
-            m.Autostart = Autostart.IsEnabled();
         }
         finally
         {

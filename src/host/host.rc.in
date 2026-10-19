@@ -1,0 +1,32 @@
+// Generated into the build folder by CMake (absolute icon path).
+#include <winver.h>
+
+1 ICON "@CMAKE_SOURCE_DIR@/assets/MacWin.ico"
+
+1 VERSIONINFO
+FILEVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+PRODUCTVERSION @PROJECT_VERSION_MAJOR@,@PROJECT_VERSION_MINOR@,@PROJECT_VERSION_PATCH@,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_APP
+FILESUBTYPE VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "041504b0"
+        BEGIN
+            VALUE "CompanyName", "MacWin"
+            VALUE "FileDescription", "MacWin - macOS-style window animations"
+            VALUE "FileVersion", "@PROJECT_VERSION@"
+            VALUE "InternalName", "MacWin"
+            VALUE "OriginalFilename", "MacWin.exe"
+            VALUE "ProductName", "MacWin"
+            VALUE "ProductVersion", "@PROJECT_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x415, 1200
+    END
+END

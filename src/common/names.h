@@ -15,6 +15,8 @@
 #define MACWIN_HOST_WNDCLASS      L"MacWinHost_v1"
 #define MACWIN_GHOST_WNDCLASS     L"MacWinGhost_v1"
 #define MACWIN_RELOAD_MESSAGE     L"MacWin_ReloadSettings_v1"   // RegisterWindowMessage
+#define MACWIN_QUIT_MESSAGE       L"MacWin_Quit_v1"             // RegisterWindowMessage
+#define MACWIN_TASK_NAME          L"MacWin"                     // scheduled task (elevated start)
 
 // Lowercase image names the DLL must never activate in.
 #define MACWIN_HOST_EXE           L"macwin.exe"
