@@ -549,8 +549,8 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
 }
 
 BOOL WINAPI ShowWindow_Hook(HWND hWnd, int nCmdShow) {
-    if (!EffectsActiveHere()) [[gnu::musttail]] return ShowWindow_Original(hWnd, nCmdShow);
-    [[gnu::musttail]] return ShowWindowSlow(hWnd, nCmdShow);
+    if (!EffectsActiveHere()) MW_MUSTTAIL return ShowWindow_Original(hWnd, nCmdShow);
+    MW_MUSTTAIL return ShowWindowSlow(hWnd, nCmdShow);
 }
 
 template <DefWindowProc_t& Original>
@@ -647,13 +647,13 @@ inline bool DefWindowProcInteresting(UINT Msg, WPARAM wParam) {
 
 // Called for every message of every window: the fast path is one compare and a jump.
 LRESULT WINAPI DefWindowProcW_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
-    if (!DefWindowProcInteresting(Msg, wParam)) [[gnu::musttail]] return DefWindowProcW_Original(hWnd, Msg, wParam, lParam);
-    [[gnu::musttail]] return DefWindowProcSlow<DefWindowProcW_Original>(hWnd, Msg, wParam, lParam);
+    if (!DefWindowProcInteresting(Msg, wParam)) MW_MUSTTAIL return DefWindowProcW_Original(hWnd, Msg, wParam, lParam);
+    MW_MUSTTAIL return DefWindowProcSlow<DefWindowProcW_Original>(hWnd, Msg, wParam, lParam);
 }
 
 LRESULT WINAPI DefWindowProcA_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
-    if (!DefWindowProcInteresting(Msg, wParam)) [[gnu::musttail]] return DefWindowProcA_Original(hWnd, Msg, wParam, lParam);
-    [[gnu::musttail]] return DefWindowProcSlow<DefWindowProcA_Original>(hWnd, Msg, wParam, lParam);
+    if (!DefWindowProcInteresting(Msg, wParam)) MW_MUSTTAIL return DefWindowProcA_Original(hWnd, Msg, wParam, lParam);
+    MW_MUSTTAIL return DefWindowProcSlow<DefWindowProcA_Original>(hWnd, Msg, wParam, lParam);
 }
 
 // Custom-title-bar apps (Zed/GPUI, some Electron) minimize via ShowWindowAsync,
@@ -682,8 +682,8 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowAsyncSlow(HWND hWnd, int nCmdSho
 }
 
 BOOL WINAPI ShowWindowAsync_Hook(HWND hWnd, int nCmdShow) {
-    if (!EffectsActiveHere()) [[gnu::musttail]] return ShowWindowAsync_Original(hWnd, nCmdShow);
-    [[gnu::musttail]] return ShowWindowAsyncSlow(hWnd, nCmdShow);
+    if (!EffectsActiveHere()) MW_MUSTTAIL return ShowWindowAsync_Original(hWnd, nCmdShow);
+    MW_MUSTTAIL return ShowWindowAsyncSlow(hWnd, nCmdShow);
 }
 
 __attribute__((noinline)) BOOL WINAPI SetWindowPlacementSlow(HWND hWnd, const WINDOWPLACEMENT* lpwndpl) {
@@ -694,9 +694,9 @@ __attribute__((noinline)) BOOL WINAPI SetWindowPlacementSlow(HWND hWnd, const WI
 
 BOOL WINAPI SetWindowPlacement_Hook(HWND hWnd, const WINDOWPLACEMENT* lpwndpl) {
     if (!lpwndpl || !IsMinimizeCmd((int)lpwndpl->showCmd) || !EffectsActiveHere()) {
-        [[gnu::musttail]] return SetWindowPlacement_Original(hWnd, lpwndpl);
+        MW_MUSTTAIL return SetWindowPlacement_Original(hWnd, lpwndpl);
     }
-    [[gnu::musttail]] return SetWindowPlacementSlow(hWnd, lpwndpl);
+    MW_MUSTTAIL return SetWindowPlacementSlow(hWnd, lpwndpl);
 }
 
 __attribute__((noinline)) BOOL WINAPI CloseWindowSlow(HWND hWnd) {
@@ -706,8 +706,8 @@ __attribute__((noinline)) BOOL WINAPI CloseWindowSlow(HWND hWnd) {
 }
 
 BOOL WINAPI CloseWindow_Hook(HWND hWnd) {
-    if (!EffectsActiveHere()) [[gnu::musttail]] return CloseWindow_Original(hWnd);
-    [[gnu::musttail]] return CloseWindowSlow(hWnd);
+    if (!EffectsActiveHere()) MW_MUSTTAIL return CloseWindow_Original(hWnd);
+    MW_MUSTTAIL return CloseWindowSlow(hWnd);
 }
 
 // Store / UWP apps show their first window via SetWindowPos + SWP_SHOWWINDOW.
@@ -727,9 +727,9 @@ __attribute__((noinline)) BOOL WINAPI SetWindowPosSlow(HWND hWnd, HWND hWndInser
 // Hot: most SetWindowPos calls are moves / resizes / z-order changes.
 BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags) {
     if (!(uFlags & SWP_SHOWWINDOW) || !EffectsActiveHere() || !LaunchEnabled()) {
-        [[gnu::musttail]] return SetWindowPos_Original(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+        MW_MUSTTAIL return SetWindowPos_Original(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
     }
-    [[gnu::musttail]] return SetWindowPosSlow(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+    MW_MUSTTAIL return SetWindowPosSlow(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 }
 
 }  // namespace

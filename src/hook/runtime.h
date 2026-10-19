@@ -15,6 +15,13 @@ extern std::atomic<bool> g_unloading;
 // this is zero, so no stack ever returns into unmapped code.
 extern std::atomic<long> g_activeCalls;
 
+// Guaranteed tail call (the pass-through fast paths leave no frame of ours on the stack).
+#if defined(__clang__)
+#define MW_MUSTTAIL [[clang::musttail]]
+#else
+#define MW_MUSTTAIL [[gnu::musttail]]
+#endif
+
 struct HookScope {
     HookScope() { g_activeCalls.fetch_add(1, std::memory_order_acq_rel); }
     ~HookScope() { g_activeCalls.fetch_sub(1, std::memory_order_acq_rel); }

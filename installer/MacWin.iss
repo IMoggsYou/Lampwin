@@ -43,6 +43,9 @@ Name: "everywhere"; Description: "Animuj wszystkie programy (wyłącz tryb testo
 [Files]
 Source: "{#Bin}\MacWin.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWinHook64.dll"; DestDir: "{app}"; Flags: ignoreversion uninsrestartdelete
+; 32-bit programs: the helper puts MacWinHook32.dll into them (drawing stays in MacWin.exe).
+Source: "{#Bin}\MacWinHook32.dll"; DestDir: "{app}"; Flags: ignoreversion uninsrestartdelete
+Source: "{#Bin}\MacWinHelper32.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWin.Settings.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWin.Settings.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWin.Settings.runtimeconfig.json"; DestDir: "{app}"; Flags: ignoreversion
@@ -112,6 +115,8 @@ begin
   ExtractTemporaryFile('MacWin.exe');
   Exec(ExpandConstant('{tmp}\MacWin.exe'), '--quit', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
   Exec(ExpandConstant('{sys}\taskkill.exe'), '/IM MacWin.Settings.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // The helper leaves with MacWin; this only covers one orphaned by an older version.
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM MacWinHelper32.exe', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 // Programs keep MacWinHook64.dll mapped until they exit. A mapped file can't be
@@ -132,6 +137,7 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   StopMacWin;
   SetAsideInUse(ExpandConstant('{app}\MacWinHook64.dll'));
+  SetAsideInUse(ExpandConstant('{app}\MacWinHook32.dll'));
   Result := '';
 end;
 
@@ -140,6 +146,7 @@ begin
   if CurUninstallStep = usUninstall then
   begin
     SetAsideInUse(ExpandConstant('{app}\MacWinHook64.dll'));
+    SetAsideInUse(ExpandConstant('{app}\MacWinHook32.dll'));
     // A development build may have used the per-user Run key for autostart.
     RegDeleteValue(HKEY_CURRENT_USER, 'Software\Microsoft\Windows\CurrentVersion\Run', 'MacWin');
   end;

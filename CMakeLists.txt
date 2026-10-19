@@ -3,7 +3,13 @@ project(MacWin VERSION 0.1.0 LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+# The x86 preset builds into the x64 bin folder (MACWIN_BIN_DIR), so MacWin.exe finds
+# MacWinHook32.dll / MacWinHelper32.exe next to itself.
+if(MACWIN_BIN_DIR)
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${MACWIN_BIN_DIR})
+else()
+  set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+endif()
 
 if(CMAKE_SIZEOF_VOID_P EQUAL 8)
   set(MACWIN_BITS 64)
@@ -60,6 +66,7 @@ if(MACWIN_BITS EQUAL 64)
     src/host/json.cpp
     src/host/settings_store.cpp
     src/host/injector.cpp
+    src/host/helper32.cpp
     src/host/ipc_server.cpp
     src/host/taskbar_locator.cpp
     src/host/snapshot_cache.cpp
@@ -87,8 +94,11 @@ if(MACWIN_BITS EQUAL 64)
   find_program(MACWIN_ISCC NAMES iscc ISCC PATHS "C:/Program Files (x86)/Inno Setup 6")
   if(MACWIN_ISCC)
     add_custom_target(MacWinSetup
+      # The installer ships the 32-bit files too: (re)build the x86 preset first.
+      COMMAND ${CMAKE_COMMAND} --preset x86
+      COMMAND ${CMAKE_COMMAND} --build --preset x86
       COMMAND ${MACWIN_ISCC} /Q ${CMAKE_SOURCE_DIR}/installer/MacWin.iss
-      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/installer
+      WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
       COMMENT "Building MacWinSetup.exe"
       VERBATIM)
     add_dependencies(MacWinSetup MacWin MacWinHook MacWinTestWindow)
@@ -101,4 +111,16 @@ if(MACWIN_BITS EQUAL 64)
   add_executable(MacWinTestWindow WIN32 tools/test_window.cpp)
   target_link_options(MacWinTestWindow PRIVATE -municode)
   target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
+else()
+  # --- 32-bit side: MacWinHook32.dll (above) + the helper that gets it into 32-bit
+  # programs. Rendering always stays in the 64-bit MacWin.exe.
+  add_executable(MacWinHelper32 WIN32 src/helper32/main.cpp)
+  target_include_directories(MacWinHelper32 PRIVATE src)
+  target_link_options(MacWinHelper32 PRIVATE -municode)
+  target_link_libraries(MacWinHelper32 PRIVATE user32 advapi32)
+  add_dependencies(MacWinHelper32 MacWinHook)
+
+  add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp)
+  target_link_options(MacWinTestWindow32 PRIVATE -municode)
+  target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
 endif()

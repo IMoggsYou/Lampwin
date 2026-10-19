@@ -20,6 +20,7 @@
 
 // Lowercase image names the DLL must never activate in.
 #define MACWIN_HOST_EXE           L"macwin.exe"
+#define MACWIN_HELPER32_EXE       L"macwinhelper32.exe"
 #define MACWIN_SETTINGS_EXE       L"macwin.settings.exe"
 
 #define MACWIN_CBT_PROC           "MacWinCbtProc"

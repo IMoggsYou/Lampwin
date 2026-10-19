@@ -7,6 +7,7 @@
 #include "common/names.h"
 #include "host/app_icon.h"
 #include "host/elevation.h"
+#include "host/helper32.h"
 #include "host/injector.h"
 #include "host/ipc_server.h"
 #include "host/log.h"
@@ -18,6 +19,7 @@
 namespace {
 
 const UINT WM_APP_TRAY = WM_APP + 1;
+const UINT WM_APP_HELPER_EXITED = WM_APP + 3;
 const UINT_PTR kPreloadTimer = 1;
 const int kHotkeyQuit = 1;
 
@@ -62,11 +64,11 @@ private:
     Renderer renderer_;
     TaskbarLocator locator_;
     Injector injector_;
+    Helper32 helper32_;
     WinEvents winEvents_;
     IpcServer ipc_{renderer_, settings_, locator_};
 };
 
-App* g_app = nullptr;
 
 std::wstring App::ExeDir() const {
     wchar_t path[MAX_PATH];
@@ -153,6 +155,8 @@ bool App::Init(HINSTANCE hInst) {
     }
     injector_.BeginPreload();
     SetTimer(hwnd_, kPreloadTimer, 2000, nullptr);
+    // 32-bit programs: MacWinHelper32.exe gets MacWinHook32.dll into them.
+    helper32_.Start(ExeDir() + L"\\MacWinHelper32.exe", instance, hwnd_, WM_APP_HELPER_EXITED);
 
     if (!RegisterHotKey(hwnd_, kHotkeyQuit, MOD_CONTROL | MOD_ALT | MOD_SHIFT | MOD_NOREPEAT, VK_F12)) {
         Log(L"hotkey Ctrl+Alt+Shift+F12 unavailable: %lu", GetLastError());
@@ -176,6 +180,7 @@ void App::Shutdown() {
     renderer_.Stop();
     // 3. Tell every DLL to remove its hooks and unload itself, then drop the hook.
     if (shutdownEvent_) SetEvent(shutdownEvent_);
+    helper32_.Stop();
     injector_.Stop();
     if (trayAdded_) {
         NOTIFYICONDATAW nid = {sizeof(nid)};
@@ -254,6 +259,7 @@ void App::ReloadSettings() {
         before.noInject != after.noInject) {
         injector_.BeginPreload();
         SetTimer(hwnd_, kPreloadTimer, 2000, nullptr);
+        helper32_.Rescan();
     }
 }
 
@@ -294,6 +300,7 @@ void App::ShowMenu() {
             // already running (and refused it) pick it up once they are restarted.
             injector_.BeginPreload();
             SetTimer(hwnd_, kPreloadTimer, 2000, nullptr);
+            helper32_.Rescan();
             break;
         case ID_OPEN_LOG:
             OpenAsUser(LogPath());
@@ -333,6 +340,9 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
     switch (msg) {
         case WM_COPYDATA:
             return ipc_.Handle((const COPYDATASTRUCT*)lp);
+        case WM_APP_HELPER_EXITED:
+            helper32_.OnExited();
+            return 0;
         case WM_APP_TRAY:
             switch (LOWORD(lp)) {
                 case NIN_SELECT:
@@ -467,7 +477,6 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
 
     LogInit();
     App app;
-    g_app = &app;
     int code = 0;
     if (app.Init(hInst)) {
         MSG msg;

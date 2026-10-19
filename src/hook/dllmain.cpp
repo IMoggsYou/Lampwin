@@ -18,7 +18,7 @@ static bool ShouldLoadIntoThisProcess(bool* isHost, bool* alwaysAllowed) {
 
     // The host loads the DLL itself (to hand its hook procedures to Windows); it
     // keeps it, but never activates anything in it.
-    if (wcscmp(self.base, MACWIN_HOST_EXE) == 0) {
+    if (wcscmp(self.base, MACWIN_HOST_EXE) == 0 || wcscmp(self.base, MACWIN_HELPER32_EXE) == 0) {
         *isHost = true;
         return true;
     }

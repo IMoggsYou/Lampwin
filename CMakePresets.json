@@ -3,17 +3,44 @@
   "configurePresets": [
     {
       "name": "x64",
-      "displayName": "x64 (MinGW GCC, Release)",
+      "displayName": "x64 (llvm-mingw, Release)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/x64",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++"
+        "CMAKE_C_COMPILER": "x86_64-w64-mingw32-clang",
+        "CMAKE_CXX_COMPILER": "x86_64-w64-mingw32-clang++",
+        "CMAKE_RC_COMPILER": "x86_64-w64-mingw32-windres"
+      },
+      "environment": {
+        "PATH": "$env{USERPROFILE}/scoop/apps/mingw-mstorsjo-llvm-ucrt/current/bin;$penv{PATH}"
+      }
+    },
+    {
+      "name": "x86",
+      "displayName": "x86 – 32-bit hook DLL and helper (llvm-mingw, Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/x86",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_C_COMPILER": "i686-w64-mingw32-clang",
+        "CMAKE_CXX_COMPILER": "i686-w64-mingw32-clang++",
+        "CMAKE_RC_COMPILER": "i686-w64-mingw32-windres",
+        "MACWIN_BIN_DIR": "${sourceDir}/build/x64/bin"
+      },
+      "environment": {
+        "PATH": "$env{USERPROFILE}/scoop/apps/mingw-mstorsjo-llvm-ucrt/current/bin;$penv{PATH}"
       }
     }
   ],
   "buildPresets": [
-    { "name": "x64", "configurePreset": "x64" }
+    {
+      "name": "x64",
+      "configurePreset": "x64"
+    },
+    {
+      "name": "x86",
+      "configurePreset": "x86"
+    }
   ]
 }
