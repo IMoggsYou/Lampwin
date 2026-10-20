@@ -114,7 +114,7 @@ if(MACWIN_BITS EQUAL 64)
   endif()
 
   # Development helper: a window that minimizes / restores itself (--cycle N).
-  add_executable(MacWinTestWindow WIN32 tools/test_window.cpp)
+  add_executable(MacWinTestWindow WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow PRIVATE -municode)
   target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
 else()
@@ -126,7 +126,7 @@ else()
   target_link_libraries(MacWinHelper32 PRIVATE user32 advapi32)
   add_dependencies(MacWinHelper32 MacWinHook)
 
-  add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp)
+  add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow32 PRIVATE -municode)
   target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
 endif()

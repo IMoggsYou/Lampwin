@@ -6,6 +6,8 @@
 //               is turned around mid-flight
 //   --open-close N   opens a window and closes it again (WM_CLOSE), N times: the open
 //                    and close effects
+//   --corners [--quiet]   checks the window corners (see corner_test.cpp; its own exit
+//                         code and report)
 // The exit code reports the final state: 0 = restored and visible, 10 = still
 // minimized, 11 = still cloaked (invisible), 12 = both.
 
@@ -13,6 +15,8 @@
 #include <dwmapi.h>
 #include <stdlib.h>
 #include <vector>
+
+int RunCornerTest(HINSTANCE hInst, bool quiet);   // corner_test.cpp
 
 namespace {
 
@@ -97,6 +101,7 @@ int Count(const wchar_t* cmdLine, const wchar_t* flag) {
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    if (wcsstr(cmdLine, L"--corners")) return RunCornerTest(hInst, wcsstr(cmdLine, L"--quiet") != nullptr);
     for (int i = Count(cmdLine, L"--cycle"); i > 0; --i) {
         g_steps.insert(g_steps.end(),
                        {{kSysMin, 1500}, {kSysRestore, 1500}, {kShowMin, 1500}, {kShowRestore, 1500}});
