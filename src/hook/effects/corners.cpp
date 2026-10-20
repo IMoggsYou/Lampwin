@@ -131,10 +131,21 @@ void SetDwmInt(HWND h, DWORD attr, int value) {
     set(h, attr, &value, sizeof(value));
 }
 
+// DWM cannot be asked for a window's border color (DwmGetWindowAttribute refuses
+// DWMWA_BORDER_COLOR), so the one a program sets is noted when it sets it (OverrideSlow),
+// for every window, until it is cut. Under g_lock.
+std::unordered_map<HWND, int> g_programBorder;
+
 void TakeOverrides(HWND h, int* saved) {
     for (int i = 0; i < 3; ++i) {
         int v = 0;
         saved[i] = SUCCEEDED(DwmGetWindowAttribute(h, kOverrides[i].attr, &v, sizeof(v))) ? v : kOverrides[i].fallback;
+        if (kOverrides[i].attr == DWMWA_BORDER_COLOR) {
+            AcquireSRWLockShared(&g_lock);
+            auto it = g_programBorder.find(h);
+            if (it != g_programBorder.end()) saved[i] = it->second;
+            ReleaseSRWLockShared(&g_lock);
+        }
         SetDwmInt(h, kOverrides[i].attr, kOverrides[i].value);
     }
 }
@@ -871,6 +882,7 @@ LRESULT CornersDefWindowProc(DefWindowProcFn original, HWND h, UINT msg, WPARAM 
     if (msg == WM_NCDESTROY) {
         AcquireSRWLockExclusive(&g_lock);
         g_cuts.erase(h);
+        g_programBorder.erase(h);
         ReleaseSRWLockExclusive(&g_lock);
         return original(h, msg, wp, lp);
     }
@@ -941,6 +953,7 @@ bool CornersOnShutdown() {
     }
     AcquireSRWLockExclusive(&g_lock);
     g_cuts.clear();
+    g_programBorder.clear();
     ReleaseSRWLockExclusive(&g_lock);
     // The grip class points at this DLL's code: it must go (and can only go once no grip
     // is left), or a later load at another address would reuse a stale window procedure.
@@ -960,6 +973,7 @@ __attribute__((noinline)) HRESULT WINAPI OverrideSlow(HWND h, DWORD attr, LPCVOI
         auto it = g_cuts.find(h);
         bool cut = it != g_cuts.end() && it->second.overridden;
         if (cut) it->second.saved[i] = *(const int*)data;
+        if (!cut && attr == DWMWA_BORDER_COLOR) g_programBorder[h] = *(const int*)data;
         ReleaseSRWLockExclusive(&g_lock);
         if (cut) {
             int ours = kOverrides[i].value;
