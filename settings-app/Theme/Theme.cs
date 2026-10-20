@@ -39,6 +39,8 @@ public static class Theme
     private static readonly (string, string)[] Light =
     {
         ("WindowBg", "#FFF5F5F7"),
+        ("WindowBase", "#FFE8E8EC"),
+        ("WindowOutline", "#2E000000"),
         ("Sidebar", "#99ECECF0"),
         ("Group", "#FFFFFFFF"),
         ("GroupBorder", "#FFE3E3E8"),
@@ -72,6 +74,8 @@ public static class Theme
     private static readonly (string, string)[] Dark =
     {
         ("WindowBg", "#FF1E1E20"),
+        ("WindowBase", "#FF262629"),
+        ("WindowOutline", "#38FFFFFF"),
         ("Sidebar", "#8C262629"),
         ("Group", "#FF2A2A2D"),
         ("GroupBorder", "#FF37373A"),

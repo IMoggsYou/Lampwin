@@ -4,14 +4,20 @@
         xmlns:c="clr-namespace:MacWin.Settings.Controls"
         Width="880" Height="640" MinWidth="740" MinHeight="480"
         WindowStartupLocation="CenterScreen" Background="Transparent"
+        WindowStyle="None" AllowsTransparency="True" ResizeMode="CanResize"
         FontFamily="{StaticResource Font.Text}" FontSize="13" Foreground="{DynamicResource Brush.Text}"
         TextOptions.TextFormattingMode="Ideal" UseLayoutRounding="True">
     <WindowChrome.WindowChrome>
-        <WindowChrome CaptionHeight="52" GlassFrameThickness="-1" ResizeBorderThickness="6"
+        <WindowChrome CaptionHeight="52" GlassFrameThickness="0" ResizeBorderThickness="6"
                       CornerRadius="0" UseAeroCaptionButtons="False"/>
     </WindowChrome.WindowChrome>
 
-    <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5">
+    <Grid>
+    <!-- Alpha 1/255: invisible, but the corners cut off by the squircle still take the
+         mouse, so the window can be resized from them. -->
+    <Rectangle Fill="#01000000"/>
+    <Grid x:Name="Root" RenderTransformOrigin="0.5,0.5" Background="{DynamicResource Brush.WindowBase}"
+          SizeChanged="Root_SizeChanged">
         <Grid.RenderTransform>
             <ScaleTransform x:Name="RootScale"/>
         </Grid.RenderTransform>
@@ -72,5 +78,10 @@
                 </ContentControl>
             </ScrollViewer>
         </Grid>
+
+        <!-- Hairline along the squircle edge (Root's clip keeps its inner half). -->
+        <Path x:Name="Outline" Grid.ColumnSpan="2" StrokeThickness="2" IsHitTestVisible="False"
+              Stroke="{DynamicResource Brush.WindowOutline}"/>
+    </Grid>
     </Grid>
 </Window>

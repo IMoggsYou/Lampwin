@@ -59,7 +59,7 @@ public sealed class GeniePreview : Grid
     private readonly List<Border> _iconTiles = new();
     private readonly Border _wallpaper = new();
     private readonly Border _taskbar = new();
-    private readonly Rectangle _indicator = new() { Height = 3, RadiusX = 1.5, RadiusY = 1.5 };
+    private readonly Rectangle _indicator = new() { Width = 14, Height = 3, RadiusX = 1.5, RadiusY = 1.5 };
     private readonly MeshGeometry3D _mesh = new();
     private readonly ImageBrush _texture = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
@@ -67,6 +67,10 @@ public sealed class GeniePreview : Grid
     private double _phaseStart;
     private double _progress;   // raw 0..1 within the current phase
     private int _meshTiles;
+    // What the scene shows now: frames that change nothing are not drawn again (the
+    // settings window is a layered window, every drawn frame costs a full-window copy).
+    private double _shownT = double.NaN;
+    private int _shownStyle = -1;
     private bool _running;
     private bool _started;
 
@@ -135,6 +139,8 @@ public sealed class GeniePreview : Grid
         for (int i = 0; i < _iconTiles.Count; i++) Canvas.SetLeft(_iconTiles[i], startX + i * (IconSize + IconGap));
         _dockX = startX + TargetIcon * (IconSize + IconGap) + IconSize / 2;
         _winRect = new GenieMath.Rect((w - WinW) / 2 - 20, 24, WinW, WinH);
+        _shownT = double.NaN;   // the mesh depends on the layout
+        Canvas.SetLeft(_indicator, _dockX - _indicator.Width / 2);
     }
 
     private void UpdateRunning(bool force = true)
@@ -179,11 +185,14 @@ public sealed class GeniePreview : Grid
         double duration = Math.Max(50, DurationMs);
         int style = GenieStyle;
         double t;
+        // The loop waits at rest while the window is in the background; a click still
+        // turns the genie around.
+        bool loop = Window.GetWindow(this)?.IsActive ?? true;
         switch (_phase)
         {
             case Phase.Shown:
                 t = 0;
-                if (elapsed > 1200) Enter(Phase.Minimizing, now, 0);
+                if (elapsed > 1200 && loop) Enter(Phase.Minimizing, now, 0);
                 break;
             case Phase.Minimizing:
                 _progress = Math.Min(1, elapsed / duration);
@@ -192,7 +201,7 @@ public sealed class GeniePreview : Grid
                 break;
             case Phase.Hidden:
                 t = 1;
-                if (elapsed > 750) Enter(Phase.Restoring, now, 0);
+                if (elapsed > 750 && loop) Enter(Phase.Restoring, now, 0);
                 break;
             default:
                 _progress = Math.Min(1, elapsed / duration);
@@ -202,14 +211,27 @@ public sealed class GeniePreview : Grid
         }
 
         int tiles = (int)Math.Clamp(Tiles, 8, 32);
-        if (tiles != _meshTiles) BuildMesh(tiles);
-        UpdateMesh(style, t);
-        _texture.Opacity = _phase == Phase.Hidden ? 0 : GenieMath.Fade(style, t);
+        if (tiles != _meshTiles)
+        {
+            BuildMesh(tiles);
+            _shownT = double.NaN;
+        }
+        if (t != _shownT || style != _shownStyle)
+        {
+            _shownT = t;
+            _shownStyle = style;
+            UpdateMesh(style, t);
+            _texture.Opacity = _phase == Phase.Hidden ? 0 : GenieMath.Fade(style, t);
+        }
 
         // The running-app dash under the icon is wide while the window is on screen.
         double target = t < 0.5 ? 14 : 6;
-        _indicator.Width += (target - _indicator.Width) * 0.18;
-        Canvas.SetLeft(_indicator, _dockX - _indicator.Width / 2);
+        if (_indicator.Width != target)
+        {
+            double w = _indicator.Width + (target - _indicator.Width) * 0.18;
+            _indicator.Width = Math.Abs(target - w) < 0.05 ? target : w;
+            Canvas.SetLeft(_indicator, _dockX - _indicator.Width / 2);
+        }
     }
 
     private void BuildMesh(int n)

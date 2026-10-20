@@ -3,11 +3,13 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using MacWin.Settings.Controls;
 using MacWin.Settings.Pages;
 
 namespace MacWin.Settings;
@@ -24,6 +26,8 @@ public sealed class NavItem
 public partial class MainWindow : Window
 {
     public const string WindowTitle = "MacWin – ustawienia";
+    // macOS window corners: squircle, 15 px at 100 % scaling, smoothing 100 %.
+    private const double CornerRadius = 15;
 
     private readonly SettingsStore _store = new();
     private readonly List<NavItem> _items;
@@ -31,6 +35,7 @@ public partial class MainWindow : Window
     private readonly ICollectionView _view;
     private readonly DispatcherTimer _statusPoll = new() { Interval = TimeSpan.FromSeconds(1.5) };
     private readonly string? _snapshotDir;
+    private readonly WindowShadow _shadow;
 
     public MainWindow(string? snapshotDir, string? startPage)
     {
@@ -69,11 +74,24 @@ public partial class MainWindow : Window
         int start = _items.FindIndex(i => string.Equals(i.Title, startPage, StringComparison.OrdinalIgnoreCase));
         Nav.SelectedIndex = start >= 0 ? start : 0;
 
-        SourceInitialized += (_, _) => Native.ApplyBackdrop(this, Theme.IsDark);
-        Theme.Changed += () => Native.ApplyBackdrop(this, Theme.IsDark);
-        // WindowChrome windows overhang the screen by the resize border when maximized.
-        StateChanged += (_, _) => Root.Margin = WindowState == WindowState.Maximized ? new Thickness(7) : new Thickness(0);
-        Loaded += (_, _) => PlayOpenAnimation();
+        _shadow = new WindowShadow(this, CornerRadius);
+        SourceInitialized += (_, _) =>
+        {
+            Native.ApplyWindowAttributes(this, Theme.IsDark);
+            HwndSource.FromHwnd(new WindowInteropHelper(this).Handle)?.AddHook(WndProc);
+        };
+        Theme.Changed += () => Native.ApplyWindowAttributes(this, Theme.IsDark);
+        StateChanged += (_, _) =>
+        {
+            UpdateShape();
+            _shadow.UpdateVisibility();
+        };
+        Loaded += (_, _) =>
+        {
+            PlayOpenAnimation();
+            if (_snapshotDir is null) _shadow.Attach(TimeSpan.FromMilliseconds(200));
+        };
+        Closed += (_, _) => _shadow.Close();
         ContentRendered += (_, _) =>
         {
             if (_snapshotDir is not null) _ = RunSnapshots(_snapshotDir);
@@ -83,6 +101,27 @@ public partial class MainWindow : Window
         _statusPoll.Tick += (_, _) => UpdateStatus();
         _statusPoll.Start();
         UpdateStatus();
+    }
+
+    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+    {
+        const int WM_WINDOWPOSCHANGED = 0x0047, WM_GETMINMAXINFO = 0x0024;
+        if (msg == WM_GETMINMAXINFO) Native.FitMaximizedToWorkArea(hwnd, lParam);   // WPF still adds the min size
+        else if (msg == WM_WINDOWPOSCHANGED) _shadow.Sync();   // moved, resized or z-order changed
+        return IntPtr.Zero;
+    }
+
+    private void Root_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateShape();
+
+    // The squircle: clips the whole window (sidebar, content, outline) to its shape. A
+    // maximized window fills the work area and is square, like on macOS.
+    private void UpdateShape()
+    {
+        Geometry? shape = WindowState == WindowState.Maximized || Root.ActualWidth <= 0
+            ? null
+            : Squircle.Create(Root.ActualWidth, Root.ActualHeight, CornerRadius, 1);
+        Root.Clip = shape;
+        Outline.Data = shape;
     }
 
     private void UpdateStatus()
@@ -171,14 +210,14 @@ public partial class MainWindow : Window
             var dpi = VisualTreeHelper.GetDpi(this);
             int w = (int)(Root.ActualWidth * dpi.DpiScaleX), h = (int)(Root.ActualHeight * dpi.DpiScaleY);
             // Root rendered directly (a VisualBrush would drop the 3D preview), then laid
-            // over a plain color standing in for the Mica backdrop.
+            // over a plain color standing in for the desktop, so the corners show.
             var content = new RenderTargetBitmap(w, h, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
             content.Render(Root);
             var visual = new DrawingVisual();
             using (var dc = visual.RenderOpen())
             {
                 var rect = new Rect(0, 0, Root.ActualWidth, Root.ActualHeight);
-                dc.DrawRectangle(new SolidColorBrush(Theme.IsDark ? Color.FromRgb(0x24, 0x24, 0x27) : Color.FromRgb(0xE8, 0xE8, 0xEC)), null, rect);
+                dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x5A, 0x6E, 0x96)), null, rect);
                 dc.DrawImage(content, rect);
             }
             var bmp = new RenderTargetBitmap(w, h, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);
