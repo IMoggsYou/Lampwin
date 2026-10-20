@@ -15,11 +15,14 @@
 // before the resized window is composed.
 //
 // What DWM no longer draws, the shade does: a soft two-layer shadow and an anti-aliased
-// edge that hides the region's pixel steps (see PlaceShade). And what the region cut
+// edge that hides the region's pixel steps, composed by DWM on the GPU (see LayoutShade). And what the region cut
 // off - the invisible resize border around the window - the grip gives back.
 
 #include <windows.h>
+#include <d3d11.h>
+#include <dcomp.h>
 #include <dwmapi.h>
+#include <dxgi.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,9 +49,8 @@ struct Cut {
     int smoothing;   // percent
     bool region;     // our window region is set
     bool square;     // we set DWMWCP_DONOTROUND (radius 0)
-    HWND shade[4] = {};            // shadow + edge in strips: top, bottom, left, right
-    int shadeW = 0, shadeH = 0;    // whole shade size the strips were drawn for
-    bool shadeSingle = false;      // drawn as one piece (a window too small for strips)
+    HWND shade = nullptr;          // shadow + edge window (with a region only)
+    struct ShadeVisuals* vis = nullptr;   // its DirectComposition content (owned)
     HWND grip = nullptr;           // invisible resize border around the window
     int gripW = 0, gripH = 0;      // frame size its region was made for
     RECT arranged = {};            // window rect FitArranged gave a snapped window
@@ -399,84 +401,286 @@ void MakeTiles(int radius, int smoothing, UINT dpi) {
     t.dpi = dpi;
 }
 
-// One pixel of the whole W x H shade: from the tiles when the window is big enough for
-// them (`tiled`, g_tilesLock held), else computed.
-uint32_t ShadeAt(int x, int y, int W, int H, bool tiled, const ShadeShape& sh, const ShadeLook& l) {
-    if (!tiled) {
-        return ShadePixel((float)x + 0.5f - (float)l.margin - sh.hw, (float)y + 0.5f - (float)l.margin - sh.hh, sh, l);
+// ---------------------------------------------------------------------------
+// The shade on the GPU. The tiles above (two corner blocks and three 1 px edge profiles)
+// go into DirectComposition surfaces once per radius, smoothing and scale; each shade is
+// eight visuals showing them - the corners as they are (the right ones mirrored), the
+// edges stretched along the window. A resize then only moves and stretches visuals: no
+// pixel is computed or uploaded, DWM composes the shade with the window.
+//
+// The device is the GPU's (an integrated one too) or, without one, WARP - Windows'
+// software rasterizer, which DWM itself uses on such machines. It is created on the first
+// shade of a process; d3d11.dll and dcomp.dll are only loaded then, so a program that
+// never has a cut window pays nothing. A lost device (driver update, GPU reset) is
+// recreated and every shade rebuilt the next time it is placed. All of it is under
+// g_gpuLock: windows of several threads share the device.
+// ---------------------------------------------------------------------------
+
+template <class T>
+void SafeRelease(T*& p) {
+    if (p) {
+        p->Release();
+        p = nullptr;
     }
-    const ShadeTiles& t = g_tiles;
-    const int c = t.c;
-    const int lx = x < W - 1 - x ? x : W - 1 - x;   // the right half is the left one mirrored
-    if (y < c) return lx < c ? t.topLeft[(size_t)y * c + lx] : t.top[y];
-    if (y >= H - c) {
-        const int ry = y - (H - c);
-        return lx < c ? t.bottomLeft[(size_t)ry * c + lx] : t.bottom[ry];
-    }
-    return lx < c ? t.left[lx] : 0;
 }
 
-// The shade in four strips around the window: only where something is drawn - the
-// margin and, at top and bottom, the corners. A resize then sends Windows a few hundred
-// KB instead of a window-sized bitmap, and a strip whose length stayed the same is only
-// moved (top and bottom keep their pixels in a vertical resize, left and right in a
-// horizontal one).
-struct ShadeLayout {
-    int W, H;        // the whole shade: window + margin on each side
-    bool single;     // too small to split: the top strip is the whole shade
-    RECT strip[4];   // shade coordinates: top, bottom, left, right
+// The tile surfaces for one radius, smoothing and scale: top-left and bottom-left corner
+// blocks (c x c), the top and bottom profiles (1 x c) and the left one (c x 1).
+struct TileSet {
+    int radius = -1, smoothing = -1;
+    UINT dpi = 0;
+    int c = 0;
+    IDCompositionSurface* surface[5] = {};
+    ULONGLONG used = 0;
 };
 
-ShadeLayout LayoutShade(int fw, int fh, const ShadeLook& l, float extent) {
-    ShadeLayout s;
-    s.W = fw + 2 * l.margin;
-    s.H = fh + 2 * l.margin;
-    const int T = l.margin + (int)ceilf(extent) + 3;   // margin + the corner's curve
-    const int S = l.margin + 3;                        // margin + edge and hairline
-    s.single = s.H < 2 * T + 1 || s.W < 2 * S + 1;
-    for (RECT& r : s.strip) r = {0, 0, 0, 0};
-    if (s.single) {
-        s.strip[0] = {0, 0, s.W, s.H};
-    } else {
-        s.strip[0] = {0, 0, s.W, T};
-        s.strip[1] = {0, s.H - T, s.W, s.H};
-        s.strip[2] = {0, T, S, s.H - T};
-        s.strip[3] = {s.W - S, T, s.W, s.H - T};
-    }
-    return s;
+struct Gpu {
+    HMODULE d3d11 = nullptr, dcomp = nullptr;
+    ID3D11Device* device = nullptr;
+    ID3D11DeviceContext* ctx = nullptr;
+    IDCompositionDevice* comp = nullptr;
+    uint32_t generation = 1;     // bumped whenever the device is replaced
+    bool missing = false;        // no d3d11 / dcomp at all: no shade
+    ULONGLONG retryAt = 0;       // after a failed device creation
+    TileSet sets[4];             // a few scales at once (windows on monitors with other DPI)
+};
+
+SRWLOCK g_gpuLock = SRWLOCK_INIT;
+Gpu g_gpu;
+
+// A window's shade content: the visuals, and what they were laid out for.
+struct ShadeVisuals {
+    uint32_t generation = 0;     // Gpu::generation its objects belong to
+    IDCompositionTarget* target = nullptr;
+    IDCompositionVisual* root = nullptr;
+    IDCompositionVisual* part[8] = {};   // corners TL TR BL BR, edges top bottom left right
+    IDCompositionSurface* whole = nullptr;   // a window too small for the tiles: one piece
+    int W = 0, H = 0, radius = -1, smoothing = -1;
+    UINT dpi = 0;
+};
+
+void ReleaseTileSet(TileSet& t) {
+    for (IDCompositionSurface*& surface : t.surface) SafeRelease(surface);
+    t = TileSet();
 }
 
-// Draws strip `r` of the whole W x H shade into its window at `pos` (screen px).
-void RenderStrip(HWND strip, const RECT& r, POINT pos, int W, int H, bool tiled, const ShadeShape& sh,
-                 const ShadeLook& l) {
-    const int w = r.right - r.left, h = r.bottom - r.top;
-    BITMAPINFO bi = {};
-    bi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bi.bmiHeader.biWidth = w;
-    bi.bmiHeader.biHeight = -h;   // top-down
-    bi.bmiHeader.biPlanes = 1;
-    bi.bmiHeader.biBitCount = 32;
-    bi.bmiHeader.biCompression = BI_RGB;
-    HDC screen = GetDC(nullptr);
-    HDC mem = CreateCompatibleDC(screen);
-    void* bits = nullptr;
-    HBITMAP bmp = CreateDIBSection(screen, &bi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    if (bmp && bits) {
-        uint32_t* px = (uint32_t*)bits;
-        for (int y = 0; y < h; ++y) {
-            uint32_t* row = px + (size_t)y * w;
-            for (int x = 0; x < w; ++x) row[x] = ShadeAt(r.left + x, r.top + y, W, H, tiled, sh, l);
-        }
-        HGDIOBJ old = SelectObject(mem, bmp);
-        POINT src = {0, 0};
-        SIZE size = {w, h};
-        BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
-        UpdateLayeredWindow(strip, screen, &pos, &size, mem, &src, 0, &blend, ULW_ALPHA);
-        SelectObject(mem, old);
+void ReleaseGpu() {
+    for (TileSet& t : g_gpu.sets) ReleaseTileSet(t);
+    SafeRelease(g_gpu.comp);
+    SafeRelease(g_gpu.ctx);
+    SafeRelease(g_gpu.device);
+    ++g_gpu.generation;
+}
+
+bool EnsureGpu() {
+    if (g_gpu.device) {
+        if (g_gpu.device->GetDeviceRemovedReason() == S_OK) return true;
+        DbgLog(L"corners: GPU device lost, recreating");
+        ReleaseGpu();
     }
-    if (bmp) DeleteObject(bmp);
-    DeleteDC(mem);
-    ReleaseDC(nullptr, screen);
+    if (g_gpu.missing || GetTickCount64() < g_gpu.retryAt) return false;
+    if (!g_gpu.d3d11) g_gpu.d3d11 = LoadLibraryExW(L"d3d11.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!g_gpu.dcomp) g_gpu.dcomp = LoadLibraryExW(L"dcomp.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    typedef HRESULT(WINAPI * CreateComp_t)(IDXGIDevice*, REFIID, void**);
+    auto createDevice =
+        g_gpu.d3d11 ? (PFN_D3D11_CREATE_DEVICE)(void*)GetProcAddress(g_gpu.d3d11, "D3D11CreateDevice") : nullptr;
+    auto createComp = g_gpu.dcomp ? (CreateComp_t)(void*)GetProcAddress(g_gpu.dcomp, "DCompositionCreateDevice") : nullptr;
+    if (!createDevice || !createComp) {
+        g_gpu.missing = true;
+        DbgLog(L"corners: d3d11 / dcomp unavailable, no shade");
+        return false;
+    }
+    // The GPU (integrated ones included), else WARP. Shaders are never used - the
+    // surfaces are only written - so the oldest feature levels do.
+    const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1, D3D_FEATURE_LEVEL_10_0,
+                                        D3D_FEATURE_LEVEL_9_3,  D3D_FEATURE_LEVEL_9_2,  D3D_FEATURE_LEVEL_9_1};
+    HRESULT hr = E_FAIL;
+    const D3D_DRIVER_TYPE types[] = {D3D_DRIVER_TYPE_HARDWARE, D3D_DRIVER_TYPE_WARP};
+    for (D3D_DRIVER_TYPE type : types) {
+        hr = createDevice(nullptr, type, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels, ARRAYSIZE(levels),
+                          D3D11_SDK_VERSION, &g_gpu.device, nullptr, &g_gpu.ctx);
+        if (SUCCEEDED(hr)) {
+            DbgLog(L"corners: shade device %ls", type == D3D_DRIVER_TYPE_WARP ? L"WARP" : L"GPU");
+            break;
+        }
+    }
+    IDXGIDevice* dxgi = nullptr;
+    if (SUCCEEDED(hr)) hr = g_gpu.device->QueryInterface(__uuidof(IDXGIDevice), (void**)&dxgi);
+    if (SUCCEEDED(hr)) hr = createComp(dxgi, __uuidof(IDCompositionDevice), (void**)&g_gpu.comp);
+    SafeRelease(dxgi);
+    if (FAILED(hr)) {
+        DbgLog(L"corners: shade device failed: 0x%08lX", (unsigned long)hr);
+        ReleaseGpu();
+        g_gpu.retryAt = GetTickCount64() + 5000;
+        return false;
+    }
+    ++g_gpu.generation;
+    return true;
+}
+
+// A premultiplied BGRA w x h image as a new surface (DirectComposition atlases small
+// surfaces itself; BeginDraw says where this one sits in its texture).
+IDCompositionSurface* MakeSurface(const uint32_t* px, int w, int h) {
+    IDCompositionSurface* surface = nullptr;
+    if (FAILED(g_gpu.comp->CreateSurface((UINT)w, (UINT)h, DXGI_FORMAT_B8G8R8A8_UNORM, DXGI_ALPHA_MODE_PREMULTIPLIED,
+                                         &surface))) {
+        return nullptr;
+    }
+    RECT r = {0, 0, w, h};
+    POINT at = {0, 0};
+    ID3D11Texture2D* tex = nullptr;
+    if (FAILED(surface->BeginDraw(&r, __uuidof(ID3D11Texture2D), (void**)&tex, &at))) {
+        SafeRelease(surface);
+        return nullptr;
+    }
+    D3D11_BOX box = {(UINT)at.x, (UINT)at.y, 0, (UINT)(at.x + w), (UINT)(at.y + h), 1};
+    g_gpu.ctx->UpdateSubresource(tex, 0, &box, px, (UINT)w * 4, 0);
+    tex->Release();
+    if (FAILED(surface->EndDraw())) SafeRelease(surface);
+    return surface;
+}
+
+// The tile surfaces for a look, made (from the CPU tiles) when no set has it yet; the
+// least recently used set makes room.
+TileSet* Tiles(int radius, int smoothing, UINT dpi) {
+    TileSet* slot = &g_gpu.sets[0];
+    for (TileSet& t : g_gpu.sets) {
+        if (t.radius == radius && t.smoothing == smoothing && t.dpi == dpi && t.surface[0]) {
+            t.used = GetTickCount64();
+            return &t;
+        }
+        if (t.used < slot->used) slot = &t;
+    }
+    ReleaseTileSet(*slot);
+    AcquireSRWLockExclusive(&g_tilesLock);
+    MakeTiles(radius, smoothing, dpi);
+    const ShadeTiles& cpu = g_tiles;
+    const int c = cpu.c;
+    slot->surface[0] = MakeSurface(cpu.topLeft.data(), c, c);
+    slot->surface[1] = MakeSurface(cpu.bottomLeft.data(), c, c);
+    slot->surface[2] = MakeSurface(cpu.top.data(), 1, c);
+    slot->surface[3] = MakeSurface(cpu.bottom.data(), 1, c);
+    slot->surface[4] = MakeSurface(cpu.left.data(), c, 1);
+    ReleaseSRWLockExclusive(&g_tilesLock);
+    for (IDCompositionSurface* surface : slot->surface) {
+        if (!surface) {
+            ReleaseTileSet(*slot);
+            return nullptr;
+        }
+    }
+    slot->radius = radius;
+    slot->smoothing = smoothing;
+    slot->dpi = dpi;
+    slot->c = c;
+    slot->used = GetTickCount64();
+    return slot;
+}
+
+void ReleaseVisuals(ShadeVisuals* v) {
+    for (IDCompositionVisual*& part : v->part) SafeRelease(part);
+    SafeRelease(v->whole);
+    SafeRelease(v->root);
+    SafeRelease(v->target);
+    v->W = v->H = 0;
+}
+
+bool BuildVisuals(ShadeVisuals* v, HWND shade) {
+    if (FAILED(g_gpu.comp->CreateTargetForHwnd(shade, TRUE, &v->target)) ||
+        FAILED(g_gpu.comp->CreateVisual(&v->root)) || FAILED(v->target->SetRoot(v->root))) {
+        return false;
+    }
+    for (IDCompositionVisual*& part : v->part) {
+        if (FAILED(g_gpu.comp->CreateVisual(&part))) return false;
+        // Edges are 1 px tiles stretched: exact copies, nothing blended in at their ends.
+        part->SetBitmapInterpolationMode(DCOMPOSITION_BITMAP_INTERPOLATION_MODE_NEAREST_NEIGHBOR);
+        part->SetBorderMode(DCOMPOSITION_BORDER_MODE_HARD);
+        v->root->AddVisual(part, TRUE, nullptr);
+    }
+    v->generation = g_gpu.generation;
+    return true;
+}
+
+// Scale (sx, sy) then offset (dx, dy).
+D2D_MATRIX_3X2_F Matrix(float sx, float sy, float dx, float dy) {
+    D2D_MATRIX_3X2_F m = {};
+    m._11 = sx;
+    m._22 = sy;
+    m._31 = dx;
+    m._32 = dy;
+    return m;
+}
+
+// Lays the shade out for a W x H shade window (the window plus the margin on each side).
+// g_gpuLock held. False when there is no device: the shade then stays hidden.
+bool LayoutShade(ShadeVisuals* v, HWND shade, int W, int H, int radius, int smoothing, UINT dpi,
+                 const ShadeLook& l, bool force) {
+    if (!EnsureGpu()) return false;
+    if (v->generation != g_gpu.generation) {   // new shade, or the device was replaced
+        ReleaseVisuals(v);
+        if (!BuildVisuals(v, shade)) {
+            ReleaseVisuals(v);
+            return false;
+        }
+        force = true;
+    }
+    if (!force && v->W == W && v->H == H && v->radius == radius && v->smoothing == smoothing && v->dpi == dpi) {
+        return true;
+    }
+    TileSet* t = Tiles(radius, smoothing, dpi);
+    if (!t) {
+        ReleaseGpu();   // most likely a lost device: rebuilt next time
+        return false;
+    }
+    const int c = t->c;
+    if (W >= 2 * c && H >= 2 * c) {
+        const float w = (float)W, h = (float)H, cf = (float)c;
+        const D2D_MATRIX_3X2_F m[8] = {
+            Matrix(1, 1, 0, 0),                     // top left
+            Matrix(-1, 1, w, 0),                    // top right (mirrored)
+            Matrix(1, 1, 0, h - cf),                // bottom left
+            Matrix(-1, 1, w, h - cf),               // bottom right
+            Matrix(w - 2 * cf, 1, cf, 0),           // top edge, stretched
+            Matrix(w - 2 * cf, 1, cf, h - cf),      // bottom edge
+            Matrix(1, h - 2 * cf, 0, cf),           // left edge
+            Matrix(-1, h - 2 * cf, w, cf),          // right edge (mirrored)
+        };
+        IDCompositionSurface* const content[8] = {t->surface[0], t->surface[0], t->surface[1], t->surface[1],
+                                                  t->surface[2], t->surface[3], t->surface[4], t->surface[4]};
+        for (int i = 0; i < 8; ++i) {
+            v->part[i]->SetContent(content[i]);
+            v->part[i]->SetTransform(m[i]);
+        }
+        SafeRelease(v->whole);
+    } else {
+        // Corners meet: the whole (small) shade computed on the CPU, in one piece.
+        std::vector<uint32_t> px((size_t)W * H);
+        const ShadeShape sh = MakeShadeShape((W - 2 * l.margin) * 0.5f, (H - 2 * l.margin) * 0.5f, radius, smoothing);
+        for (int y = 0; y < H; ++y) {
+            const float cy = (float)y + 0.5f - (float)l.margin - sh.hh;
+            for (int x = 0; x < W; ++x) {
+                px[(size_t)y * W + x] = ShadePixel((float)x + 0.5f - (float)l.margin - sh.hw, cy, sh, l);
+            }
+        }
+        SafeRelease(v->whole);
+        v->whole = MakeSurface(px.data(), W, H);
+        if (!v->whole) {
+            ReleaseGpu();
+            return false;
+        }
+        v->part[0]->SetContent(v->whole);
+        v->part[0]->SetTransform(Matrix(1, 1, 0, 0));
+        for (int i = 1; i < 8; ++i) v->part[i]->SetContent(nullptr);
+    }
+    if (FAILED(g_gpu.comp->Commit())) {
+        ReleaseGpu();
+        return false;
+    }
+    v->W = W;
+    v->H = H;
+    v->radius = radius;
+    v->smoothing = smoothing;
+    v->dpi = dpi;
+    return true;
 }
 
 void CloakLike(HWND helper, HWND owner) {
@@ -492,9 +696,13 @@ HWND CreateShade(HWND owner) {
     wc.hInstance = exe;
     wc.lpszClassName = kShadeClass;
     RegisterClassExW(&wc);   // fails harmlessly once it exists
-    HWND shade = CreateWindowExW(WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW, kShadeClass,
-                                 L"", WS_POPUP | WS_DISABLED, 0, 0, 1, 1, owner, nullptr, exe, nullptr);
+    // Click-through (layered + transparent) and without a redirection bitmap: its pixels
+    // come from DirectComposition, so its size costs no memory.
+    HWND shade = CreateWindowExW(WS_EX_NOREDIRECTIONBITMAP | WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOACTIVATE |
+                                     WS_EX_TOOLWINDOW,
+                                 kShadeClass, L"", WS_POPUP | WS_DISABLED, 0, 0, 1, 1, owner, nullptr, exe, nullptr);
     if (!shade) return nullptr;
+    SetLayeredWindowAttributes(shade, 0, 255, LWA_ALPHA);
     BOOL on = TRUE;
     DwmSetWindowAttribute(shade, DWMWA_TRANSITIONS_FORCEDISABLED, &on, sizeof(on));
     DwmSetWindowAttribute(shade, DWMWA_EXCLUDED_FROM_PEEK, &on, sizeof(on));
@@ -509,6 +717,14 @@ void DestroyShade(HWND shade) {
     } else {
         PostMessageW(shade, WM_CLOSE, 0, 0);   // DefWindowProc destroys it in its thread
     }
+}
+
+void FreeVisuals(ShadeVisuals* v) {
+    if (!v) return;
+    AcquireSRWLockExclusive(&g_gpuLock);
+    ReleaseVisuals(v);
+    ReleaseSRWLockExclusive(&g_gpuLock);
+    delete v;
 }
 
 // ---------------------------------------------------------------------------
@@ -604,19 +820,21 @@ void ShapeGrip(HWND grip, int fw, int fh, int band, int radius, int smoothing) {
     if (ring && !SetWindowRgn(grip, ring, FALSE)) DeleteObject(ring);
 }
 
-// Puts the shade and the grip around the window and shows them: strips whose length
-// changed are drawn anew (all of them with `render`: a new radius or scale), the rest
-// only move - every move in one DeferWindowPos, so they travel together. Coordinates in
-// the window's own DPI mode.
+// Puts the shade and the grip around the window and shows them. The shade is redrawn
+// only for a new look (`render`: radius, scale) - a new size just re-lays its visuals.
+// The windows move in one DeferWindowPos, so they travel together. Coordinates in the
+// window's own DPI mode.
 void PlaceShade(HWND h, bool render) {
     Cut c;
     if (!FindCut(h, &c) || !c.region) return;
     bool created = false;
-    for (HWND& strip : c.shade) {
-        if (!strip) {
-            strip = CreateShade(h);
-            created = true;
-        }
+    if (!c.shade) {
+        c.shade = CreateShade(h);
+        created = true;
+    }
+    if (!c.vis) {
+        c.vis = new ShadeVisuals();
+        created = true;
     }
     if (!c.grip) {
         c.grip = CreateGrip(h);
@@ -626,7 +844,8 @@ void PlaceShade(HWND h, bool render) {
         AcquireSRWLockExclusive(&g_lock);
         auto it = g_cuts.find(h);
         if (it != g_cuts.end()) {
-            memcpy(it->second.shade, c.shade, sizeof(c.shade));
+            it->second.shade = c.shade;
+            it->second.vis = c.vis;
             it->second.grip = c.grip;
         }
         ReleaseSRWLockExclusive(&g_lock);
@@ -639,42 +858,20 @@ void PlaceShade(HWND h, bool render) {
         const int fw = c.frame.right - c.frame.left, fh = c.frame.bottom - c.frame.top;
         const int left = wr.left + c.frame.left, top = wr.top + c.frame.top;
         const ShadeLook l = Look((float)dpi / 96.0f);
-        const ShadeShape sh = MakeShadeShape(fw * 0.5f, fh * 0.5f, c.radius, c.smoothing);
-        const ShadeLayout s = LayoutShade(fw, fh, l, sh.extent);
-        const POINT origin = {left - l.margin, top - l.margin};
-        const bool all = render || s.single || s.single != c.shadeSingle;
-        HDWP defer = BeginDeferWindowPos(5);
+        const int W = fw + 2 * l.margin, H = fh + 2 * l.margin;
+        bool drawn = false;
+        if (c.shade) {
+            AcquireSRWLockExclusive(&g_gpuLock);
+            drawn = LayoutShade(c.vis, c.shade, W, H, c.radius, c.smoothing, dpi, l, render);
+            ReleaseSRWLockExclusive(&g_gpuLock);
+        }
+        HDWP defer = BeginDeferWindowPos(2);
         auto move = [&](HWND w, int x, int y, int cx, int cy, UINT flags) {
             flags |= SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOOWNERZORDER;
             if (defer) defer = DeferWindowPos(defer, w, nullptr, x, y, cx, cy, flags);
             if (!defer) SetWindowPos(w, nullptr, x, y, cx, cy, flags);
         };
-
-        AcquireSRWLockExclusive(&g_tilesLock);
-        MakeTiles(c.radius, c.smoothing, dpi);
-        const bool tiled = g_tiles.c > 0 && s.W >= 2 * g_tiles.c && s.H >= 2 * g_tiles.c;
-        for (int i = 0; i < 4; ++i) {
-            HWND strip = c.shade[i];
-            if (!strip) continue;
-            const RECT& r = s.strip[i];
-            if (r.right <= r.left || r.bottom <= r.top) {
-                if (IsWindowVisible(strip)) ShowWindow(strip, SW_HIDE);
-                continue;
-            }
-            const POINT pos = {origin.x + r.left, origin.y + r.top};
-            const bool redraw = all || (i < 2 ? s.W != c.shadeW : s.H != c.shadeH);
-            if (redraw) {
-                RenderStrip(strip, r, pos, s.W, s.H, tiled, sh, l);
-            } else {
-                move(strip, pos.x, pos.y, 0, 0, SWP_NOSIZE);
-            }
-            if (!IsWindowVisible(strip)) ShowWindow(strip, SW_SHOWNOACTIVATE);
-        }
-        ReleaseSRWLockExclusive(&g_tilesLock);
-        c.shadeW = s.W;
-        c.shadeH = s.H;
-        c.shadeSingle = s.single;
-
+        if (c.shade) move(c.shade, left - l.margin, top - l.margin, W, H, drawn ? SWP_SHOWWINDOW : SWP_HIDEWINDOW);
         if (c.grip) {
             const int band = GetSystemMetricsForDpi(SM_CXSIZEFRAME, dpi) + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
             SetWindowLongPtrW(c.grip, GWLP_USERDATA, band);
@@ -690,9 +887,6 @@ void PlaceShade(HWND h, bool render) {
         AcquireSRWLockExclusive(&g_lock);
         auto it = g_cuts.find(h);
         if (it != g_cuts.end()) {
-            it->second.shadeW = c.shadeW;
-            it->second.shadeH = c.shadeH;
-            it->second.shadeSingle = c.shadeSingle;
             it->second.gripW = c.gripW;
             it->second.gripH = c.gripH;
         }
@@ -704,9 +898,7 @@ void PlaceShade(HWND h, bool render) {
 void HideShade(HWND h) {
     Cut c;
     if (!FindCut(h, &c)) return;
-    for (HWND strip : c.shade) {
-        if (strip && IsWindowVisible(strip)) ShowWindow(strip, SW_HIDE);
-    }
+    if (c.shade && IsWindowVisible(c.shade)) ShowWindow(c.shade, SW_HIDE);
     if (c.grip && IsWindowVisible(c.grip)) ShowWindow(c.grip, SW_HIDE);
 }
 
@@ -722,7 +914,8 @@ void Uncut(HWND h) {
     ReleaseSRWLockExclusive(&g_lock);
     if (!found) return;
     ++t_cutting;
-    for (HWND strip : c.shade) DestroyShade(strip);
+    DestroyShade(c.shade);
+    FreeVisuals(c.vis);
     DestroyGrip(c.grip);
     if (c.overridden) GiveBackOverrides(h, c.saved);
     if (c.region) SetWindowRgn(h, nullptr, TRUE);
@@ -761,7 +954,8 @@ void Update(HWND h) {
 
     Cut next;
     if (had) {
-        memcpy(next.shade, prev.shade, sizeof(next.shade));
+        next.shade = prev.shade;
+        next.vis = prev.vis;
         next.grip = prev.grip;
         next.arranged = prev.arranged;
         next.arrangedSet = prev.arrangedSet;
@@ -805,12 +999,14 @@ void Update(HWND h) {
         SetWindowRgn(h, nullptr, TRUE);
     }
     if (!next.region && had && prev.region) {   // square now: DWM's frame is back
-        for (HWND strip : next.shade) DestroyShade(strip);
+        DestroyShade(next.shade);
+        FreeVisuals(next.vis);
         DestroyGrip(next.grip);
         AcquireSRWLockExclusive(&g_lock);
         auto it = g_cuts.find(h);
         if (it != g_cuts.end()) {
-            for (HWND& strip : it->second.shade) strip = nullptr;
+            it->second.shade = nullptr;
+            it->second.vis = nullptr;
             it->second.grip = nullptr;
         }
         ReleaseSRWLockExclusive(&g_lock);
@@ -880,10 +1076,16 @@ BOOL CALLBACK PostRefresh(HWND h, LPARAM) {
 LRESULT CornersDefWindowProc(DefWindowProcFn original, HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     HookScope scope;
     if (msg == WM_NCDESTROY) {
+        ShadeVisuals* vis = nullptr;
         AcquireSRWLockExclusive(&g_lock);
-        g_cuts.erase(h);
+        auto it = g_cuts.find(h);
+        if (it != g_cuts.end()) {
+            vis = it->second.vis;
+            g_cuts.erase(it);
+        }
         g_programBorder.erase(h);
         ReleaseSRWLockExclusive(&g_lock);
+        FreeVisuals(vis);   // the shade window itself goes with its owner
         return original(h, msg, wp, lp);
     }
     if (msg == WM_EXITSIZEMOVE) {
@@ -946,15 +1148,21 @@ bool CornersOnShutdown() {
             // A hung window keeps its region, but its shade goes once the thread wakes up.
             Cut c;
             if (FindCut(h, &c)) {
-                for (HWND strip : c.shade) DestroyShade(strip);
+                DestroyShade(c.shade);
                 DestroyGrip(c.grip);
             }
         }
     }
+    std::vector<ShadeVisuals*> left;
     AcquireSRWLockExclusive(&g_lock);
+    for (const auto& kv : g_cuts) left.push_back(kv.second.vis);
     g_cuts.clear();
     g_programBorder.clear();
     ReleaseSRWLockExclusive(&g_lock);
+    for (ShadeVisuals* v : left) FreeVisuals(v);
+    AcquireSRWLockExclusive(&g_gpuLock);
+    ReleaseGpu();   // d3d11 / dcomp stay loaded: the program may use them itself
+    ReleaseSRWLockExclusive(&g_gpuLock);
     // The grip class points at this DLL's code: it must go (and can only go once no grip
     // is left), or a later load at another address would reuse a stale window procedure.
     if (!UnregisterClassW(kGripClass, g_hModule) && GetLastError() != ERROR_CLASS_DOES_NOT_EXIST) g_gripLeft = true;
@@ -1022,8 +1230,6 @@ void CornersOnCloak(HWND h, bool cloaked) {
     if (!FindCut(h, &c)) return;
     BOOL cloak = cloaked;
     auto set = DwmSetWindowAttribute_Original ? DwmSetWindowAttribute_Original : DwmSetWindowAttribute;
-    for (HWND strip : c.shade) {
-        if (strip) set(strip, DWMWA_CLOAK, &cloak, sizeof(cloak));
-    }
+    if (c.shade) set(c.shade, DWMWA_CLOAK, &cloak, sizeof(cloak));
     if (c.grip) set(c.grip, DWMWA_CLOAK, &cloak, sizeof(cloak));
 }

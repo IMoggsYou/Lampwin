@@ -3,7 +3,7 @@
 // bar, the client area is the whole visible window - that also asks DWM for rounded
 // corners and Mica, as Electron apps do. Steps: first cut, resize, move, maximize,
 // restore, Snap (Win + Left), close. Each step checks the window region, the shade (shadow
-// strips) and the grip (resize border) around the window, and the DWM attributes MacWin
+// window) and the grip (resize border) around the window, and the DWM attributes MacWin
 // overrides while a window is cut.
 //
 // Needs MacWin running with "Okna innych programów" on and this program not excluded.
@@ -200,8 +200,8 @@ void CheckCut(Report& r, HWND h) {
     const bool covers = hs.visibleShades > 0 && IntersectRect(&inter, &hs.shadeUnion, &around) &&
                         EqualRect(&inter, &around);
     wchar_t detail[160];
-    swprintf(detail, 160, L"%d strip(s), %ls", hs.visibleShades, Str(hs.shadeUnion).c_str());
-    r.Check(covers, L"shadow strips surround the window", detail);
+    swprintf(detail, 160, L"%d shade window(s), %ls", hs.visibleShades, Str(hs.shadeUnion).c_str());
+    r.Check(covers, L"the shade surrounds the window", detail);
 }
 
 // DWM's border color cannot be read back (DwmGetWindowAttribute refuses
@@ -310,7 +310,7 @@ int RunCornerTest(HINSTANCE hInst, bool quiet) {
         RECT dummy;
         r.Check(!RegionScreen(h, &dummy), L"no region (square corners)");
         const Helpers hs = FindHelpers(h);
-        r.Check(hs.visibleShades == 0 && !hs.grip, L"no shadow strips or grip");
+        r.Check(hs.visibleShades == 0 && !hs.grip, L"no shade or grip");
         CheckOverrides(r, h, false);
 
         r.Line(L"5. Przywrócenie");
@@ -357,7 +357,7 @@ int RunCornerTest(HINSTANCE hInst, bool quiet) {
         for (HWND w : helpers) left += IsWindow(w) ? 1 : 0;
         wchar_t detail[64];
         swprintf(detail, 64, L"%d of %d left", left, (int)helpers.size());
-        r.Check(left == 0, L"shadow strips and grip gone", detail);
+        r.Check(left == 0, L"shade and grip gone", detail);
         code = r.failed;
     }
     if (IsWindow(h)) DestroyWindow(h);
