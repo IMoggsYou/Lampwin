@@ -31,15 +31,16 @@ public sealed class WindowShadow : Window
         BlurRadius = 7, ShadowDepth = 1.5, Direction = 270, Color = Colors.Black, RenderingBias = RenderingBias.Quality,
     };
     private readonly DispatcherTimer _waitShown = new() { Interval = TimeSpan.FromMilliseconds(15) };
-    private readonly double _radius;
+    private double _radius, _smoothing;
     private IntPtr _hwnd, _targetHwnd;
     private DateTime _waitUntil;
     private Size _shapeSize;
 
-    public WindowShadow(Window target, double cornerRadius)
+    public WindowShadow(Window target, double cornerRadius, double smoothing)
     {
         _target = target;
         _radius = cornerRadius;
+        _smoothing = smoothing;
         WindowStyle = WindowStyle.None;
         AllowsTransparency = true;
         Background = Brushes.Transparent;
@@ -74,6 +75,15 @@ public sealed class WindowShadow : Window
         Sync();
     }
 
+    /// <summary>New corners (radius in DIPs, smoothing 0..1): the shadow takes their shape.</summary>
+    public void SetCorners(double radius, double smoothing)
+    {
+        _radius = radius;
+        _smoothing = smoothing;
+        _shapeSize = default;
+        Sync();
+    }
+
     /// <summary>Follows the window's position, size and z-order (call on every change).</summary>
     public void Sync()
     {
@@ -83,7 +93,7 @@ public sealed class WindowShadow : Window
         if (size != _shapeSize && size.Width > 0)
         {
             _shapeSize = size;
-            var shape = Squircle.Create(size.Width, size.Height, _radius, 1);
+            var shape = Squircle.Create(size.Width, size.Height, _radius, _smoothing);
             _broad.Data = shape;
             _tight.Data = shape;
         }

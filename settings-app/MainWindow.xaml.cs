@@ -26,8 +26,6 @@ public sealed class NavItem
 public partial class MainWindow : Window
 {
     public const string WindowTitle = "MacWin – ustawienia";
-    // macOS window corners: squircle, 15 px at 100 % scaling, smoothing 100 %.
-    private const double CornerRadius = 15;
 
     private readonly SettingsStore _store = new();
     private readonly List<NavItem> _items;
@@ -50,8 +48,13 @@ public partial class MainWindow : Window
         {
             new()
             {
-                Title = "Animacje okien", Keywords = "dżin genie minimalizacja przywracanie styl czas siatka pasek",
+                Title = "Animacje okien", Keywords = "dżin genie minimalizacja przywracanie styl czas siatka pasek otwieranie zamykanie",
                 Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Icon = GenieIcon(), Create = () => new AnimationsPage(),
+            },
+            new()
+            {
+                Title = "Rogi okien", Keywords = "rogi promień zaokrąglenie squircle macos windows 11 cień ramka kształt",
+                Tint = Gradient("#FF34C759", "#FF1F9E46"), Icon = CornersIcon(), Create = () => new CornersPage(),
             },
             new()
             {
@@ -74,7 +77,14 @@ public partial class MainWindow : Window
         int start = _items.FindIndex(i => string.Equals(i.Title, startPage, StringComparison.OrdinalIgnoreCase));
         Nav.SelectedIndex = start >= 0 ? start : 0;
 
-        _shadow = new WindowShadow(this, CornerRadius);
+        // This window has the corners it sets (it draws them itself, see UpdateShape).
+        _shadow = new WindowShadow(this, CornerRadius, CornerSmoothing);
+        _store.Model.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName is not (nameof(SettingsModel.CornerRadius) or nameof(SettingsModel.CornerSmoothing))) return;
+            UpdateShape();
+            _shadow.SetCorners(CornerRadius, CornerSmoothing);
+        };
         SourceInitialized += (_, _) =>
         {
             Native.ApplyWindowAttributes(this, Theme.IsDark);
@@ -111,15 +121,18 @@ public partial class MainWindow : Window
         return IntPtr.Zero;
     }
 
+    private double CornerRadius => _store.Model.CornerRadius;
+    private double CornerSmoothing => _store.Model.CornerSmoothing / 100;
+
     private void Root_SizeChanged(object sender, SizeChangedEventArgs e) => UpdateShape();
 
-    // The squircle: clips the whole window (sidebar, content, outline) to its shape. A
-    // maximized window fills the work area and is square, like on macOS.
+    // The corners from the settings: clip the whole window (sidebar, content, outline) to
+    // its shape. A maximized window fills the work area and is square, like on macOS.
     private void UpdateShape()
     {
         Geometry? shape = WindowState == WindowState.Maximized || Root.ActualWidth <= 0
             ? null
-            : Squircle.Create(Root.ActualWidth, Root.ActualHeight, CornerRadius, 1);
+            : Squircle.Create(Root.ActualWidth, Root.ActualHeight, CornerRadius, CornerSmoothing);
         Root.Clip = shape;
         Outline.Data = shape;
     }
@@ -240,6 +253,10 @@ public partial class MainWindow : Window
     private static Geometry GenieIcon() => Geometry.Parse(
         "M3,2 H13 A1.5,1.5 0 0 1 14.5,3.5 V7 H1.5 V3.5 A1.5,1.5 0 0 1 3,2 Z " +
         "M1.5,8.2 H14.5 C13,10.3 13.2,12.4 15,14.6 H12.6 C10,12.6 6.2,10 1.5,8.2 Z");
+
+    // A window outline with one strongly rounded corner (top left).
+    private static Geometry CornersIcon() => Geometry.Parse(
+        "M8,2 H14 V14 H2 V8 A6,6 0 0 1 8,2 Z M8,3.6 A4.4,4.4 0 0 0 3.6,8 V12.4 H12.4 V3.6 Z");
 
     private static Geometry SlidersIcon()
     {

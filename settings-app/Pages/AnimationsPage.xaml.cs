@@ -12,12 +12,19 @@ public partial class AnimationsPage : UserControl
 
     private void TryReal_Click(object sender, RoutedEventArgs e)
     {
-        if (!HostControl.IsRunning)
-        {
-            MessageBox.Show(Window.GetWindow(this), "MacWin nie działa. Uruchom go na karcie „Ogólne”.", "MacWin",
-                            MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        HostControl.TryOnRealWindow();
+        if (EnsureRunning()) HostControl.TryOnRealWindow();
+    }
+
+    private void TryOpenClose_Click(object sender, RoutedEventArgs e)
+    {
+        if (EnsureRunning()) HostControl.TryOpenClose();
+    }
+
+    private bool EnsureRunning()
+    {
+        if (HostControl.IsRunning) return true;
+        MessageBox.Show(Window.GetWindow(this), "MacWin nie działa. Uruchom go na karcie „Ogólne”.", "MacWin",
+                        MessageBoxButton.OK, MessageBoxImage.Information);
+        return false;
     }
 }

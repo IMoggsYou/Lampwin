@@ -89,13 +89,17 @@ public sealed class SettingsStore
             m.Style = Str(genie, "style", "modern") == "classic" ? 1 : 0;
             m.DurationMs = Num(genie, "durationMs", 450);
             m.Restore = Bool(genie, "restoreAnimation", true);
-            m.Launch = Bool(genie, "launchAnimation", false);
+            m.OpenEffect = Effect(genie, "openAnimation", 1);
+            m.CloseEffect = Effect(genie, "closeAnimation", 1);
+            m.OpenDurationMs = Num(genie, "openDurationMs", 450);
+            m.CloseDurationMs = Num(genie, "closeDurationMs", 400);
             m.MultiMonitor = Bool(genie, "multiMonitor", false);
             m.UnhideTaskbar = Bool(genie, "unhideTaskbar", true);
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
             m.CornerRadius = Num(genie, "cornerRadius", 15);
             m.CornerSmoothing = Num(genie, "cornerSmoothing", 100);
+            m.WindowCorners = Bool(genie, "windowCorners", true);
             SettingsModel.Replace(m.Excluded, Strings(genie, "excludedPrograms", []));
         }
         finally
@@ -124,13 +128,18 @@ public sealed class SettingsStore
         genie["style"] = m.Style == 1 ? "classic" : "modern";
         genie["durationMs"] = (int)m.DurationMs;
         genie["restoreAnimation"] = m.Restore;
-        genie["launchAnimation"] = m.Launch;
+        genie.Remove("launchAnimation");
+        genie["openAnimation"] = SettingsModel.EffectNames[m.OpenEffect];
+        genie["closeAnimation"] = SettingsModel.EffectNames[m.CloseEffect];
+        genie["openDurationMs"] = (int)m.OpenDurationMs;
+        genie["closeDurationMs"] = (int)m.CloseDurationMs;
         genie["multiMonitor"] = m.MultiMonitor;
         genie["unhideTaskbar"] = m.UnhideTaskbar;
         genie["unhideDurationMs"] = (int)m.UnhideDurationMs;
         genie["meshQuality"] = (int)m.MeshQuality;
         genie["cornerRadius"] = (int)m.CornerRadius;
         genie["cornerSmoothing"] = (int)m.CornerSmoothing;
+        genie["windowCorners"] = m.WindowCorners;
         genie["excludedPrograms"] = Array(m.Excluded);
         _root["genie"] = genie;
 
@@ -165,6 +174,12 @@ public sealed class SettingsStore
 
     private static double Num(JsonObject o, string key, double fallback) =>
         o[key] is JsonValue v && v.TryGetValue(out double d) ? d : fallback;
+
+    private static int Effect(JsonObject o, string key, int fallback)
+    {
+        int i = System.Array.IndexOf(SettingsModel.EffectNames, Str(o, key, ""));
+        return i >= 0 ? i : fallback;
+    }
 
     private static string Str(JsonObject o, string key, string fallback) =>
         o[key] is JsonValue v && v.TryGetValue(out string? s) && s is not null ? s : fallback;

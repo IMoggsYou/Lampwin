@@ -43,6 +43,7 @@ private:
     void UpdateTrayIcon();
     void ShowMenu();
     void ApplySettings(bool save);
+    void RefreshWindowCorners();
     void ReloadSettings();
     void OpenSettingsApp();
     void OpenAsUser(const std::wstring& path);
@@ -53,6 +54,7 @@ private:
     UINT taskbarCreatedMsg_ = 0;
     UINT reloadMsg_ = 0;
     UINT quitMsg_ = 0;
+    UINT cornersMsg_ = 0;
     bool elevated_ = false;
     HICON iconOn_ = nullptr, iconOff_ = nullptr;
     bool trayAdded_ = false;
@@ -125,6 +127,7 @@ bool App::Init(HINSTANCE hInst) {
     taskbarCreatedMsg_ = RegisterWindowMessageW(L"TaskbarCreated");
     reloadMsg_ = RegisterWindowMessageW(MACWIN_RELOAD_MESSAGE);
     quitMsg_ = RegisterWindowMessageW(MACWIN_QUIT_MESSAGE);
+    cornersMsg_ = RegisterWindowMessageW(MACWIN_CORNERS_MESSAGE);
     // Lower-integrity senders (every DLL, the settings app, Explorer's tray callbacks)
     // are blocked by UIPI while we are elevated, unless let through explicitly.
     ChangeWindowMessageFilterEx(hwnd_, WM_COPYDATA, MSGFLT_ALLOW, nullptr);
@@ -226,6 +229,19 @@ void App::ApplySettings(bool save) {
     if (save) settings_.Save();
     settings_.Publish();
     UpdateTrayIcon();
+    RefreshWindowCorners();
+}
+
+// The DLLs cut a window's corners when it moves or resizes; after a settings change every
+// window is asked to do it now (or to drop the corners). Windows without the DLL ignore it.
+void App::RefreshWindowCorners() {
+    if (!cornersMsg_) return;
+    EnumWindows(
+        [](HWND h, LPARAM lp) -> BOOL {
+            if (IsWindowVisible(h)) PostMessageW(h, (UINT)lp, 0, 0);
+            return TRUE;
+        },
+        (LPARAM)cornersMsg_);
 }
 
 // Opens a program or file as the signed-in user. While we are elevated, a plain

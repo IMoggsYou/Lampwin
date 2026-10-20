@@ -6,12 +6,13 @@
 // in the sending process; the host duplicates what it needs before replying.
 
 #define MW_IPC_ANIM    0x4D570001u
-#define MW_IPC_VERSION 1u
+#define MW_IPC_VERSION 2u
 
 enum : uint32_t {
     MW_ANIM_MINIMIZE = 0,   // falling: window -> taskbar button
     MW_ANIM_RESTORE  = 1,   // rising: taskbar button -> window
-    MW_ANIM_LAUNCH   = 2,   // rising, first show of a new window (experimental)
+    MW_ANIM_LAUNCH   = 2,   // rising, first show of a window (SharedSettings::openEffect)
+    MW_ANIM_CLOSE    = 3,   // falling, the window is hidden / destroyed (closeEffect)
 };
 
 enum : uint32_t {
@@ -30,6 +31,7 @@ enum : uint32_t {
     MW_SRC_CLOSEWINDOW,
     MW_SRC_CBT,                     // HCBT_MINMAX in the window's own thread
     MW_SRC_LAUNCH,
+    MW_SRC_CLOSE,                   // DestroyWindow / SW_HIDE / SWP_HIDEWINDOW
 };
 
 enum : uint32_t {
@@ -53,7 +55,7 @@ struct AnimRequest {
     int32_t rawH;
     // Part of the snapshot covered by the DWM extended frame, as fractions of raw size.
     float cropU0, cropV0, cropU1, cropV1;
-    uint64_t hFirstFrame;   // minimize: set once the first genie frame is on screen
+    uint64_t hFirstFrame;   // minimize / close: set once the first frame is on screen
     uint64_t hDone;         // set after the last frame; the DLL then tears down
     uint64_t hRevealed;     // rising: set by the DLL once the real window is visible
 };

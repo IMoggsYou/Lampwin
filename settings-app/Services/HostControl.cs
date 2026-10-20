@@ -55,6 +55,9 @@ internal static class HostControl
 
     public static bool TryOnRealWindow() => Launch(TestWindowExe, "--cycle 1");
 
+    /// <summary>The test window opens and closes twice: the open and close effects.</summary>
+    public static bool TryOpenClose() => Launch(TestWindowExe, "--open-close 2");
+
     public static bool Open(string path) => Launch(path, null);
 
     private static bool Launch(string path, string? args)

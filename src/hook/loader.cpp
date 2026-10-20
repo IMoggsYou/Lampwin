@@ -164,7 +164,7 @@ bool Activate() {
 
     g_unloading.store(false);
     bool ok = MH_Initialize() == MH_OK;
-    if (ok && (!GenieInstallHooks() || MH_QueueEnableHook(MH_ALL_HOOKS) != MH_OK ||
+    if (ok && (!GenieInstallHooks() || !CornersInstallHooks() || MH_QueueEnableHook(MH_ALL_HOOKS) != MH_OK ||
                MH_ApplyQueued() != MH_OK)) {
         MH_Uninitialize();
         ok = false;
@@ -173,6 +173,7 @@ bool Activate() {
         HANDLE hWatcher = CreateThread(nullptr, 0, WatcherThread, nullptr, 0, nullptr);
         if (hWatcher) {
             CloseHandle(hWatcher);
+            CornersOnActivate();
         } else {
             MH_DisableHook(MH_ALL_HOOKS);
             MH_Uninitialize();
@@ -197,6 +198,8 @@ bool Activate() {
 
 // Returns true when everything was removed and the module may be released.
 bool Shutdown() {
+    // Needs the hooks: each window's thread undoes its own region and destroys its grip.
+    const bool cornersGone = CornersOnShutdown();
     g_unloading.store(true);
     CloseActiveMark();   // other processes stop handing their minimizes to us
     SetEvent(g_hStop);
@@ -215,8 +218,9 @@ bool Shutdown() {
         }
         if (!drained) Sleep(20);
     }
-    if (!drained) {
-        DbgLog(L"could not drain hook calls; staying loaded (hooks disabled)");
+    if (!drained || !cornersGone) {
+        DbgLog(cornersGone ? L"could not drain hook calls; staying loaded (hooks disabled)"
+                           : L"a corner grip is left (hung window); staying loaded (hooks disabled)");
         g_state.store(kDead);
         return false;
     }

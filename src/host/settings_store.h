@@ -8,15 +8,21 @@ struct GenieSettings {
     int style = 0;   // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original)
     int durationMs = 450;
     bool restore = true;
-    bool launch = false;
+    // Opening / closing windows: MW_EFFECT_* and their durations.
+    int openEffect = MW_EFFECT_GENIE;
+    int closeEffect = MW_EFFECT_GENIE;
+    int openDurationMs = 450;
+    int closeDurationMs = 400;
     bool multiMonitor = false;
     bool unhideTaskbar = true;
     int unhideDurationMs = 450;
     int meshQuality = 48;
-    // Corners of the window in the genie: radius at 100 % scaling and Figma-style
-    // smoothing in percent (0 = Windows 11's circular corner, 100 = macOS squircle).
+    // Window corners: radius at 100 % scaling and Figma-style smoothing in percent
+    // (0 = Windows 11's circular corner, 100 = macOS squircle). The genie always uses
+    // them; windowCorners also gives every real window that shape.
     int cornerRadius = 15;
     int cornerSmoothing = 100;
+    bool windowCorners = true;
     std::vector<std::wstring> excluded;
 };
 

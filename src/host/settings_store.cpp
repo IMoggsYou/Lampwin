@@ -51,6 +51,17 @@ bool ReadUtf8File(const std::wstring& path, std::wstring* out) {
     return true;
 }
 
+// settings.json names of MW_EFFECT_*.
+const wchar_t* const kEffectNames[MW_EFFECT_COUNT] = {L"system", L"genie"};
+
+int EffectFromJson(const json::Value* v, int fallback) {
+    if (!v || v->type != json::Value::String) return fallback;
+    for (int i = 0; i < MW_EFFECT_COUNT; ++i) {
+        if (v->str == kEffectNames[i]) return i;
+    }
+    return fallback;
+}
+
 std::wstring ListJson(const std::vector<std::wstring>& items, const wchar_t* indent) {
     if (items.empty()) return L"[]";
     std::wstring out = L"[\n";
@@ -126,13 +137,17 @@ void SettingsStore::Load() {
     s_.genie.style = (style && style->type == json::Value::String && style->str == L"classic") ? 1 : 0;
     s_.genie.durationMs = Clamp(g->GetInt(L"durationMs", d.genie.durationMs), 50, 2000);
     s_.genie.restore = g->GetBool(L"restoreAnimation", d.genie.restore);
-    s_.genie.launch = g->GetBool(L"launchAnimation", d.genie.launch);
+    s_.genie.openEffect = EffectFromJson(g->Get(L"openAnimation"), d.genie.openEffect);
+    s_.genie.closeEffect = EffectFromJson(g->Get(L"closeAnimation"), d.genie.closeEffect);
+    s_.genie.openDurationMs = Clamp(g->GetInt(L"openDurationMs", d.genie.openDurationMs), 100, 1500);
+    s_.genie.closeDurationMs = Clamp(g->GetInt(L"closeDurationMs", d.genie.closeDurationMs), 100, 1500);
     s_.genie.multiMonitor = g->GetBool(L"multiMonitor", d.genie.multiMonitor);
     s_.genie.unhideTaskbar = g->GetBool(L"unhideTaskbar", d.genie.unhideTaskbar);
     s_.genie.unhideDurationMs = Clamp(g->GetInt(L"unhideDurationMs", d.genie.unhideDurationMs), 0, 5000);
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
     s_.genie.cornerRadius = Clamp(g->GetInt(L"cornerRadius", d.genie.cornerRadius), 0, 40);
     s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
+    s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
     Log(L"settings: loaded %ls", path_.c_str());
 }
@@ -148,13 +163,17 @@ bool SettingsStore::Save() const {
     t += L"    \"style\": " + std::wstring(s.genie.style == 1 ? L"\"classic\"" : L"\"modern\"") + L",\n";
     t += L"    \"durationMs\": " + std::to_wstring(s.genie.durationMs) + L",\n";
     t += L"    \"restoreAnimation\": " + std::wstring(s.genie.restore ? L"true" : L"false") + L",\n";
-    t += L"    \"launchAnimation\": " + std::wstring(s.genie.launch ? L"true" : L"false") + L",\n";
+    t += L"    \"openAnimation\": \"" + std::wstring(kEffectNames[s.genie.openEffect]) + L"\",\n";
+    t += L"    \"closeAnimation\": \"" + std::wstring(kEffectNames[s.genie.closeEffect]) + L"\",\n";
+    t += L"    \"openDurationMs\": " + std::to_wstring(s.genie.openDurationMs) + L",\n";
+    t += L"    \"closeDurationMs\": " + std::to_wstring(s.genie.closeDurationMs) + L",\n";
     t += L"    \"multiMonitor\": " + std::wstring(s.genie.multiMonitor ? L"true" : L"false") + L",\n";
     t += L"    \"unhideTaskbar\": " + std::wstring(s.genie.unhideTaskbar ? L"true" : L"false") + L",\n";
     t += L"    \"unhideDurationMs\": " + std::to_wstring(s.genie.unhideDurationMs) + L",\n";
     t += L"    \"meshQuality\": " + std::to_wstring(s.genie.meshQuality) + L",\n";
     t += L"    \"cornerRadius\": " + std::to_wstring(s.genie.cornerRadius) + L",\n";
     t += L"    \"cornerSmoothing\": " + std::to_wstring(s.genie.cornerSmoothing) + L",\n";
+    t += L"    \"windowCorners\": " + std::wstring(s.genie.windowCorners ? L"true" : L"false") + L",\n";
     t += L"    \"excludedPrograms\": " + ListJson(s.genie.excluded, L"    ") + L"\n";
     t += L"  }\n}\n";
 
@@ -188,11 +207,18 @@ void SettingsStore::Write(bool enabled) {
     v->devMode = s_.devMode ? 1 : 0;
     v->genieDurationMs = s_.genie.durationMs;
     v->genieRestore = s_.genie.restore ? 1 : 0;
-    v->genieLaunch = s_.genie.launch ? 1 : 0;
+    v->genieLaunch = s_.genie.openEffect != MW_EFFECT_SYSTEM ? 1 : 0;
+    v->openEffect = s_.genie.openEffect;
+    v->closeEffect = s_.genie.closeEffect;
+    v->openDurationMs = s_.genie.openDurationMs;
+    v->closeDurationMs = s_.genie.closeDurationMs;
     v->genieMultiMonitor = s_.genie.multiMonitor ? 1 : 0;
     v->genieUnhideTaskbar = s_.genie.unhideTaskbar ? 1 : 0;
     v->genieUnhideDurationMs = s_.genie.unhideDurationMs;
     v->genieMeshQuality = s_.genie.meshQuality;
+    v->cornerRadius = s_.genie.cornerRadius;
+    v->cornerSmoothing = s_.genie.cornerSmoothing;
+    v->windowCorners = s_.genie.windowCorners ? 1 : 0;
     WriteList(v->genieExcluded, s_.genie.excluded);
     WriteList(v->noInject, s_.noInject);
     WriteList(v->devAllowlist, s_.devAllowlist);

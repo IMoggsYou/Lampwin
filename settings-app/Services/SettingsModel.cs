@@ -54,7 +54,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public double MeshQuality { get => _meshQuality; set => Set(ref _meshQuality, Math.Round(Math.Clamp(value, 8, 96))); }
 
     private double _cornerRadius = 15;
-    /// <summary>Corner radius of the window in the genie, px at 100 % scaling.</summary>
+    /// <summary>Window corner radius, px at 100 % scaling (genie, every window, this window).</summary>
     public double CornerRadius { get => _cornerRadius; set => Set(ref _cornerRadius, Math.Round(Math.Clamp(value, 0, 40))); }
 
     private double _cornerSmoothing = 100;
@@ -67,6 +67,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
             if (Set(ref _cornerSmoothing, Math.Round(Math.Clamp(value, 0, 100)))) Raise(nameof(CornerShape));
         }
     }
+
+    private bool _windowCorners = true;
+    /// <summary>Cut every window to these corners, not only the window in the genie.</summary>
+    public bool WindowCorners { get => _windowCorners; set => Set(ref _windowCorners, value); }
 
     /// <summary>0 = Windows 11 (round, 8 px), 1 = macOS (squircle, 15 px).</summary>
     public int CornerShape
@@ -83,8 +87,52 @@ public sealed class SettingsModel : INotifyPropertyChanged
     private bool _restore = true;
     public bool Restore { get => _restore; set => Set(ref _restore, value); }
 
-    private bool _launch;
-    public bool Launch { get => _launch; set => Set(ref _launch, value); }
+    /// <summary>settings.json names of the open / close effects, in segment order.</summary>
+    public static readonly string[] EffectNames = ["system", "genie"];
+
+    private int _openEffect = 1;
+    /// <summary>0 = Windows, 1 = genie.</summary>
+    public int OpenEffect
+    {
+        get => _openEffect;
+        set
+        {
+            if (Set(ref _openEffect, Math.Clamp(value, 0, EffectNames.Length - 1)))
+            {
+                Raise(nameof(OpenDescription));
+                Raise(nameof(HasOpenEffect));
+            }
+        }
+    }
+    public bool HasOpenEffect => _openEffect != 0;
+    public string OpenDescription => _openEffect == 1
+        ? "Okno wylatuje z ikony programu na pasku zadań efektem dżina."
+        : "Zwykła animacja Windows.";
+
+    private int _closeEffect = 1;
+    /// <summary>0 = Windows, 1 = genie.</summary>
+    public int CloseEffect
+    {
+        get => _closeEffect;
+        set
+        {
+            if (Set(ref _closeEffect, Math.Clamp(value, 0, EffectNames.Length - 1)))
+            {
+                Raise(nameof(CloseDescription));
+                Raise(nameof(HasCloseEffect));
+            }
+        }
+    }
+    public bool HasCloseEffect => _closeEffect != 0;
+    public string CloseDescription => _closeEffect == 1
+        ? "Okno wpada do swojej ikony na pasku zadań efektem dżina."
+        : "Zwykła animacja Windows.";
+
+    private double _openDurationMs = 450;
+    public double OpenDurationMs { get => _openDurationMs; set => Set(ref _openDurationMs, Math.Round(Math.Clamp(value, 100, 1500))); }
+
+    private double _closeDurationMs = 400;
+    public double CloseDurationMs { get => _closeDurationMs; set => Set(ref _closeDurationMs, Math.Round(Math.Clamp(value, 100, 1500))); }
 
     private bool _multiMonitor;
     public bool MultiMonitor { get => _multiMonitor; set => Set(ref _multiMonitor, value); }

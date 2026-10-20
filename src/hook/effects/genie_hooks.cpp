@@ -25,6 +25,7 @@ typedef BOOL(WINAPI* ShowWindow_t)(HWND, int);
 typedef BOOL(WINAPI* SetWindowPlacement_t)(HWND, const WINDOWPLACEMENT*);
 typedef BOOL(WINAPI* CloseWindow_t)(HWND);
 typedef BOOL(WINAPI* SetWindowPos_t)(HWND, HWND, int, int, int, int, UINT);
+typedef BOOL(WINAPI* DestroyWindow_t)(HWND);
 
 DefWindowProc_t DefWindowProcW_Original;
 DefWindowProc_t DefWindowProcA_Original;
@@ -33,6 +34,7 @@ ShowWindow_t ShowWindowAsync_Original;
 SetWindowPlacement_t SetWindowPlacement_Original;
 CloseWindow_t CloseWindow_Original;
 SetWindowPos_t SetWindowPos_Original;
+DestroyWindow_t DestroyWindow_Original;
 typedef BOOL(WINAPI* IsIconic_t)(HWND);
 typedef BOOL(WINAPI* GetWindowPlacement_t)(HWND, WINDOWPLACEMENT*);
 IsIconic_t IsIconic_Original;
@@ -124,6 +126,7 @@ bool PendingMinimize(HWND h) {
 int DurationMs() { return Settings()->genieDurationMs; }
 bool RestoreEnabled() { return Settings()->genieRestore != 0; }
 bool LaunchEnabled() { return Settings()->genieLaunch != 0; }
+bool CloseEnabled() { return Settings()->closeEffect != MW_EFFECT_SYSTEM; }
 bool UnhideEnabled() { return Settings()->genieUnhideTaskbar != 0; }
 int UnhideDurationMs() { return Settings()->genieUnhideDurationMs; }
 
@@ -158,6 +161,7 @@ void MacGenieSetDwmTransitions(HWND hWnd, BOOL enable) {
 // not composed - so a restore happens invisibly under the genie, without a flash.
 void MacGenieSetCloak(HWND hWnd, BOOL cloak) {
     DwmSetWindowAttribute(hWnd, DWMWA_CLOAK, &cloak, sizeof(cloak));
+    CornersOnCloak(hWnd, cloak != FALSE);
 }
 
 void MacGenieUndoRisingHide(HWND hWnd, LONG_PTR originalExStyle, BOOL cloakHidden) {
@@ -395,11 +399,21 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
         return bail();
     }
 
+    // Opening and closing are their own kinds of request, with their own effect and
+    // duration (the paths that start them set the source).
+    const uint32_t kind = t_source == MW_SRC_LAUNCH  ? MW_ANIM_LAUNCH
+                          : t_source == MW_SRC_CLOSE ? MW_ANIM_CLOSE
+                          : rising                   ? MW_ANIM_RESTORE
+                                                     : MW_ANIM_MINIMIZE;
+    const int durationMs = kind == MW_ANIM_LAUNCH  ? Settings()->openDurationMs
+                           : kind == MW_ANIM_CLOSE ? Settings()->closeDurationMs
+                                                   : DurationMs();
+
     // The worker is created up front (suspended), so once the host has accepted the
     // request there is always someone to finish it.
     GenieTeardown* td = new GenieTeardown{hWnd, rising, originalExStyle, cloakHidden,
                                           deferredMinimize, requestedUnhide, hNextApp,
-                                          DurationMs(), UnhideDurationMs(), hDone, hRevealed, token, 0};
+                                          durationMs, UnhideDurationMs(), hDone, hRevealed, token, 0};
     HANDLE hWorker = nullptr;
     if (!SpawnWorker(GenieTeardownThread, td, true, &hWorker)) {
         delete td;
@@ -410,7 +424,7 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
 
     AnimRequest req = {};
     req.version = MW_IPC_VERSION;
-    req.kind = rising ? MW_ANIM_RESTORE : MW_ANIM_MINIMIZE;
+    req.kind = kind;
     req.hwnd = (uint64_t)(uintptr_t)hWnd;
     req.pid = GetCurrentProcessId();
     req.rawW = rawW;
@@ -471,7 +485,39 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
 }
 
 // ---------------------------------------------------------------------------
-// Launch animation (experimental, off by default)
+// Close animation: a window of this thread is about to be destroyed or hidden while on
+// screen. The snapshot is taken now; the host plays the close effect over the spot the
+// window leaves, starting before it goes (StartMacGenieAnim waits for the first frame).
+// ---------------------------------------------------------------------------
+
+// Returns true if the close is animated (Windows' own close transition is then off).
+bool MacGenieTryCloseAnim(HWND hWnd) {
+    if (!hWnd || !CloseEnabled() || g_unloading.load(std::memory_order_relaxed)) return false;
+    // Only the window's own thread: PrintWindow from another one sends it WM_PRINT and
+    // could wait on a thread that is waiting on us.
+    if (GetWindowThreadProcessId(hWnd, nullptr) != GetCurrentThreadId()) return false;
+    if (!IsWindowVisible(hWnd) || RealIsIconic(hWnd) || !MacGenieIsLaunchWindow(hWnd)) return false;
+    // Cloaked: not on screen (another virtual desktop, a suspended app, our own hide).
+    UINT cloaked = 0;
+    if (SUCCEEDED(DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, &cloaked, sizeof(cloaked))) && cloaked) return false;
+    {
+        Locked l;
+        if (g_AnimActive.count(hWnd)) return false;   // already minimizing / opening / closing
+    }
+    SourceScope src(MW_SRC_CLOSE);
+    MacGenieSetDwmTransitions(hWnd, FALSE);
+    return StartMacGenieAnim(hWnd, FALSE, GetWindowLongPtrW(hWnd, GWL_EXSTYLE));
+}
+
+// After an animated hide: the next show of the window opens with the open effect again
+// (programs that close to the tray and come back).
+void MacGenieForgetShown(HWND hWnd) {
+    Locked l;
+    g_LaunchSeen.erase(hWnd);
+}
+
+// ---------------------------------------------------------------------------
+// Launch animation: the first show of a window (or a show after an animated hide)
 // ---------------------------------------------------------------------------
 
 struct MacGenieLaunchData {
@@ -637,6 +683,13 @@ __attribute__((noinline)) BOOL WINAPI ShowWindowSlow(HWND hWnd, int nCmdShow) {
         return ShowWindow_Original(hWnd, nCmdShow);
     }
 
+    if (nCmdShow == SW_HIDE) {
+        bool animated = MacGenieTryCloseAnim(hWnd);
+        BOOL res = ShowWindow_Original(hWnd, nCmdShow);
+        if (animated) MacGenieForgetShown(hWnd);
+        return res;
+    }
+
     LONG_PTR launchOrigEx;
     BOOL launchCloaked;
     if (MacGenieLaunchPrepare(hWnd, nCmdShow, &launchOrigEx, &launchCloaked)) {
@@ -664,6 +717,11 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
             Locked l;
             g_LaunchSeen.erase(hWnd);
         }
+        return Original(hWnd, Msg, wParam, lParam);
+    }
+    if (Msg == WM_CLOSE) {
+        // The default close: DefWindowProc destroys the window right away.
+        if (EffectsActiveHere()) MacGenieTryCloseAnim(hWnd);
         return Original(hWnd, Msg, wParam, lParam);
     }
 
@@ -747,20 +805,26 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
 }
 
 inline bool DefWindowProcInteresting(UINT Msg, WPARAM wParam) {
-    if (Msg == WM_DESTROY) return true;
+    if (Msg == WM_DESTROY || Msg == WM_CLOSE) return true;
     if (Msg != WM_SYSCOMMAND) return false;
     UINT cmd = (UINT)(wParam & 0xFFF0);
     return cmd == SC_MINIMIZE || cmd == SC_RESTORE;
 }
 
-// Called for every message of every window: the fast path is one compare and a jump.
+// Called for every message of every window: the fast path is a few compares and a jump.
 LRESULT WINAPI DefWindowProcW_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
-    if (!DefWindowProcInteresting(Msg, wParam)) MW_MUSTTAIL return DefWindowProcW_Original(hWnd, Msg, wParam, lParam);
+    if (!DefWindowProcInteresting(Msg, wParam)) {
+        if (!CornersInteresting(Msg)) MW_MUSTTAIL return DefWindowProcW_Original(hWnd, Msg, wParam, lParam);
+        return CornersDefWindowProc(DefWindowProcW_Original, hWnd, Msg, wParam, lParam);
+    }
     MW_MUSTTAIL return DefWindowProcSlow<DefWindowProcW_Original>(hWnd, Msg, wParam, lParam);
 }
 
 LRESULT WINAPI DefWindowProcA_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
-    if (!DefWindowProcInteresting(Msg, wParam)) MW_MUSTTAIL return DefWindowProcA_Original(hWnd, Msg, wParam, lParam);
+    if (!DefWindowProcInteresting(Msg, wParam)) {
+        if (!CornersInteresting(Msg)) MW_MUSTTAIL return DefWindowProcA_Original(hWnd, Msg, wParam, lParam);
+        return CornersDefWindowProc(DefWindowProcA_Original, hWnd, Msg, wParam, lParam);
+    }
     MW_MUSTTAIL return DefWindowProcSlow<DefWindowProcA_Original>(hWnd, Msg, wParam, lParam);
 }
 
@@ -831,6 +895,12 @@ BOOL WINAPI CloseWindow_Hook(HWND hWnd) {
 __attribute__((noinline)) BOOL WINAPI SetWindowPosSlow(HWND hWnd, HWND hWndInsertAfter, int X, int Y,
                                                 int cx, int cy, UINT uFlags) {
     HookScope scope;
+    if (uFlags & SWP_HIDEWINDOW) {
+        bool animated = MacGenieTryCloseAnim(hWnd);
+        BOOL res = SetWindowPos_Original(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+        if (animated) MacGenieForgetShown(hWnd);
+        return res;
+    }
     SourceScope src(MW_SRC_LAUNCH);
     LONG_PTR launchOrigEx;
     BOOL launchCloaked;
@@ -844,10 +914,24 @@ __attribute__((noinline)) BOOL WINAPI SetWindowPosSlow(HWND hWnd, HWND hWndInser
 
 // Hot: most SetWindowPos calls are moves / resizes / z-order changes.
 BOOL WINAPI SetWindowPos_Hook(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags) {
-    if (!(uFlags & SWP_SHOWWINDOW) || !EffectsActiveHere() || !LaunchEnabled()) {
+    if (!(uFlags & (SWP_SHOWWINDOW | SWP_HIDEWINDOW)) || !EffectsActiveHere() ||
+        !((uFlags & SWP_SHOWWINDOW) ? LaunchEnabled() : CloseEnabled())) {
         MW_MUSTTAIL return SetWindowPos_Original(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
     }
     MW_MUSTTAIL return SetWindowPosSlow(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+}
+
+// The window is going away: close effect first (DestroyWindow is also what a default
+// WM_CLOSE ends in; that one is caught in DefWindowProc already).
+__attribute__((noinline)) BOOL WINAPI DestroyWindowSlow(HWND hWnd) {
+    HookScope scope;
+    MacGenieTryCloseAnim(hWnd);
+    return DestroyWindow_Original(hWnd);
+}
+
+BOOL WINAPI DestroyWindow_Hook(HWND hWnd) {
+    if (!EffectsActiveHere() || !CloseEnabled()) MW_MUSTTAIL return DestroyWindow_Original(hWnd);
+    MW_MUSTTAIL return DestroyWindowSlow(hWnd);
 }
 
 // See g_pendingMin. Hot (Explorer's taskbar asks all the time): one load and a jump
@@ -957,6 +1041,7 @@ bool GenieInstallHooks() {
                             (void**)&SetWindowPlacement_Original) &&
            CreateUser32Hook("CloseWindow", (void*)CloseWindow_Hook, (void**)&CloseWindow_Original) &&
            CreateUser32Hook("SetWindowPos", (void*)SetWindowPos_Hook, (void**)&SetWindowPos_Original) &&
+           CreateUser32Hook("DestroyWindow", (void*)DestroyWindow_Hook, (void**)&DestroyWindow_Original) &&
            CreateUser32Hook("IsIconic", (void*)IsIconic_Hook, (void**)&IsIconic_Original) &&
            CreateUser32Hook("GetWindowPlacement", (void*)GetWindowPlacement_Hook,
                             (void**)&GetWindowPlacement_Original);

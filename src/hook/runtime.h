@@ -60,3 +60,19 @@ void GenieOnShutdown();
 // HCBT_MINMAX: called in the window's own thread right before it is minimized / restored,
 // whoever asked for it (also ShowWindowAsync from Explorer's "Show desktop").
 void GenieOnMinMax(HWND hWnd, int showCmd);
+
+// effects/corners.cpp: window corners as a window region (see there).
+typedef LRESULT(WINAPI* DefWindowProcFn)(HWND, UINT, WPARAM, LPARAM);
+extern UINT g_cornersMsg;   // MACWIN_CORNERS_MESSAGE once active
+inline bool CornersInteresting(UINT msg) {
+    return msg == WM_WINDOWPOSCHANGED || msg == WM_EXITSIZEMOVE || msg == WM_NCDESTROY || msg == g_cornersMsg;
+}
+// DefWindowProc for the messages CornersInteresting picks out.
+LRESULT CornersDefWindowProc(DefWindowProcFn original, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+bool CornersInstallHooks();  // DwmSetWindowAttribute (created, enabled with the rest)
+void CornersOnActivate();   // after the hooks are on
+// Before they go. False if a window of ours (a grip, which runs DLL code) is left over:
+// the DLL must then stay loaded.
+bool CornersOnShutdown();
+// The genie cloaked / uncloaked a window: its shade (shadow + edge) follows (any thread).
+void CornersOnCloak(HWND hWnd, bool cloaked);

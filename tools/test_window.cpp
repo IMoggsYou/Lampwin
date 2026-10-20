@@ -4,6 +4,8 @@
 //   --cycle N   N slow rounds (1.5 s apart)
 //   --rapid N   N rounds of clicks faster than the animation itself, so every genie
 //               is turned around mid-flight
+//   --open-close N   opens a window and closes it again (WM_CLOSE), N times: the open
+//                    and close effects
 // The exit code reports the final state: 0 = restored and visible, 10 = still
 // minimized, 11 = still cloaked (invisible), 12 = both.
 
@@ -14,7 +16,7 @@
 
 namespace {
 
-enum Action { kSysMin, kSysRestore, kShowMin, kShowRestore, kCheck };
+enum Action { kSysMin, kSysRestore, kShowMin, kShowRestore, kCheck, kClose };
 struct Step {
     Action action;
     UINT waitMs;   // until the next step
@@ -60,6 +62,7 @@ void Run(HWND hwnd) {
         case kSysRestore: PostMessageW(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0); break;
         case kShowMin: ShowWindow(hwnd, SW_MINIMIZE); break;
         case kShowRestore: ShowWindow(hwnd, SW_RESTORE); break;
+        case kClose: PostMessageW(hwnd, WM_CLOSE, 0, 0); return;   // default close: DestroyWindow
         case kCheck: {
             BOOL iconic = IsIconic(hwnd);
             UINT cloaked = 0;
@@ -110,6 +113,9 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int) {
                                        {kShowRestore, 1200}});
     }
     if (!g_steps.empty()) g_steps.push_back({kCheck, 300});
+    // One window per round, closed again after a moment; the window ends the round.
+    int openClose = Count(cmdLine, L"--open-close");
+    if (openClose) g_steps = {{kClose, 0}};
 
     WNDCLASSEXW wc = {sizeof(wc)};
     wc.lpfnWndProc = WndProc;
@@ -118,16 +124,20 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR cmdLine, int) {
     wc.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
     wc.lpszClassName = L"MacWinTestWindow";
     RegisterClassExW(&wc);
-    HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"MacWin – okno testowe", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT,
-                                CW_USEDEFAULT, 900, 600, nullptr, nullptr, hInst, nullptr);
-    ShowWindow(hwnd, SW_SHOWNORMAL);
-    UpdateWindow(hwnd);
-    if (!g_steps.empty()) SetTimer(hwnd, kTimer, 1500, nullptr);
+    for (int round = 0; round < (openClose ? openClose : 1); ++round) {
+        if (round > 0) Sleep(700);
+        g_next = 0;
+        HWND hwnd = CreateWindowExW(0, wc.lpszClassName, L"MacWin – okno testowe", WS_OVERLAPPEDWINDOW,
+                                    CW_USEDEFAULT, CW_USEDEFAULT, 900, 600, nullptr, nullptr, hInst, nullptr);
+        ShowWindow(hwnd, SW_SHOWNORMAL);
+        UpdateWindow(hwnd);
+        if (!g_steps.empty()) SetTimer(hwnd, kTimer, 1500, nullptr);
 
-    MSG msg;
-    while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessageW(&msg);
+        MSG msg;
+        while (GetMessageW(&msg, nullptr, 0, 0) > 0) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
     }
     return g_exitCode;
 }

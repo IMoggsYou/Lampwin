@@ -36,22 +36,6 @@
                     </StackPanel>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Rogi okna"
-                              Description="macOS: squircle z wygładzeniem 100 %, jak w Figmie. Windows 11: zwykłe zaokrąglenie. Zmaksymalizowane okno ma zawsze ostre rogi.">
-                    <c:SegmentedControl Width="230" Items="Windows 11, macOS"
-                                        SelectedIndex="{Binding CornerShape, Mode=TwoWay}"/>
-                </c:SettingRow>
-                <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Promień rogów" Description="Przy skalowaniu 100 %. MacWin dopasowuje go do skali ekranu.">
-                    <StackPanel Orientation="Horizontal">
-                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="0" Maximum="30"
-                                TickFrequency="1" SmallChange="1" LargeChange="4" Value="{Binding CornerRadius}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Brush.TextSecondary}"
-                                   Text="{Binding CornerRadius, StringFormat={}{0:0} px}"/>
-                    </StackPanel>
-                </c:SettingRow>
-                <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="Jakość siatki" IsEnabled="{Binding IsModern}"
                               Description="Więcej kafelków to gładsza krzywa (styl nowoczesny). Na karcie graficznej koszt jest pomijalny.">
                     <StackPanel Orientation="Horizontal">
@@ -65,15 +49,55 @@
             </StackPanel>
         </Border>
 
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Otwieranie i zamykanie okien"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Otwieranie" Description="{Binding OpenDescription}">
+                    <c:SegmentedControl Width="230" Items="Windows, Dżin"
+                                        SelectedIndex="{Binding OpenEffect, Mode=TwoWay}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Czas otwierania" IsEnabled="{Binding HasOpenEffect}"
+                              Description="Jak długo okno wylatuje z paska zadań.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="150" Maximum="1000"
+                                TickFrequency="10" SmallChange="10" LargeChange="50" Value="{Binding OpenDurationMs}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding OpenDurationMs, StringFormat={}{0:0} ms}"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Zamykanie" Description="{Binding CloseDescription}">
+                    <c:SegmentedControl Width="230" Items="Windows, Dżin"
+                                        SelectedIndex="{Binding CloseEffect, Mode=TwoWay}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Czas zamykania" IsEnabled="{Binding HasCloseEffect}"
+                              Description="Jak długo zamykane okno wpada do paska zadań.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="100" Maximum="800"
+                                TickFrequency="10" SmallChange="10" LargeChange="50" Value="{Binding CloseDurationMs}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding CloseDurationMs, StringFormat={}{0:0} ms}"/>
+                    </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+        <Grid Margin="0,-6,0,14">
+            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="360"
+                       HorizontalAlignment="Left" TextWrapping="Wrap"
+                       Text="Działa w programach, do których MacWin ma dostęp. Windows: okno zachowuje się jak bez MacWin."/>
+            <Button HorizontalAlignment="Right" Style="{StaticResource MacButton}" Content="Wypróbuj otwieranie i zamykanie"
+                    Click="TryOpenClose_Click"/>
+        </Grid>
+
         <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Kiedy animować"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
                 <c:SettingRow Title="Przywracanie okien" Description="Okno wylatuje z paska zadań z powrotem na swoje miejsce.">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Restore}"/>
-                </c:SettingRow>
-                <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Otwieranie nowych okien" Description="Eksperymentalne: nowe okna pojawiają się efektem dżina.">
-                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Launch}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="Wiele monitorów" Description="Eksperymentalne: dżin trafia do paska zadań na monitorze okna, a nie głównym.">

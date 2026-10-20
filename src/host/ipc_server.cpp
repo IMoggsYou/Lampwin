@@ -43,16 +43,21 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     const HostSettings& s = settings_.Get();
     HWND hwnd = (HWND)(uintptr_t)r.hwnd;
     static const wchar_t* const kSources[] = {L"?", L"ShowWindow", L"DefWindowProc", L"SetWindowPlacement",
-                                              L"CloseWindow", L"HCBT_MINMAX", L"launch"};
+                                              L"CloseWindow", L"HCBT_MINMAX", L"launch", L"close"};
+    static const wchar_t* const kKinds[] = {L"minimize", L"restore", L"open", L"close"};
     uint32_t source = (r.flags & MW_REQ_SOURCE_MASK) >> MW_REQ_SOURCE_SHIFT;
     wchar_t snap[40] = L"";
     if (r.flags & MW_REQ_HAS_SNAPSHOT) swprintf(snap, 40, L", snapshot in %u ms", r.flags >> MW_REQ_CAPTURE_MS_SHIFT);
-    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls, via %ls%ls)",
-        r.kind == MW_ANIM_MINIMIZE ? L"minimize" : (r.kind == MW_ANIM_RESTORE ? L"restore" : L"launch"),
-        (void*)hwnd, r.pid, r.rawW, r.rawH, snap, source < 7 ? kSources[source] : L"?",
+    Log(L"ipc: %ls request for %p (pid %u, %d x %d%ls, via %ls%ls)", r.kind < 4 ? kKinds[r.kind] : L"?",
+        (void*)hwnd, r.pid, r.rawW, r.rawH, snap, source < 8 ? kSources[source] : L"?",
         (r.flags & MW_REQ_SENT) ? L", sent by another thread" : L"");
-    if (r.version != MW_IPC_VERSION || !s.enabled || !IsWindow(hwnd)) {
+    if (r.version != MW_IPC_VERSION || !s.enabled || !IsWindow(hwnd) || r.kind > MW_ANIM_CLOSE) {
         Log(L"ipc: rejected (version %u, enabled %d, window %d)", r.version, (int)s.enabled, (int)IsWindow(hwnd));
+        return MW_REPLY_FAIL;
+    }
+    // Opening / closing: only with the genie chosen for it (the DLL only asks then).
+    const bool opening = r.kind == MW_ANIM_LAUNCH, closing = r.kind == MW_ANIM_CLOSE;
+    if ((opening && s.genie.openEffect != MW_EFFECT_GENIE) || (closing && s.genie.closeEffect != MW_EFFECT_GENIE)) {
         return MW_REPLY_FAIL;
     }
     if (r.rawW <= 0 || r.rawH <= 0 || r.rawW > 16384 || r.rawH > 16384 ||
@@ -62,7 +67,7 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         return MW_REPLY_FAIL;
     }
 
-    const bool rising = r.kind != MW_ANIM_MINIMIZE;
+    const bool rising = r.kind == MW_ANIM_RESTORE || r.kind == MW_ANIM_LAUNCH;
     const bool hasSnapshot = (r.flags & MW_REQ_HAS_SNAPSHOT) && r.hSection;
     // Crop of the extended frame in snapshot pixels.
     int cropX = (int)lroundf(r.cropU0 * r.rawW);
@@ -73,8 +78,10 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
 
     // A window whose genie is still in flight needs no snapshot: the running genie keeps
     // its own and simply turns around (see Renderer::Retarget).
+    // An opening window is always captured fresh: a cached minimize snapshot of the same
+    // handle would be an old picture.
     const bool active = renderer_.IsActive(hwnd);
-    if (rising && !hasSnapshot && !active && !renderer_.HasSnapshot(hwnd, cropW, cropH)) {
+    if (rising && !hasSnapshot && !active && (opening || !renderer_.HasSnapshot(hwnd, cropW, cropH))) {
         return MW_REPLY_NEED_SNAPSHOT;
     }
 
@@ -86,9 +93,10 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     job->cropW = cropW;
     job->cropH = cropH;
     job->requestedAt = requestedAt;
-    job->durationMs = s.genie.durationMs;
+    job->durationMs = opening ? s.genie.openDurationMs : (closing ? s.genie.closeDurationMs : s.genie.durationMs);
     job->tiles = s.genie.meshQuality;
     job->style = s.genie.style;
+    job->params.closing = closing;
     renderer_.Retain(hwnd);   // from here on every exit goes through FailJob / the renderer
 
     HANDLE hProc = OpenProcess(PROCESS_DUP_HANDLE, FALSE, r.pid);
@@ -127,9 +135,12 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
         job->cornerRadiusPx = (float)s.genie.cornerRadius * (float)dpiY / 96.0f;
         job->cornerSmoothing = (float)s.genie.cornerSmoothing / 100.0f;
+        // Square corners asked of DWM. Not for a window MacWin cut to its corners (it has
+        // a region): MacWin itself sets that preference there (see corners.cpp).
         DWORD pref = 0;
+        RECT rgnBox;
         if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref))) &&
-            pref == DWMWCP_DONOTROUND) {
+            pref == DWMWCP_DONOTROUND && GetWindowRgnBox(hwnd, &rgnBox) == ERROR) {
             job->cornerRadiusPx = 0;
         }
     }

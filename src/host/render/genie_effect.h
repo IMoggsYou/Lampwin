@@ -24,6 +24,7 @@ struct DockTarget {
 };
 
 struct GenieParams {
+    bool closing;    // MW_ANIM_CLOSE: the window is gone afterwards (nothing to cache)
     int style;
     Geometry win;    // window (DWM extended frame) rect
     // Modern: the taskbar icon rect the genie funnels into.

@@ -27,6 +27,9 @@
 #define MACWIN_GHOST_WNDCLASS     L"MacWinGhost_v1"
 #define MACWIN_RELOAD_MESSAGE     L"MacWin_" MACWIN_NS L"ReloadSettings_v1"   // RegisterWindowMessage
 #define MACWIN_QUIT_MESSAGE       L"MacWin_" MACWIN_NS L"Quit_v1"             // RegisterWindowMessage
+// Posted to top-level windows: wParam 0 = re-cut the corners to the current settings,
+// 1 = remove MacWin's corners. The hook DLL answers it in DefWindowProc.
+#define MACWIN_CORNERS_MESSAGE    L"MacWin_" MACWIN_NS L"Corners_v1"          // RegisterWindowMessage
 #define MACWIN_TASK_NAME          L"MacWin"                     // scheduled task (elevated start)
 
 // Lowercase image names the DLL must never activate in.

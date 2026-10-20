@@ -1,0 +1,65 @@
+<UserControl x:Class="MacWin.Settings.Pages.CornersPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+    <StackPanel>
+        <!-- Preview: a window with the chosen corners and shadow -->
+        <Border Style="{StaticResource Group}" Padding="0" ClipToBounds="True">
+            <Border x:Name="PreviewBackdrop" Height="200" CornerRadius="9" ClipToBounds="True"
+                    SizeChanged="Preview_SizeChanged">
+                <Border.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#FF2B3A67" Offset="0"/>
+                        <GradientStop Color="#FF7A4E8C" Offset="1"/>
+                    </LinearGradientBrush>
+                </Border.Background>
+                <Canvas x:Name="PreviewCanvas">
+                    <Path x:Name="PreviewShadow" Fill="Black">
+                        <Path.Effect>
+                            <DropShadowEffect BlurRadius="30" ShadowDepth="7" Direction="270" Opacity="0.45"/>
+                        </Path.Effect>
+                    </Path>
+                    <Path x:Name="PreviewWindow" Fill="{DynamicResource Brush.WindowBase}"
+                          Stroke="#4D000000" StrokeThickness="1"/>
+                    <Path x:Name="PreviewTitle" Fill="{DynamicResource Brush.Sidebar}"/>
+                </Canvas>
+            </Border>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Kształt"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Rogi okien"
+                              Description="macOS: squircle z wygładzeniem 100 %, jak w Figmie. Windows 11: zwykłe zaokrąglenie. Zmaksymalizowane i pełnoekranowe okna mają zawsze ostre rogi.">
+                    <c:SegmentedControl Width="230" Items="Windows 11, macOS"
+                                        SelectedIndex="{Binding CornerShape, Mode=TwoWay}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Promień rogów" Description="Przy skalowaniu 100 %. MacWin dopasowuje go do skali ekranu. 0 px to ostre rogi.">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="0" Maximum="30"
+                                TickFrequency="1" SmallChange="1" LargeChange="4" Value="{Binding CornerRadius}"/>
+                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding CornerRadius, StringFormat={}{0:0} px}"/>
+                    </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Gdzie"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="Animacje i okno ustawień"
+                              Description="Okno w animacji dżina i to okno zawsze mają te rogi.">
+                    <TextBlock Foreground="{DynamicResource Brush.TextSecondary}" VerticalAlignment="Center" Text="Zawsze"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="Okna innych programów"
+                              Description="Programy, które same rysują pasek tytułu: Chrome, Brave, Edge, Discord, VS Code, Spotify, Claude. MacWin dorysowuje im cień i wygładzoną krawędź. Okna z systemowym paskiem tytułu (Eksplorator, Notatnik) zostają przy rogach Windows 11 – zmiana ich kształtu psuje ramkę.">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding WindowCorners}"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

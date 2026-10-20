@@ -3,6 +3,7 @@
 #include <dwmapi.h>
 #include <float.h>
 #include <math.h>
+#include "common/corner_shape.h"
 #include "common/names.h"
 #include "genie_hlsl.h"
 #include "host/log.h"
@@ -27,25 +28,6 @@ LRESULT CALLBACK GhostWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
-}
-
-// The corner GeniePS draws: a superellipse |x|^n + |y|^n = 1 over `extent` px from the
-// corner, fitted to Figma's corner smoothing - extent (1 + smoothing) * radius, exponent
-// that puts its 45 degree point on the plain arc. Smoothing 0 gives n = 2, Windows 11's
-// circular corner; at 100 % and 15 px it stays within ~0.05 px of Figma's curve.
-void CornerShape(float radius, float smoothing, float w, float h, float* extent, float* exponent) {
-    float half = (w < h ? w : h) * 0.5f;
-    float r = radius < half ? radius : half;
-    float p = (1.0f + smoothing) * r;
-    if (p > half) p = half;
-    if (r <= 0.0f || p <= 0.0f) {
-        *extent = 0.0f;
-        *exponent = 2.0f;
-        return;
-    }
-    float diag = r * (1.0f - 0.70710678f) / p;   // 45 degree point, fraction of the extent
-    *extent = p;
-    *exponent = 0.69314718f / -logf(1.0f - diag);
 }
 
 int RoundUp(int v, int step) {
@@ -576,6 +558,12 @@ Renderer::Anim* Renderer::FindAnim(HWND hwnd) {
 
 void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     if (Anim* running = FindAnim(job->hwnd)) {
+        // A closing window's genie is never turned around (the window is going away), and
+        // a close meeting a running genie is left to Windows.
+        if (running->params.closing || job->params.closing) {
+            FailJob(job);
+            return;
+        }
         Retarget(running, job, now);
         return;
     }
@@ -751,7 +739,7 @@ bool Renderer::Draw(Anim* a, float t) {
     c.params[3] = GenieFade(g, t);
     c.tex[0] = (float)a->snap.w;
     c.tex[1] = (float)a->snap.h;
-    CornerShape(c.params[1], a->cornerSmoothing, c.tex[0], c.tex[1], &c.tex[2], &c.tex[3]);
+    mw::CornerShape(c.params[1], a->cornerSmoothing, c.tex[0], c.tex[1], &c.tex[2], &c.tex[3]);
     memcpy(m.pData, &c, sizeof(c));
     ctx_->Unmap(genieCB_.get(), 0);
 
@@ -796,11 +784,13 @@ void Renderer::RetireAnim(Anim* a) {
         a->slot = nullptr;
     }
     Log(L"anim %p %ls (%ls): %d frames, %d reversal(s), %.3f ms CPU/frame, first frame %.1f ms after request",
-        (void*)a->hwnd, a->rising ? L"restore" : L"minimize",
+        (void*)a->hwnd, a->params.closing ? L"close" : (a->rising ? L"restore/open" : L"minimize"),
         a->params.style == kGenieClassic ? L"classic" : L"modern", a->frames, a->reversals,
         a->frames ? a->cpuMs / a->frames : 0.0, a->firstFrameMs);
     // Ended minimized: keep the snapshot for the matching restore.
-    if (!a->rising && a->snap.srv && IsWindow(a->hwnd)) cache_.Put(a->hwnd, std::move(a->snap));
+    if (!a->rising && !a->params.closing && a->snap.srv && IsWindow(a->hwnd)) {
+        cache_.Put(a->hwnd, std::move(a->snap));
+    }
     for (GenieJob* w : a->waiters) FinishWaiter(w);
     a->waiters.clear();
 }

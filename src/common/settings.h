@@ -6,6 +6,13 @@
 #define MACWIN_SETTINGS_MAGIC 0x3153574Du   // 'MWS1'
 #define MACWIN_LIST_CHARS 2048
 
+// Window open / close effects (SharedSettings::openEffect / closeEffect).
+enum : int32_t {
+    MW_EFFECT_SYSTEM = 0,   // Windows' own animation (MacWin does nothing)
+    MW_EFFECT_GENIE = 1,    // out of / into its taskbar icon
+    MW_EFFECT_COUNT = 2,
+};
+
 // Published by the host in a shared section (MACWIN_SETTINGS_SECTION) and read by every
 // DLL, 32-bit and 64-bit alike, so only fixed-width fields - no pointers, no size_t.
 // The host writes under a seqlock (`seq` is odd while a write is in progress); plain
@@ -25,12 +32,25 @@ struct SharedSettings {
     // Genie minimize / restore (settings of the original mod)
     int32_t genieDurationMs;       // 50..2000
     int32_t genieRestore;          // animate restores (the mod's "open_animation")
-    int32_t genieLaunch;           // experimental: animate first show of new windows
+    int32_t genieLaunch;           // openEffect != 0: the DLL animates first shows
     int32_t genieMultiMonitor;     // target the window's own monitor's taskbar
     int32_t genieUnhideTaskbar;    // reveal an auto-hidden taskbar during minimize
     int32_t genieUnhideDurationMs; // 0..5000
     int32_t genieMeshQuality;      // tiles per side, 8..96
-    int32_t reserved[15];
+
+    // Window corners: radius in px at 100 % scaling and Figma-style smoothing in percent
+    // (0 = Windows 11's circular corner, 100 = macOS squircle). The genie always uses
+    // them; windowCorners also cuts every real window to that shape (window region).
+    int32_t cornerRadius;          // 0..40
+    int32_t cornerSmoothing;       // 0..100
+    int32_t windowCorners;
+
+    // Opening (first show) and closing (hide / destroy) of windows: MW_EFFECT_*.
+    int32_t openEffect;
+    int32_t closeEffect;
+    int32_t openDurationMs;        // 100..1500
+    int32_t closeDurationMs;       // 100..1500
+    int32_t reserved[8];
 
     // Lowercase entries separated by L'\0' and ended by an empty entry. An entry
     // matches a full image path, a file name or a file name without ".exe".

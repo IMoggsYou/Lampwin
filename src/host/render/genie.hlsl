@@ -103,7 +103,7 @@ GenieVSOut ClassicVS(uint id : SV_VertexID)
 }
 
 // Premultiplied snapshot (mipmapped, anisotropic) with rounded corners: a superellipse
-// |x|^n + |y|^n = 1 spanning gTex.z px from each corner (see CornerShape in device.cpp).
+// |x|^n + |y|^n = 1 spanning gTex.z px from each corner (see common/corner_shape.h).
 // n = 2 is Windows 11's circular corner; larger n gives the smoothed macOS squircle.
 float4 GeniePS(GenieVSOut i) : SV_Target
 {
