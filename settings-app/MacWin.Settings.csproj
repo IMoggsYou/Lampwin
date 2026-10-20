@@ -10,10 +10,15 @@
     <RootNamespace>MacWin.Settings</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>..\assets\MacWin.ico</ApplicationIcon>
-    <Version>0.1.0</Version>
+    <!-- The repository's VERSION file is the only place the version is written. -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
     <Product>MacWin</Product>
-    <Description>MacWin – ustawienia</Description>
-    <SatelliteResourceLanguages>pl</SatelliteResourceLanguages>
+    <Description>MacWin Settings</Description>
+    <Company>KosaWLeb</Company>
+    <Authors>KosaWLeb</Authors>
+    <Copyright>Copyright (C) 2026 KosaWLeb. Licensed under GPL-3.0-or-later.</Copyright>
+    <!-- UI translations are embedded JSON (i18n/*.json), not satellite assemblies. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 

@@ -1,5 +1,9 @@
 cmake_minimum_required(VERSION 3.25)
-project(MacWin VERSION 0.1.0 LANGUAGES C CXX RC)
+# VERSION is the only place the version is written (CMake, the settings app's csproj and
+# the installer all read it).
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION MACWIN_VERSION LIMIT_COUNT 1)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION)
+project(MacWin VERSION ${MACWIN_VERSION} LANGUAGES C CXX RC)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -30,6 +34,20 @@ add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initi
 # must never drag libstdc++/libgcc/winpthread DLLs (or their versions) in with it.
 add_link_options(-static -static-libgcc -static-libstdc++ $<$<CONFIG:Release>:-s>)
 
+configure_file(src/common/version.h.in ${CMAKE_BINARY_DIR}/gen/version.h @ONLY)
+include_directories(${CMAKE_BINARY_DIR}/gen)
+
+# Version resource (author, copyright, version) for every shipped binary.
+function(macwin_version_resource target description filename filetype)
+  set(MW_RC_NAME ${target})
+  set(MW_RC_DESCRIPTION ${description})
+  set(MW_RC_FILENAME ${filename})
+  set(MW_RC_FILETYPE ${filetype})
+  configure_file(${CMAKE_SOURCE_DIR}/src/common/version.rc.in
+                 ${CMAKE_BINARY_DIR}/gen/${target}_version.rc @ONLY)
+  target_sources(${target} PRIVATE ${CMAKE_BINARY_DIR}/gen/${target}_version.rc)
+endfunction()
+
 # --- MinHook (BSD-2, third_party/minhook) ---
 add_library(minhook STATIC
   third_party/minhook/src/buffer.c
@@ -55,6 +73,7 @@ target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
 # --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
 target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
 target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32 advapi32 shell32)
+macwin_version_resource(MacWinHook "MacWin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
 
 # --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---
 if(MACWIN_BITS EQUAL 64)
@@ -84,6 +103,7 @@ if(MACWIN_BITS EQUAL 64)
   target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
                         shell32 user32 gdi32 advapi32)
   add_dependencies(MacWin MacWinHook)
+  macwin_version_resource(MacWin "MacWin - macOS-style window animations" MacWin.exe VFT_APP)
 
   # Settings app (C# / WPF, .NET 10), published next to MacWin.exe.
   find_program(MACWIN_DOTNET dotnet)
@@ -103,7 +123,7 @@ if(MACWIN_BITS EQUAL 64)
       # The installer ships the 32-bit files too: (re)build the x86 preset first.
       COMMAND ${CMAKE_COMMAND} --preset x86
       COMMAND ${CMAKE_COMMAND} --build --preset x86
-      COMMAND ${MACWIN_ISCC} /Q ${CMAKE_SOURCE_DIR}/installer/MacWin.iss
+      COMMAND ${MACWIN_ISCC} /Q /DAppVersion=${PROJECT_VERSION} ${CMAKE_SOURCE_DIR}/installer/MacWin.iss
       WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
       COMMENT "Building MacWinSetup.exe"
       VERBATIM)
@@ -117,6 +137,7 @@ if(MACWIN_BITS EQUAL 64)
   add_executable(MacWinTestWindow WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow PRIVATE -municode)
   target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
+  macwin_version_resource(MacWinTestWindow "MacWin test window" MacWinTestWindow.exe VFT_APP)
 else()
   # --- 32-bit side: MacWinHook32.dll (above) + the helper that gets it into 32-bit
   # programs. Rendering always stays in the 64-bit MacWin.exe.
@@ -125,8 +146,10 @@ else()
   target_link_options(MacWinHelper32 PRIVATE -municode)
   target_link_libraries(MacWinHelper32 PRIVATE user32 advapi32)
   add_dependencies(MacWinHelper32 MacWinHook)
+  macwin_version_resource(MacWinHelper32 "MacWin helper for 32-bit programs" MacWinHelper32.exe VFT_APP)
 
   add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow32 PRIVATE -municode)
   target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
+  macwin_version_resource(MacWinTestWindow32 "MacWin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
 endif()

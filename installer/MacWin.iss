@@ -1,7 +1,12 @@
 ﻿; MacWin installer (Inno Setup 6). Build: cmake --build --preset x64 --target MacWinSetup
 ; Output: build\installer\MacWinSetup.exe
 
-#define AppVersion "0.1.0"
+; The version comes from the repository's VERSION file (CMake also passes /DAppVersion).
+#ifndef AppVersion
+  #define VersionFile FileOpen(AddBackslash(SourcePath) + "..\VERSION")
+  #define AppVersion Trim(FileRead(VersionFile))
+  #expr FileClose(VersionFile)
+#endif
 #define Bin "..\build\x64\bin"
 
 [Setup]
