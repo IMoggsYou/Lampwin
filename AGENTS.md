@@ -96,6 +96,26 @@ Removed, Security). Write it for users, not for developers.
 - Commit messages: short summary with the area first (`Corners: …`, `Updater: …`),
   blank line, then why. Sign off (`git commit -s`, see CONTRIBUTING.md).
 
+## Working with GitHub
+
+- Repository: <https://github.com/IMoggsYou/MacWin> (owner account **IMoggsYou**; the
+  author name in the app and the license is **KosaWLeb**, keep both as they are). Use the
+  `gh` CLI for issues, pull requests, runs and releases.
+- Commit e-mail: the GitHub noreply address that is already in `git config user.email`;
+  never a personal address.
+- Changes go on a branch (`fix/...`, `feat/...`, `i18n/...`) and into `main` through a pull
+  request that fills in `.github/PULL_REQUEST_TEMPLATE.md`. The **Build** workflow must be
+  green (`gh pr checks <n>`); then squash-merge.
+- Never force-push or rewrite `main`, never delete tags: installed copies update from the
+  releases, and the history is public.
+- CI: `.github/workflows/build.yml` (every push and PR) and `release.yml` (`v*` tags). A red
+  run: read it with `gh run view <id> --log-failed`, fix it in a new commit.
+- Issues use the forms in `.github/ISSUE_TEMPLATE` (bug, feature, translation); security
+  reports go through private vulnerability reporting (SECURITY.md), never public issues.
+- Dependabot opens PRs for the GitHub Actions versions; merge them when Build is green.
+- Anything that publishes (pushing to `main`, tags, releases, repository settings) needs
+  the owner's OK first.
+
 ## Releasing
 
 1. Make sure `main` is green in CI.
