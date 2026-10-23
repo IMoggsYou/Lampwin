@@ -34,7 +34,7 @@ jobs:
 
       - name: Cache llvm-mingw
         id: llvm-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: C:\llvm-mingw
           key: ${{ env.LLVM_MINGW }}
