@@ -9,6 +9,27 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- **Desktop widgets** in a new **Settings → Widgets** page: a clock, a calendar, the
+  weather, system gauges (processor, memory, disk, battery), a note and a photo, each in
+  small, medium or large (the clock and the gauges in small or medium), light, dark or
+  following Windows. They sit on the desktop under every window and snap to a grid like on
+  macOS: drag one to move it, right-click it to change its size or look, click the clock
+  for the Clock app or the gauges for Task Manager.
+- **Show widgets** in the notification area menu turns them all off and on.
+- The Weather widget follows **your location** from Windows location services (on by
+  default) and names the town you are in. When Windows doesn't share the location, or only
+  knows it roughly, the place you chose in the settings is used.
+
+### Changed
+
+- Privacy: with a Weather widget on the desktop, MacWin asks Open-Meteo (open-meteo.com) for
+  the forecast every 30 minutes, and OpenStreetMap (nominatim.openstreetmap.org) for the
+  town's name when the PC has moved, sending only coordinates rounded to about a kilometre;
+  searching for a place sends Open-Meteo the name you typed. Without a Weather widget
+  nothing changes.
+
 ## [1.0.2] - 2026-10-23
 
 ### Fixed

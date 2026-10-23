@@ -65,6 +65,11 @@ public partial class MainWindow : Window
             },
             new()
             {
+                Id = "widgets", TitleKey = "settings.nav.widgets",
+                Tint = Gradient("#FF33B5F5", "#FF0A7AFF"), Icon = WidgetsIcon(), Create = () => new WidgetsPage(),
+            },
+            new()
+            {
                 Id = "general", TitleKey = "settings.nav.general",
                 Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Icon = SlidersIcon(), Create = () => new GeneralPage(),
             },
@@ -330,6 +335,16 @@ public partial class MainWindow : Window
     // A window outline with one strongly rounded corner (top left).
     private static Geometry CornersIcon() => Geometry.Parse(
         "M8,2 H14 V14 H2 V8 A6,6 0 0 1 8,2 Z M8,3.6 A4.4,4.4 0 0 0 3.6,8 V12.4 H12.4 V3.6 Z");
+
+    // Two small widgets above a wide one.
+    private static Geometry WidgetsIcon()
+    {
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        g.Children.Add(new RectangleGeometry(new Rect(1.5, 1.5, 5.8, 5.8), 1.7, 1.7));
+        g.Children.Add(new RectangleGeometry(new Rect(8.7, 1.5, 5.8, 5.8), 1.7, 1.7));
+        g.Children.Add(new RectangleGeometry(new Rect(1.5, 8.7, 13, 5.8), 1.7, 1.7));
+        return g;
+    }
 
     private static Geometry SlidersIcon()
     {

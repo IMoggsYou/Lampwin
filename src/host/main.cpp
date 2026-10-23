@@ -6,6 +6,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <shellapi.h>
+#include <memory>
 #include <string>
 #include <vector>
 #include "common/names.h"
@@ -21,6 +22,8 @@
 #include "host/settings_store.h"
 #include "host/taskbar_locator.h"
 #include "host/updater.h"
+#include "host/widgets/widget_host.h"
+#include "host/widgets/widget_snapshot.h"
 #include "host/win_events.h"
 #include "version.h"
 
@@ -29,6 +32,7 @@ namespace {
 const UINT WM_APP_TRAY = WM_APP + 1;
 const UINT WM_APP_HELPER_EXITED = WM_APP + 3;
 const UINT WM_APP_UPDATE = WM_APP + 4;
+const UINT WM_APP_WIDGETS = WM_APP + 5;
 const UINT_PTR kPreloadTimer = 1;
 const UINT_PTR kUpdateTimer = 2;
 const UINT kFirstUpdateCheckMs = 60 * 1000;           // after start: let the session settle
@@ -41,6 +45,7 @@ const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/MacWin/releases";
 enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
+    ID_WIDGETS,
     ID_DEVMODE,
     ID_OPEN_LOG,
     ID_UPDATE,
@@ -67,9 +72,11 @@ private:
     void StartUpdate();
     void RunInstaller();
     void ApplySettings(bool save);
+    void ApplyWidgets();
+    void OnWidgetRequest(WPARAM request, LPARAM lp);
     void RefreshWindowCorners();
     void ReloadSettings();
-    void OpenSettingsApp();
+    void OpenSettingsApp(const wchar_t* page = nullptr);
     void OpenAsUser(const std::wstring& path);
     std::wstring ExeDir() const;
 
@@ -97,6 +104,7 @@ private:
     WinEvents winEvents_;
     Updater updater_;
     IpcServer ipc_{renderer_, settings_, locator_};
+    widgets::WidgetHost widgets_;
 };
 
 
@@ -198,6 +206,9 @@ bool App::Init(HINSTANCE hInst) {
     iconOff_ = CreateAppIcon(GetSystemMetrics(SM_CXSMICON), false);
     AddTrayIcon();
 
+    widgets_.Init(hwnd_, WM_APP_WIDGETS);
+    ApplyWidgets();
+
     updater_.Start(hwnd_, WM_APP_UPDATE);
     SetTimer(hwnd_, kUpdateTimer, kFirstUpdateCheckMs, nullptr);
     std::wstring updatedFrom = updater_.UpdatedFrom();
@@ -211,6 +222,7 @@ bool App::Init(HINSTANCE hInst) {
 }
 
 void App::Shutdown() {
+    widgets_.Stop();
     updater_.Stop();
     Log(L"shutting down");
     // 1. No new animations from here on.
@@ -369,6 +381,37 @@ void App::ApplySettings(bool save) {
     RefreshWindowCorners();
 }
 
+// The widgets get their settings and texts as a copy: their thread never reads ours.
+void App::ApplyWidgets() {
+    widgets_.Apply(settings_.Get().widgets, i18n::All(L"host.widgets."), i18n::LocaleName(), i18n::IsRightToLeft());
+}
+
+void App::OnWidgetRequest(WPARAM request, LPARAM lp) {
+    switch (request) {
+        case widgets::kEdited: {
+            // Dragged, resized or removed on the desktop: saved, not sent back (the widgets
+            // are already like that).
+            std::unique_ptr<std::vector<widgets::Item>> items((std::vector<widgets::Item>*)lp);
+            settings_.Get().widgets.items = *items;
+            settings_.Save();
+            break;
+        }
+        case widgets::kOpen: {
+            std::unique_ptr<std::wstring> target((std::wstring*)lp);
+            OpenAsUser(*target);
+            break;
+        }
+        case widgets::kOpenSettings:
+            OpenSettingsApp(L"widgets");
+            break;
+        case widgets::kHideAll:
+            settings_.Get().widgets.show = false;
+            settings_.Save();
+            ApplyWidgets();
+            break;
+    }
+}
+
 // The DLLs cut a window's corners when it moves or resizes; after a settings change every
 // window is asked to do it now (or to drop the corners). Windows without the DLL ignore it.
 void App::RefreshWindowCorners() {
@@ -395,10 +438,23 @@ void App::OpenAsUser(const std::wstring& path) {
     }
 }
 
-void App::OpenSettingsApp() {
+void App::OpenSettingsApp(const wchar_t* page) {
     std::wstring exe = ExeDir() + L"\\MacWin.Settings.exe";
     // No settings app next to us (e.g. a bare build): fall back to the file itself.
-    OpenAsUser(GetFileAttributesW(exe.c_str()) != INVALID_FILE_ATTRIBUTES ? exe : settings_.Path());
+    if (GetFileAttributesW(exe.c_str()) == INVALID_FILE_ATTRIBUTES) {
+        OpenAsUser(settings_.Path());
+        return;
+    }
+    if (page) {
+        // Explorer can't pass arguments on, so a page needs the user's own token.
+        std::wstring args = std::wstring(L"--page ") + page;
+        if (!elevated_) {
+            ShellExecuteW(nullptr, L"open", exe.c_str(), args.c_str(), nullptr, SW_SHOWNORMAL);
+            return;
+        }
+        if (RunAsShellUser(exe, args)) return;
+    }
+    OpenAsUser(exe);
 }
 
 // The settings app saved settings.json. A change to where the DLL may load also
@@ -409,6 +465,7 @@ void App::ReloadSettings() {
     const HostSettings& after = settings_.Get();
     if (after.language != before.language) i18n::Init(after.language);
     ApplySettings(false);
+    ApplyWidgets();
     if (after.updateCheck && !before.updateCheck) updater_.Check(false);
     if (before.devMode != after.devMode || before.devAllowlist != after.devAllowlist ||
         before.noInject != after.noInject) {
@@ -432,6 +489,10 @@ void App::ShowMenu() {
     }
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | rtl | (s.enabled ? MF_CHECKED : 0), ID_ENABLED, i18n::T(L"host.menu.enabled").c_str());
+    if (!s.widgets.items.empty()) {
+        AppendMenuW(menu, MF_STRING | rtl | (s.widgets.show ? MF_CHECKED : 0), ID_WIDGETS,
+                    i18n::T(L"host.menu.widgets").c_str());
+    }
     AppendMenuW(menu, MF_STRING | rtl | (s.devMode ? MF_CHECKED : 0), ID_DEVMODE, i18n::T(L"host.menu.testMode").c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | rtl, ID_OPEN_LOG, i18n::T(L"host.menu.openLog").c_str());
@@ -455,6 +516,11 @@ void App::ShowMenu() {
         case ID_ENABLED:
             m.enabled = !m.enabled;
             ApplySettings(true);
+            break;
+        case ID_WIDGETS:
+            m.widgets.show = !m.widgets.show;
+            settings_.Save();
+            ApplyWidgets();
             break;
         case ID_DEVMODE:
             m.devMode = !m.devMode;
@@ -516,6 +582,9 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_APP_UPDATE:
             OnUpdateEvent(wp);
+            return 0;
+        case WM_APP_WIDGETS:
+            OnWidgetRequest(wp, lp);
             return 0;
         case WM_APP_TRAY:
             switch (LOWORD(lp)) {
@@ -637,7 +706,17 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
         return false;
     };
 
+    auto value = [&](const wchar_t* flag) {
+        for (size_t i = 0; i + 1 < args.size(); ++i) {
+            if (args[i] == flag) return args[i + 1];
+        }
+        return std::wstring();
+    };
+
     if (has(L"--quit")) return QuitRunning();
+    if (has(L"--widget-snapshot")) {
+        return widgets::WidgetSnapshot(value(L"--widget-snapshot"), value(L"--lang"), value(L"--theme") == L"dark");
+    }
     if (has(L"--install-task")) return InstallTask(!has(L"--no-logon"));
     if (has(L"--remove-task")) return RemoveTask();
     if (has(L"--configure")) return Configure(args);

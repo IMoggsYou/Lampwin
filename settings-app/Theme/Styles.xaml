@@ -17,6 +17,7 @@
     <!-- Numbers with their unit in the UI language -->
     <l:UnitConverter x:Key="Unit.Ms" Key="settings.unit.ms"/>
     <l:UnitConverter x:Key="Unit.Px" Key="settings.unit.px"/>
+    <l:UnitConverter x:Key="Unit.Percent" Key="settings.unit.percent"/>
 
     <Style TargetType="ToolTip">
         <Setter Property="FontFamily" Value="{DynamicResource Font.Text}"/>
@@ -403,6 +404,54 @@
                                            Padding="2,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"
                                            Foreground="{DynamicResource Brush.TextSecondary}" Visibility="Collapsed"/>
                                 <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Text" Value="">
+                            <Setter TargetName="Placeholder" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Ring" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.2"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Several lines of text (a note): the text and the placeholder start at the top -->
+    <Style x:Key="MacTextArea" TargetType="TextBox" BasedOn="{StaticResource MacTextBox}">
+        <Setter Property="AcceptsReturn" Value="True"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Padding" Value="7,6"/>
+        <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Grid>
+                        <Border x:Name="Ring" CornerRadius="8" Margin="-3" BorderThickness="3.5"
+                                BorderBrush="{DynamicResource Brush.FocusRing}" Opacity="0"/>
+                        <Border CornerRadius="6" Background="{DynamicResource Brush.Field}"
+                                BorderBrush="{DynamicResource Brush.FieldBorder}" BorderThickness="0.5">
+                            <Grid>
+                                <TextBlock x:Name="Placeholder" Text="{TemplateBinding Tag}" Margin="{TemplateBinding Padding}"
+                                           Padding="2,0,0,0" VerticalAlignment="Top" IsHitTestVisible="False" TextWrapping="Wrap"
+                                           Foreground="{DynamicResource Brush.TextTertiary}" Visibility="Collapsed"/>
+                                <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalAlignment="Stretch"/>
                             </Grid>
                         </Border>
                     </Grid>

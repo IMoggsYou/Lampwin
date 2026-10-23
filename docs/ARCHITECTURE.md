@@ -70,6 +70,35 @@ antialiased edge, and a transparent "grip" so the resize border still works.
 - Elevated, the host only runs from Program Files (only administrators can replace the DLL
   there); shared objects get explicit security descriptors (`elevation.cpp`).
 
+## Desktop widgets
+
+`src/host/widgets/` puts widgets (clock, calendar, weather, system gauges, note, photo) on
+the desktop. The settings app adds and configures them in `settings.json` (`widgets`);
+the host places them and saves where they are dragged (`monitor`, `col`, `row`), and the
+settings app never writes those.
+
+- **A thread of their own** (`widget_host.cpp`), started only while a widget is shown. The
+  main thread sends it copies of the settings and texts and never waits for it; edits made
+  on the desktop come back as posted messages and are saved by the main thread.
+- **Two layered windows per widget**: a click-through shadow and the card above it, both
+  owned by the desktop window (`Progman`), so they always sit right above the wallpaper
+  and under every program, and "Show desktop" leaves them alone. Explorer restarting
+  (`TaskbarCreated`) recreates them.
+- **Drawing** (`canvas.cpp`, `widget_draw.cpp`): Direct2D's software rasterizer into a
+  premultiplied DIB, shown with `UpdateLayeredWindow`; no GPU memory. Cards use the same
+  squircle as the windows. A clock's face is drawn once and only its hands every tick.
+- **Grid** (`widget_layout.cpp`): cells of 164 DIPs (times the monitor's scale and the size
+  setting) from the top-right of each monitor's work area; a drop snaps to the nearest
+  free slot. A widget whose monitor is gone shows on the main one without losing its slot.
+- **Timers**: one coalescable timer for the next change (the next second, minute or gauge
+  sample); nothing while the session is locked, the display is off or a full-screen app runs.
+- **Weather** (`weather.cpp`, `location.cpp`): every 30 minutes, only with a Weather widget,
+  on a worker thread: Windows' position (WinRT `Geolocator`, rounded to 0.01°) or the chosen
+  place when Windows won't tell or only guesses (accuracy over 5 km), the town's name from
+  Nominatim when the PC moved more than 3 km, then the Open-Meteo forecast. The last answer
+  is kept in `%LOCALAPPDATA%\MacWin\weather.json` (shown right after a restart), and what
+  the location lookup found in `location.json` for the settings window.
+
 ## Settings and languages
 
 `settings.json` is written by the settings app and the host; both keep keys they don't

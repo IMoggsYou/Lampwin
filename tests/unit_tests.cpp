@@ -12,6 +12,9 @@
 #include "host/i18n.h"
 #include "host/json.h"
 #include "host/updater.h"
+#include "host/widgets/location.h"
+#include "host/widgets/weather.h"
+#include "host/widgets/widget_layout.h"
 
 namespace {
 
@@ -153,6 +156,118 @@ void TestJson() {
     CHECK(again.members.front().first == L"future");   // order kept
 }
 
+void TestWidgetGrid() {
+    using namespace widgets;
+    // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges.
+    Grid grid({0, 0, 1920, 1040}, 1.0);
+    CHECK(grid.Cols() == 10);
+    CHECK(grid.Rows() == 5);
+    CHECK(grid.CardSize(SpanOf(Size::Small)).cx == 164);
+    CHECK(grid.CardSize(SpanOf(Size::Medium)).cx == 344);
+    CHECK(grid.CardSize(SpanOf(Size::Large)).cy == 344);
+    // Column 0 is the rightmost; a wider widget grows to the left.
+    RECT r = grid.Rect({0, 0, SpanOf(Size::Small)});
+    CHECK(r.right == 1920 - 24 && r.top == 24 && r.left == 1920 - 24 - 164);
+    RECT m = grid.Rect({0, 1, SpanOf(Size::Medium)});
+    CHECK(m.right == 1920 - 24 && m.left == 1920 - 24 - 344 && m.top == 24 + 180);
+    CHECK(!grid.Inside({9, 0, SpanOf(Size::Medium)}));
+    CHECK(grid.Inside({8, 3, SpanOf(Size::Large)}));
+    CHECK(!grid.Inside({8, 4, SpanOf(Size::Large)}));
+
+    // New widgets fill the top row from the right.
+    std::vector<Slot> taken;
+    Slot s;
+    CHECK(grid.First(SpanOf(Size::Medium), taken, &s) && s.col == 0 && s.row == 0);
+    taken.push_back(s);
+    CHECK(grid.First(SpanOf(Size::Small), taken, &s) && s.col == 2 && s.row == 0);
+    taken.push_back(s);
+    CHECK(Overlaps({1, 0, SpanOf(Size::Large)}, taken[0]));
+    CHECK(!Overlaps({3, 0, SpanOf(Size::Small)}, taken[1]));
+    // Dropped near a taken slot: the closest free one.
+    RECT first = grid.Rect({0, 0, SpanOf(Size::Small)});
+    CHECK(grid.Nearest(SpanOf(Size::Small), {first.left + 30, first.top + 20}, taken, &s));
+    CHECK(s.row == 1 && s.col == 0);
+
+    // Nothing fits on a tiny screen.
+    Grid tiny({0, 0, 200, 150}, 1.0);
+    CHECK(!tiny.First(SpanOf(Size::Small), {}, &s));
+    // 150 %: whole pixels.
+    Grid big({0, 0, 2560, 1400}, 1.5);
+    CHECK(big.CellPx() == 246 && big.CardSize(SpanOf(Size::Medium)).cx == 246 * 2 + 24);
+}
+
+void TestWidgetNames() {
+    using namespace widgets;
+    Kind k;
+    CHECK(KindFromName(L"weather", &k) && k == Kind::Weather);
+    CHECK(!KindFromName(L"stocks", &k));
+    for (int i = 0; i < (int)Kind::Count; ++i) CHECK(KindFromName(KindName((Kind)i), &k) && k == (Kind)i);
+    CHECK(SizeFromName(L"large") == Size::Large && SizeFromName(L"huge") == Size::Small);
+    CHECK(LookFromName(L"dark") == Look::Dark && LookFromName(L"") == Look::Auto);
+    CHECK(!Supports(Kind::Clock, Size::Large) && Supports(Kind::Calendar, Size::Large));
+}
+
+const wchar_t* kForecast = LR"({
+  "latitude": 50.3, "longitude": 18.9,
+  "current": {"time": "2026-10-23T14:15", "interval": 900, "temperature_2m": 21.6, "weather_code": 1, "is_day": 1},
+  "hourly": {
+    "time": ["2026-10-23T12:00", "2026-10-23T13:00", "2026-10-23T14:00", "2026-10-23T15:00", "2026-10-23T16:00"],
+    "temperature_2m": [19.0, 20.5, 21.0, 22.4, null],
+    "weather_code": [3, 2, 1, 61, 0],
+    "is_day": [1, 1, 1, 1, 0]
+  },
+  "daily": {
+    "time": ["2026-10-23", "2026-10-24", "2026-10-25"],
+    "weather_code": [1, 63, 95],
+    "temperature_2m_max": [24.8, 17.0, 15.2],
+    "temperature_2m_min": [12.1, 10.0, -0.4]
+  }
+})";
+
+void TestForecast() {
+    using namespace widgets;
+    Forecast f;
+    CHECK(ParseForecast(kForecast, &f));
+    CHECK(f.valid && f.temp > 21.5 && f.temp < 21.7 && !f.night);
+    CHECK(f.cond.sky == Sky::MostlySunny && f.cond.icon == Icon::Sun);
+    CHECK(f.low > 12 && f.low < 12.2 && f.high > 24.7 && f.high < 24.9);
+    // Now (14:xx, the current values), then 15:00; 16:00 has no temperature.
+    CHECK(f.hours.size() == 2);
+    CHECK(f.hours.size() == 2 && f.hours[0].hour == 14 && f.hours[1].hour == 15 &&
+          f.hours[1].cond.sky == Sky::Rain);
+    CHECK(f.days.size() == 3 && f.days[0].date.wDayOfWeek == 5 && f.days[2].date.wDay == 25);
+    CHECK(f.days.size() == 3 && f.days[2].cond.icon == Icon::Storm && f.days[2].low < 0);
+    CHECK(!ParseForecast(L"{\"error\": true, \"reason\": \"x\"}", &f));
+    CHECK(!ParseForecast(L"not json", &f));
+
+    CHECK(FromWmo(0, false).sky == Sky::Clear && FromWmo(0, false).icon == Icon::Moon);
+    CHECK(FromWmo(2, true).icon == Icon::SunCloud && FromWmo(45, true).icon == Icon::Fog);
+    CHECK(FromWmo(77, true).sky == Sky::Snow && FromWmo(57, true).icon == Icon::Sleet);
+    CHECK(FromWmo(1234, true).sky == Sky::Cloudy);
+    std::wstring url = ForecastUrl(50.2945, 18.9178, true);
+    CHECK(url.find(L"https://api.open-meteo.com/v1/forecast?latitude=50.2945&longitude=18.9178") == 0);
+    CHECK(url.find(L"temperature_unit=fahrenheit") != std::wstring::npos);
+}
+
+void TestLocation() {
+    using namespace widgets;
+    // Rounded to about a kilometre before anything leaves the PC.
+    CHECK(RoundCoordinate(50.29634) == 50.3 && RoundCoordinate(-18.91777) == -18.92);
+    CHECK(DistanceKm(50.30, 18.92, 50.30, 18.92) < 0.001);
+    double km = DistanceKm(52.2297, 21.0122, 50.0647, 19.9450);   // Warsaw - Krakow
+    CHECK(km > 250 && km < 254);
+    std::wstring url = PlaceNameUrl(50.2963, 18.9177, L"pl-PL\"&x");
+    CHECK(url == L"https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=12&lat=50.30&lon=18.92"
+                 L"&accept-language=pl-PLx");
+    std::wstring name;
+    CHECK(ParsePlaceName(LR"({"name": "x", "address": {"town": "Bytom", "county": "Silesia"}})", &name) &&
+          name == L"Bytom");
+    CHECK(ParsePlaceName(LR"({"address": {"city": "Kraków", "town": "y"}})", &name) && name == L"Kraków");
+    CHECK(ParsePlaceName(LR"({"name": "Sea", "address": {}})", &name) && name == L"Sea");
+    CHECK(!ParsePlaceName(LR"({"error": "Unable to geocode"})", &name));
+    CHECK(!ParsePlaceName(L"<html>", &name));
+}
+
 }  // namespace
 
 int wmain() {
@@ -163,6 +278,10 @@ int wmain() {
     TestLanguages();
     TestProgramLists();
     TestJson();
+    TestWidgetGrid();
+    TestWidgetNames();
+    TestForecast();
+    TestLocation();
     if (g_failures) {
         fprintf(stderr, "%d check(s) failed\n", g_failures);
         return 1;

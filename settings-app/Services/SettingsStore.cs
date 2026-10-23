@@ -108,6 +108,17 @@ public sealed class SettingsStore
             m.CornerSmoothing = Num(genie, "cornerSmoothing", 100);
             m.WindowCorners = Bool(genie, "windowCorners", true);
             SettingsModel.Replace(m.Excluded, Strings(genie, "excludedPrograms", []));
+            var widgets = _root["widgets"] as JsonObject ?? new JsonObject();
+            m.WidgetsShow = Bool(widgets, "show", true);
+            m.WidgetScale = Num(widgets, "scale", 100);
+            m.Fahrenheit = Str(widgets, "units", "c") == "f";
+            m.ClockSeconds = Bool(widgets, "clockSeconds", true);
+            m.AutoPlace = Bool(widgets, "autoPlace", true);
+            var place = widgets["place"] as JsonObject ?? new JsonObject();
+            double lat = Num(place, "latitude", double.NaN), lon = Num(place, "longitude", double.NaN);
+            bool hasPlace = Str(place, "name", "").Length > 0 && Math.Abs(lat) <= 90 && Math.Abs(lon) <= 180;
+            m.SetPlace(hasPlace ? Str(place, "name", "") : "", hasPlace ? lat : 0, hasPlace ? lon : 0);
+            SyncWidgets(m.Widgets, widgets["items"] as JsonArray);
         }
         finally
         {
@@ -154,6 +165,7 @@ public sealed class SettingsStore
         genie["windowCorners"] = m.WindowCorners;
         genie["excludedPrograms"] = Array(m.Excluded);
         _root["genie"] = genie;
+        _root["widgets"] = SaveWidgets(m, _root["widgets"] as JsonObject ?? new JsonObject());
 
         try
         {
@@ -183,6 +195,75 @@ public sealed class SettingsStore
         @"\steamapps\common\", @"\epic games\", @"\riot games\", @"\xboxgames\", @"\ea games\",
         @"\ubisoft game launcher\games\", @"\gog galaxy\games\",
     ];
+
+    // Entries are kept (and updated) rather than replaced, so a note being typed keeps its
+    // text box when MacWin writes the file.
+    private static void SyncWidgets(System.Collections.ObjectModel.ObservableCollection<WidgetEntry> target, JsonArray? items)
+    {
+        var wanted = new List<(string Id, string Kind, JsonObject Item)>();
+        foreach (var node in items ?? new JsonArray())
+        {
+            if (node is not JsonObject o) continue;
+            string id = Str(o, "id", ""), kind = Str(o, "type", "");
+            if (id.Length > 0 && System.Array.IndexOf(WidgetEntry.Kinds, kind) >= 0 && wanted.All(w => w.Id != id))
+                wanted.Add((id, kind, o));
+        }
+        for (int i = target.Count - 1; i >= 0; i--)
+        {
+            if (!wanted.Any(w => w.Id == target[i].Id && w.Kind == target[i].Kind)) target.RemoveAt(i);
+        }
+        for (int i = 0; i < wanted.Count; i++)
+        {
+            var (id, kind, o) = wanted[i];
+            var entry = target.FirstOrDefault(e => e.Id == id);
+            if (entry is null)
+            {
+                entry = new WidgetEntry { Id = id, Kind = kind };
+                target.Insert(i, entry);
+            }
+            else if (target.IndexOf(entry) != i)
+            {
+                target.Move(target.IndexOf(entry), i);
+            }
+            entry.Size = Str(o, "size", "small");
+            entry.Theme = Str(o, "theme", "auto");
+            entry.Text = Str(o, "text", "");
+            entry.Path = Str(o, "path", "");
+        }
+    }
+
+    private static JsonObject SaveWidgets(SettingsModel m, JsonObject widgets)
+    {
+        widgets["show"] = m.WidgetsShow;
+        widgets["scale"] = (int)m.WidgetScale;
+        widgets["units"] = m.Fahrenheit ? "f" : "c";
+        widgets["clockSeconds"] = m.ClockSeconds;
+        widgets["autoPlace"] = m.AutoPlace;
+        if (m.HasPlace)
+            widgets["place"] = new JsonObject { ["name"] = m.PlaceName, ["latitude"] = m.PlaceLatitude, ["longitude"] = m.PlaceLongitude };
+        else
+            widgets.Remove("place");
+        // Positions are MacWin's (it places widgets and saves where they are dragged): each
+        // widget starts from the file as it is now, so they are never overwritten.
+        var onDisk = (ReadRoot()["widgets"] as JsonObject)?["items"] as JsonArray;
+        var known = widgets["items"] as JsonArray;
+        var items = new JsonArray();
+        foreach (var w in m.Widgets)
+        {
+            JsonObject? Find(JsonArray? list) =>
+                list?.OfType<JsonObject>().FirstOrDefault(o => Str(o, "id", "") == w.Id)?.DeepClone() as JsonObject;
+            var item = Find(onDisk) ?? Find(known) ?? new JsonObject();
+            item["id"] = w.Id;
+            item["type"] = w.Kind;
+            item["size"] = w.Size;
+            item["theme"] = w.Theme;
+            if (w.IsNotes) item["text"] = w.Text;
+            if (w.IsPhoto) item["path"] = w.Path;
+            items.Add(item);
+        }
+        widgets["items"] = items;
+        return widgets;
+    }
 
     private static JsonObject ReadRoot()
     {

@@ -37,6 +37,10 @@ i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open
 - ⬛ **Rogi squircle** — kształt z macOS (wygładzenie 100%) albo zaokrąglenie Windows 11,
   dla animacji, okna ustawień i programów, które same rysują pasek tytułu (Chrome, Edge,
   Brave, Discord, VS Code, Spotify…), z dopasowanym cieniem.
+- 🗓️ **Widżety na pulpicie** — zegar, kalendarz, pogoda, wskaźniki systemu, notatka i
+  zdjęcie, w trzech rozmiarach, jasne albo ciemne. Leżą na pulpicie pod oknami i układają
+  się w siatce jak w macOS; przeciągnij je w dowolne miejsce, prawy przycisk zmienia rozmiar
+  i wygląd.
 - ⚙️ **Okno ustawień jak Ustawienia systemowe macOS** — podgląd na żywo, wyszukiwarka, jasny
   i ciemny motyw, wykluczenia programów.
 - 🌍 **11 języków**, wybieranych automatycznie z Windows (zobacz [Języki](#języki)).
@@ -117,11 +121,27 @@ Zmierzone na Windows 11 z kartą NVIDIA GeForce RTX 2070, MacWin 1.0.0, 30 sekun
 Między animacjami nic nie działa: żadnego odpytywania ani timerów. Jedna klatka dżina to
 ok. 0,3 ms pracy procesora.
 
+Widżety nic nie kosztują, dopóki żadnego nie dodasz. Widżet jest przerysowywany tylko wtedy,
+gdy coś się na nim zmienia — raz na minutę, co dwie sekundy dla wskaźników systemu, co
+sekundę dla zegara ze wskazówką sekundową (ok. 0,4 ms procesora na tyknięcie, rysowane są
+tylko wskazówki) — i wcale, gdy ekran jest wyłączony, komputer zablokowany albo działa gra
+na pełnym ekranie.
+
 ## Prywatność
 
-MacWin niczego nie zbiera. Jedyne połączenie sieciowe to sprawdzenie aktualizacji: raz
-dziennie pyta API GitHuba, czy jest nowe wydanie, i pobiera je z GitHuba, jeśli zdecydujesz
-się zaktualizować. Można to wyłączyć w **Ustawienia → Ogólne → Aktualizacje**.
+MacWin niczego nie zbiera. Łączy się z internetem tylko w dwóch sprawach:
+
+- **Aktualizacje:** raz dziennie pyta API GitHuba, czy jest nowe wydanie, i pobiera je z
+  GitHuba, jeśli zdecydujesz się zaktualizować. Można to wyłączyć w
+  **Ustawienia → Ogólne → Aktualizacje**.
+- **Pogoda**, tylko gdy na pulpicie jest widżet Pogoda: co 30 minut MacWin pyta
+  [Open-Meteo](https://open-meteo.com) o prognozę. Z opcją **Użyj mojej lokalizacji**
+  (domyślnie włączoną) miejsce pochodzi z usług lokalizacji Windows, a
+  [OpenStreetMap](https://nominatim.openstreetmap.org) podaje nazwę miejscowości, pytany tylko
+  po zmianie miejsca. Oba dostają współrzędne zaokrąglone do około kilometra, nigdy
+  dokładniejsze. Ręczne wyszukiwanie miejsca wysyła do Open-Meteo wpisaną nazwę. Nic więcej
+  nie jest wysyłane i nie trzeba żadnego konta ani klucza. Część z lokalizacją wyłącza
+  przełącznik w Windows (**Ustawienia → Prywatność i zabezpieczenia → Lokalizacja**).
 
 ## Pytania i odpowiedzi
 

@@ -19,6 +19,75 @@ public sealed class SettingsModel : INotifyPropertyChanged
     {
         foreach (var list in new[] { DevAllowlist, NoInject, Excluded })
             list.CollectionChanged += (_, _) => Changed?.Invoke();
+        Widgets.CollectionChanged += (_, e) =>
+        {
+            foreach (WidgetEntry w in e.OldItems ?? Array.Empty<WidgetEntry>()) w.Changed -= OnWidgetChanged;
+            foreach (WidgetEntry w in e.NewItems ?? Array.Empty<WidgetEntry>()) w.Changed += OnWidgetChanged;
+            Raise(nameof(HasWidgets));
+            Changed?.Invoke();
+        };
+    }
+
+    private void OnWidgetChanged() => Changed?.Invoke();
+
+    /// <summary>The widgets on the desktop, in the order they were added.</summary>
+    public ObservableCollection<WidgetEntry> Widgets { get; } = new();
+    public bool HasWidgets => Widgets.Count > 0;
+
+    private bool _widgetsShow = true;
+    public bool WidgetsShow { get => _widgetsShow; set => Set(ref _widgetsShow, value); }
+
+    private double _widgetScale = 100;
+    /// <summary>Percent of the normal widget size.</summary>
+    public double WidgetScale { get => _widgetScale; set => Set(ref _widgetScale, Math.Round(Math.Clamp(value, 80, 130))); }
+
+    private bool _fahrenheit;
+    public bool Fahrenheit
+    {
+        get => _fahrenheit;
+        set
+        {
+            if (Set(ref _fahrenheit, value)) Raise(nameof(UnitIndex));
+        }
+    }
+    /// <summary>0 = °C, 1 = °F (the segmented control).</summary>
+    public int UnitIndex { get => _fahrenheit ? 1 : 0; set => Fahrenheit = value == 1; }
+
+    private bool _clockSeconds = true;
+    public bool ClockSeconds { get => _clockSeconds; set => Set(ref _clockSeconds, value); }
+
+    /// <summary>The weather's place: its name and coordinates (from Open-Meteo's search).</summary>
+    public string PlaceName { get; private set; } = "";
+    public double PlaceLatitude { get; private set; }
+    public double PlaceLongitude { get; private set; }
+    public bool HasPlace => PlaceName.Length > 0;
+
+    private bool _autoPlace = true;
+    /// <summary>The weather where Windows says this PC is; the chosen place when that isn't known.</summary>
+    public bool AutoPlace
+    {
+        get => _autoPlace;
+        set
+        {
+            if (Set(ref _autoPlace, value)) Raise(nameof(PlaceRowDescription));
+        }
+    }
+
+    /// <summary>The chosen place, or (with "my location") what it is used for.</summary>
+    public string PlaceRowDescription => !_autoPlace
+        ? (HasPlace ? PlaceName : Loc.T("settings.widgets.place.none"))
+        : HasPlace ? Loc.F("settings.widgets.place.fallback", PlaceName) : Loc.T("settings.widgets.place.fallbackNone");
+
+    public void SetPlace(string name, double latitude, double longitude)
+    {
+        if (name == PlaceName && latitude == PlaceLatitude && longitude == PlaceLongitude) return;
+        PlaceName = name;
+        PlaceLatitude = latitude;
+        PlaceLongitude = longitude;
+        Raise(nameof(PlaceName));
+        Raise(nameof(HasPlace));
+        Raise(nameof(PlaceRowDescription));
+        Changed?.Invoke();
     }
 
     private bool _enabled = true;

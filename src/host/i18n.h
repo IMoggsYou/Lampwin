@@ -4,6 +4,7 @@
 #pragma once
 #include <windows.h>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 // The host's texts (tray menu, notifications, messages) from i18n/<code>.json, which
@@ -32,6 +33,10 @@ bool IsRightToLeft();
 const std::wstring& T(const wchar_t* key);
 // T with {0} replaced.
 std::wstring F(const wchar_t* key, const std::wstring& arg0);
+// Every text whose key starts with `prefix`, in this language (English where it has none).
+std::unordered_map<std::wstring, std::wstring> All(const wchar_t* prefix);
+// The Windows locale that writes dates in this language ("pl-PL").
+std::wstring LocaleName();
 
 // MessageBox in the UI language: right-to-left reading for Arabic.
 int Message(HWND owner, const std::wstring& text, UINT type);
