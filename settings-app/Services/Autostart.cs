@@ -9,7 +9,9 @@ namespace MacWin.Settings;
 /// "Start with Windows".
 ///  - Installed copy (Program Files): the "MacWin" scheduled task, which also runs MacWin
 ///    with administrator rights without a UAC prompt; its logon trigger is the autostart.
-///    Changing it re-registers the task, which needs one UAC confirmation.
+///    Changing it re-registers the task, which needs one UAC confirmation. The task
+///    belongs to one user: on a PC where it is another account's, this user gets
+///    HKCU\...\Run instead (MacWin then runs without administrator rights).
 ///  - Anywhere else (a development build): HKCU\...\Run, no administrator rights.
 /// </summary>
 internal static class Autostart
@@ -23,14 +25,18 @@ internal static class Autostart
     /// <summary>Slow-ish (asks the Task Scheduler): call off the UI thread.</summary>
     public static bool IsEnabled()
     {
-        if (IsInstalled && QueryTaskXml() is string xml) return xml.Contains("LogonTrigger", StringComparison.Ordinal);
+        if (IsInstalled && QueryTaskXml() is string xml && IsMine(xml))
+            return xml.Contains("LogonTrigger", StringComparison.Ordinal);
         using var key = Registry.CurrentUser.OpenSubKey(RunKey);
         return key?.GetValue(ValueName) is string;
     }
 
     public static async Task<bool> SetAsync(bool enabled)
     {
-        if (IsInstalled)
+        // The task is this user's (or there is none yet): use it. Another account's
+        // task is left alone.
+        bool useTask = IsInstalled && await Task.Run(() => QueryTaskXml() is not string xml || IsMine(xml));
+        if (useTask)
         {
             bool ok = await Task.Run(() => RunElevated(enabled ? "--install-task" : "--install-task --no-logon"));
             if (ok) DeleteRunValue();
@@ -66,6 +72,19 @@ internal static class Autostart
         {
             return false;   // UAC prompt declined
         }
+    }
+
+    // The task is this user's: schtasks shows its principal as "PC\user", its logon
+    // trigger as the SID.
+    private static bool IsMine(string taskXml)
+    {
+        using var me = System.Security.Principal.WindowsIdentity.GetCurrent();
+        foreach (string? id in new[] { me.User?.Value, me.Name })
+        {
+            if (!string.IsNullOrEmpty(id) && taskXml.Contains("<UserId>" + id + "</UserId>", StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     private static string? QueryTaskXml()
