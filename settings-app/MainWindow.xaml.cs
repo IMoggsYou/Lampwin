@@ -16,17 +16,22 @@ namespace MacWin.Settings;
 
 public sealed class NavItem
 {
-    public required string Title { get; init; }
-    public required string Keywords { get; init; }
+    /// <summary>Stable name for "--page" (titles are translated).</summary>
+    public required string Id { get; init; }
+    public required string TitleKey { get; init; }
     public required Brush Tint { get; init; }
     public required Geometry Icon { get; init; }
     public required Func<UserControl> Create { get; init; }
+
+    public string Title => Loc.T(TitleKey);
+
+    /// <summary>Search words: the translated ones, plus the English ones, which always work.</summary>
+    public string Keywords => string.Join(' ', Loc.T(TitleKey + ".keywords"), Loc.InEnglish(TitleKey),
+                                          Loc.InEnglish(TitleKey + ".keywords"), Id);
 }
 
 public partial class MainWindow : Window
 {
-    public const string WindowTitle = "MacWin – ustawienia";
-
     private readonly SettingsStore _store = new();
     private readonly List<NavItem> _items;
     private readonly Dictionary<NavItem, UserControl> _pages = new();
@@ -38,7 +43,6 @@ public partial class MainWindow : Window
     public MainWindow(string? snapshotDir, string? startPage)
     {
         InitializeComponent();
-        Title = WindowTitle;
         _snapshotDir = snapshotDir;
         _store.Load();
         DataContext = _store.Model;
@@ -48,34 +52,44 @@ public partial class MainWindow : Window
         {
             new()
             {
-                Title = "Animacje okien", Keywords = "dżin genie minimalizacja przywracanie styl czas siatka pasek otwieranie zamykanie",
+                Id = "animations", TitleKey = "settings.nav.animations",
                 Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Icon = GenieIcon(), Create = () => new AnimationsPage(),
             },
             new()
             {
-                Title = "Rogi okien", Keywords = "rogi promień zaokrąglenie squircle macos windows 11 cień ramka kształt",
+                Id = "corners", TitleKey = "settings.nav.corners",
                 Tint = Gradient("#FF34C759", "#FF1F9E46"), Icon = CornersIcon(), Create = () => new CornersPage(),
             },
             new()
             {
-                Title = "Ogólne", Keywords = "włącz wyłącz start autostart uruchom zatrzymaj tryb testowy",
+                Id = "general", TitleKey = "settings.nav.general",
                 Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Icon = SlidersIcon(), Create = () => new GeneralPage(),
             },
             new()
             {
-                Title = "Wykluczenia", Keywords = "wyklucz programy gry anty-cheat lista",
+                Id = "exclusions", TitleKey = "settings.nav.exclusions",
                 Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Icon = BlockedIcon(), Create = () => new ExclusionsPage(),
             },
             new()
             {
-                Title = "Informacje", Keywords = "wersja autorzy licencja log folder",
+                Id = "about", TitleKey = "settings.nav.about",
                 Tint = Gradient("#FF7D7AFF", "#FF5856D6"), Icon = InfoIcon(), Create = () => new AboutPage(),
             },
         };
         _view = CollectionViewSource.GetDefaultView(_items);
         Nav.ItemsSource = _view;
-        int start = _items.FindIndex(i => string.Equals(i.Title, startPage, StringComparison.OrdinalIgnoreCase));
+        ApplyLanguage();   // before a page exists: nothing to rebuild yet
+        int start = PageIndex(startPage);
         Nav.SelectedIndex = start >= 0 ? start : 0;
+
+        Loc.Changed += ApplyLanguage;
+        Closed += (_, _) => Loc.Changed -= ApplyLanguage;
+        _store.Model.PropertyChanged += (_, e) =>
+        {
+            // After the click that changed it has finished: the page holding the list is rebuilt.
+            if (e.PropertyName == nameof(SettingsModel.Language))
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, () => Loc.Apply(_store.Model.Language));
+        };
 
         // This window has the corners it sets (it draws them itself, see UpdateShape).
         _shadow = new WindowShadow(this, CornerRadius, CornerSmoothing);
@@ -113,12 +127,58 @@ public partial class MainWindow : Window
         UpdateStatus();
     }
 
+    /// <summary>Index of a page by its id ("general") or its title in any language.</summary>
+    public int PageIndex(string? page)
+    {
+        if (string.IsNullOrEmpty(page)) return -1;
+        return _items.FindIndex(i => string.Equals(i.Id, page, StringComparison.OrdinalIgnoreCase) ||
+                                     string.Equals(i.Title, page, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static readonly uint ShowMessage = Native.RegisterWindowMessage(Native.ShowMessage);
+
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         const int WM_WINDOWPOSCHANGED = 0x0047, WM_GETMINMAXINFO = 0x0024;
         if (msg == WM_GETMINMAXINFO) Native.FitMaximizedToWorkArea(hwnd, lParam);   // WPF still adds the min size
         else if (msg == WM_WINDOWPOSCHANGED) _shadow.Sync();   // moved, resized or z-order changed
+        else if ((uint)msg == ShowMessage)
+        {
+            // Another copy was started (Start menu, tray): it hands over to this window.
+            int page = (int)wParam - 1;
+            if (page >= 0 && page < _items.Count)
+            {
+                Search.Clear();
+                Nav.SelectedItem = _items[page];
+            }
+            Native.Activate(hwnd);
+            handled = true;
+        }
         return IntPtr.Zero;
+    }
+
+    // The language changed (or was set for the first time): every text, the reading
+    // direction and the fonts follow. Pages are made again, so their texts are fresh.
+    private void ApplyLanguage()
+    {
+        Title = Loc.T("settings.window.title");
+        Frame.FlowDirection = Loc.FlowDirection;
+        Language = Loc.XmlLanguage;
+        // Western digits everywhere: with Arabic, WPF would treat them as Arabic numbers
+        // and reorder "Windows 11" into "11 Windows".
+        NumberSubstitution.SetCultureSource(this, NumberCultureSource.Override);
+        NumberSubstitution.SetCultureOverride(this, System.Globalization.CultureInfo.GetCultureInfo("en-US"));
+        NumberSubstitution.SetSubstitution(this, NumberSubstitutionMethod.European);
+        Search.Tag = Loc.T("settings.search.placeholder");
+        Nav.Items.Refresh();
+        var current = Nav.SelectedItem as NavItem;
+        _pages.Clear();
+        if (current is not null)
+        {
+            Nav.SelectedItem = null;
+            Nav.SelectedItem = current;
+        }
+        UpdateStatus();
     }
 
     private double CornerRadius => _store.Model.CornerRadius;
@@ -141,7 +201,7 @@ public partial class MainWindow : Window
     {
         bool running = HostControl.IsRunning;
         StatusDot.SetResourceReference(Shape.FillProperty, running ? "Brush.Good" : "Brush.Bad");
-        StatusText.Text = running ? "MacWin działa" : "MacWin nie działa · kliknij, aby uruchomić";
+        StatusText.Text = Loc.T(running ? "settings.status.running" : "settings.status.stopped");
         StatusPill.Cursor = running ? null : System.Windows.Input.Cursors.Hand;
     }
 
@@ -204,6 +264,12 @@ public partial class MainWindow : Window
             Nav.SelectedIndex = i;
             await Task.Delay(i == 0 ? 400 : 1100);
             await Capture(dir, $"page{i}.png");
+            if (Scroller.ScrollableHeight > 0)
+            {
+                Scroller.ScrollToEnd();   // SmoothScroll animates there
+                await Task.Delay(900);
+                await Capture(dir, $"page{i}-end.png");
+            }
         }
         // Frames of the preview's genie (it starts minimizing 1.2 s after it appears).
         Nav.SelectedIndex = 0;
@@ -231,6 +297,8 @@ public partial class MainWindow : Window
             {
                 var rect = new Rect(0, 0, Root.ActualWidth, Root.ActualHeight);
                 dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x5A, 0x6E, 0x96)), null, rect);
+                // Right-to-left: Frame mirrors Root on screen; Root rendered alone is not.
+                if (Loc.IsRightToLeft) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, rect.Width, 0));
                 dc.DrawImage(content, rect);
             }
             var bmp = new RenderTargetBitmap(w, h, dpi.PixelsPerInchX, dpi.PixelsPerInchY, PixelFormats.Pbgra32);

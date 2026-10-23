@@ -1,37 +1,64 @@
 <UserControl x:Class="MacWin.Settings.Pages.AboutPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
     <StackPanel>
         <StackPanel HorizontalAlignment="Center" Margin="0,10,0,26">
             <c:AppIcon Width="96" Height="96" HorizontalAlignment="Center"/>
             <TextBlock Style="{StaticResource Text.LargeTitle}" Text="MacWin" HorizontalAlignment="Center" Margin="0,12,0,0"/>
             <TextBlock x:Name="VersionText" Style="{StaticResource Text.Secondary}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
-            <TextBlock Text="Animacje okien w stylu macOS dla Windows 11" HorizontalAlignment="Center" Margin="0,8,0,0"
-                       Foreground="{DynamicResource Brush.TextSecondary}"/>
+            <TextBlock Text="{l:Tr settings.about.tagline}" HorizontalAlignment="Center" Margin="0,8,0,0"
+                       TextAlignment="Center" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}"/>
+            <!-- Required by the license (NOTICE, GPL section 7(b)): keep the author's name here. -->
+            <TextBlock x:Name="AuthorText" HorizontalAlignment="Center" Margin="0,6,0,0" Style="{StaticResource LinkText}"
+                       MouseLeftButtonUp="Author_Click"/>
         </StackPanel>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Autorzy i licencje"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.about.project.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Animacja dżina"
-                              Description="Na podstawie moda „MacOS Minimize Animation” do Windhawka – Abdullah Masood, z silnikiem Potassiumunchera. Licencja MIT."/>
+                <c:SettingRow Title="{l:Tr settings.about.github.title}" Description="{l:Tr settings.about.github.description}">
+                    <Button Style="{StaticResource MacButton}" Content="GitHub" Click="Repo_Click"/>
+                </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="MinHook" Description="Biblioteka podpinania funkcji – Tsuda Kageyu. Licencja BSD-2."/>
+                <c:SettingRow Title="{l:Tr settings.about.changelog.title}" Description="{l:Tr settings.about.changelog.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.about.open}" Click="Changelog_Click"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.about.reportBug.title}" Description="{l:Tr settings.about.reportBug.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.about.open}" Click="Issues_Click"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.about.license.title}" Description="{l:Tr settings.about.license.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.about.open}" Click="License_Click"/>
+                </c:SettingRow>
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Pliki"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.about.credits.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Dziennik działania" Description="Co MacWin robi: animacje, czasy klatek, błędy.">
-                    <Button Style="{StaticResource MacButton}" Content="Otwórz" Click="OpenLog_Click"/>
+                <c:SettingRow Title="{l:Tr settings.about.genie.title}" Description="{l:Tr settings.about.genie.description}"/>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="MinHook" Description="{l:Tr settings.about.minhook.description}"/>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.about.files.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.about.log.title}" Description="{l:Tr settings.about.log.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.about.open}" Click="OpenLog_Click"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Folder ustawień" Description="settings.json – to samo, co zmieniasz w tym oknie.">
-                    <Button Style="{StaticResource MacButton}" Content="Pokaż" Click="OpenFolder_Click"/>
+                <c:SettingRow Title="{l:Tr settings.about.folder.title}" Description="{l:Tr settings.about.folder.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.about.show}" Click="OpenFolder_Click"/>
                 </c:SettingRow>
             </StackPanel>
         </Border>
+
+        <TextBlock Style="{StaticResource Text.Secondary}" HorizontalAlignment="Center" Margin="0,-6,0,4"
+                   Text="© 2026 KosaWLeb · GPL-3.0-or-later"/>
     </StackPanel>
 </UserControl>

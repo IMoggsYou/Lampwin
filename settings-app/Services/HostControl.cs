@@ -29,10 +29,14 @@ internal static class HostControl
         }
     }
 
-    public static void NotifyReload()
+    public static void NotifyReload() => Post(ReloadMessage, 0);
+
+    /// <summary>Posts one of MacWin's registered messages (src/common/names.h) to the host.</summary>
+    public static bool Post(string message, int wParam)
     {
         IntPtr host = Native.FindWindow(HostWindowClass, null);
-        if (host != IntPtr.Zero) Native.PostMessage(host, Native.RegisterWindowMessage(ReloadMessage), IntPtr.Zero, IntPtr.Zero);
+        return host != IntPtr.Zero &&
+               Native.PostMessage(host, Native.RegisterWindowMessage(message), (IntPtr)wParam, IntPtr.Zero);
     }
 
     /// <summary>Starting MacWin.exe is enough: an installed copy hands over to its scheduled
@@ -59,6 +63,21 @@ internal static class HostControl
     public static bool TryOpenClose() => Launch(TestWindowExe, "--open-close 2");
 
     public static bool Open(string path) => Launch(path, null);
+
+    /// <summary>Opens a web page in the default browser (only https links of this project).</summary>
+    public static bool OpenUrl(string url)
+    {
+        if (!url.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return false;
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            return true;
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException)
+        {
+            return false;
+        }
+    }
 
     private static bool Launch(string path, string? args)
     {

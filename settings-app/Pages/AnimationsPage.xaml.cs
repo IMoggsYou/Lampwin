@@ -23,8 +23,9 @@ public partial class AnimationsPage : UserControl
     private bool EnsureRunning()
     {
         if (HostControl.IsRunning) return true;
-        MessageBox.Show(Window.GetWindow(this), "MacWin nie działa. Uruchom go na karcie „Ogólne”.", "MacWin",
-                        MessageBoxButton.OK, MessageBoxImage.Information);
+        MessageBox.Show(Window.GetWindow(this), Loc.T("settings.animations.notRunning"), "MacWin",
+                        MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK,
+                        Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign : MessageBoxOptions.None);
         return false;
     }
 }

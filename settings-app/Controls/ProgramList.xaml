@@ -1,6 +1,7 @@
 <UserControl x:Class="MacWin.Settings.Controls.ProgramList"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:l="clr-namespace:MacWin.Settings"
              x:Name="Self">
     <!-- macOS-style list with +/- buttons underneath -->
     <Border Margin="14,4,14,14" CornerRadius="7" BorderThickness="1"
@@ -31,7 +32,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            <TextBlock x:Name="EmptyText" Text="Brak programów na liście" HorizontalAlignment="Center" VerticalAlignment="Center"
+            <TextBlock x:Name="EmptyText" Text="{l:Tr settings.list.empty}" HorizontalAlignment="Center" VerticalAlignment="Center"
                        Foreground="{DynamicResource Brush.TextTertiary}" IsHitTestVisible="False"/>
 
             <Rectangle Grid.Row="1" Fill="{DynamicResource Brush.Separator}"/>
@@ -44,12 +45,12 @@
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <Button Style="{StaticResource ListToolButton}" Content="+" ToolTip="Wybierz program…" Click="AddFromFile_Click"/>
+                <Button Style="{StaticResource ListToolButton}" Content="+" ToolTip="{l:Tr settings.list.add.tooltip}" Click="AddFromFile_Click"/>
                 <Button x:Name="RemoveButton" Grid.Column="1" Style="{StaticResource ListToolButton}" Content="−"
-                        ToolTip="Usuń zaznaczony" IsEnabled="False" Click="Remove_Click"/>
+                        ToolTip="{l:Tr settings.list.remove.tooltip}" IsEnabled="False" Click="Remove_Click"/>
                 <TextBox x:Name="NameBox" Grid.Column="3" Width="170" Style="{StaticResource MacTextBox}" Padding="6,1"
-                         Tag="nazwa.exe" KeyDown="NameBox_KeyDown" Margin="0,0,6,0"/>
-                <Button Grid.Column="4" Style="{StaticResource MacButton}" Padding="10,2" Content="Dodaj" Click="AddName_Click"/>
+                         Tag="{l:Tr settings.list.placeholder}" KeyDown="NameBox_KeyDown" Margin="0,0,6,0"/>
+                <Button Grid.Column="4" Style="{StaticResource MacButton}" Padding="10,2" Content="{l:Tr settings.list.add}" Click="AddName_Click"/>
             </Grid>
         </Grid>
     </Border>

@@ -1,43 +1,79 @@
 <UserControl x:Class="MacWin.Settings.Pages.GeneralPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
     <StackPanel>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Animacje włączone" Description="Główny przełącznik. Wyłączony = zwykłe animacje Windows.">
+                <c:SettingRow Title="{l:Tr settings.general.enabled.title}"
+                              Description="{l:Tr settings.general.enabled.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Enabled}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Uruchamiaj razem z Windows" Description="{Binding AutostartDescription}">
+                <c:SettingRow Title="{l:Tr settings.general.autostart.title}" Description="{Binding AutostartDescription}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Autostart}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.general.language.title}"
+                              Description="{l:Tr settings.general.language.description}">
+                    <ComboBox x:Name="LanguageBox" Style="{StaticResource MacComboBox}"
+                              DisplayMemberPath="Name" SelectedValuePath="Code"
+                              SelectedValue="{Binding Language, Mode=TwoWay}"/>
                 </c:SettingRow>
             </StackPanel>
         </Border>
 
         <TextBlock Style="{StaticResource Text.GroupHeader}" Text="MacWin"/>
         <Border Style="{StaticResource Group}">
-            <c:SettingRow x:Name="StatusRow" Title="Stan">
+            <c:SettingRow x:Name="StatusRow" Title="{l:Tr settings.general.status.title}">
                 <StackPanel Orientation="Horizontal">
-                    <Button x:Name="StartButton" Style="{StaticResource MacPrimaryButton}" Content="Uruchom" Click="Start_Click"/>
-                    <Button x:Name="RestartButton" Style="{StaticResource MacButton}" Content="Uruchom ponownie"
-                            Margin="0,0,8,0" Click="Restart_Click"/>
-                    <Button x:Name="StopButton" Style="{StaticResource MacButton}" Content="Zatrzymaj" Click="Stop_Click"/>
+                    <Button x:Name="StartButton" Style="{StaticResource MacPrimaryButton}"
+                            Content="{l:Tr settings.general.start}" Click="Start_Click"/>
+                    <Button x:Name="RestartButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.general.restart}" Margin="0,0,8,0" Click="Restart_Click"/>
+                    <Button x:Name="StopButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.general.stop}" Click="Stop_Click"/>
                 </StackPanel>
             </c:SettingRow>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Tryb testowy"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.general.updates.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Tylko wybrane programy"
-                              Description="MacWin działa wyłącznie w programach z listy poniżej. Wyłącz, żeby animacje działały wszędzie.">
+                <c:SettingRow Title="{l:Tr settings.general.updates.check.title}"
+                              Description="{l:Tr settings.general.updates.check.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UpdateCheck}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.general.updates.auto.title}" IsEnabled="{Binding UpdateCheck}"
+                              Description="{l:Tr settings.general.updates.auto.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UpdateAutoInstall}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow x:Name="UpdateRow">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="WhatsNewButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Content="{l:Tr settings.general.updates.whatsNew}" Click="WhatsNew_Click"/>
+                        <Button x:Name="InstallButton" Style="{StaticResource MacPrimaryButton}" Margin="0,0,8,0"
+                                Click="Install_Click"/>
+                        <Button x:Name="CheckButton" Style="{StaticResource MacButton}"
+                                Content="{l:Tr settings.general.updates.checkNow}" Click="Check_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.general.testMode.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.general.testMode.title}"
+                              Description="{l:Tr settings.general.testMode.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding DevMode}"/>
                 </c:SettingRow>
                 <c:ProgramList Items="{Binding DevAllowlist}" IsEnabled="{Binding DevMode}"/>
             </StackPanel>
         </Border>
-        <TextBlock Style="{StaticResource Text.Footnote}"
-                   Text="Programy otwarte przed zmianą tej listy trzeba zamknąć i otworzyć ponownie. Gdyby cokolwiek działało nie tak, Ctrl+Alt+Shift+F12 natychmiast wyłącza MacWin."/>
+        <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.general.footnote}"/>
     </StackPanel>
 </UserControl>

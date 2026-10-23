@@ -21,7 +21,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
     private bool _enabled = true;
     public bool Enabled { get => _enabled; set => Set(ref _enabled, value); }
 
-    private bool _devMode = true;
+    private bool _devMode;
     public bool DevMode { get => _devMode; set => Set(ref _devMode, value); }
 
     public ObservableCollection<string> DevAllowlist { get; } = new();
@@ -43,9 +43,9 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
     public bool IsModern => _style == 0;
-    public string StyleDescription => _style == 0
-        ? "Płynna krzywa „lampy” z silnika Potassiumunchera, liczona na karcie graficznej."
-        : "Oryginalny efekt lejka z pierwszej wersji moda, z wygaszaniem na końcu.";
+    public string StyleDescription => Loc.T(_style == 0
+        ? "settings.animations.style.modern.description"
+        : "settings.animations.style.classic.description");
 
     private double _durationMs = 450;
     public double DurationMs { get => _durationMs; set => Set(ref _durationMs, Math.Round(Math.Clamp(value, 50, 2000))); }
@@ -105,9 +105,9 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
     public bool HasOpenEffect => _openEffect != 0;
-    public string OpenDescription => _openEffect == 1
-        ? "Okno wylatuje z ikony programu na pasku zadań efektem dżina."
-        : "Zwykła animacja Windows.";
+    public string OpenDescription => Loc.T(_openEffect == 1
+        ? "settings.animations.open.genie.description"
+        : "settings.animations.effect.windows.description");
 
     private int _closeEffect = 1;
     /// <summary>0 = Windows, 1 = genie.</summary>
@@ -124,9 +124,9 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
     public bool HasCloseEffect => _closeEffect != 0;
-    public string CloseDescription => _closeEffect == 1
-        ? "Okno wpada do swojej ikony na pasku zadań efektem dżina."
-        : "Zwykła animacja Windows.";
+    public string CloseDescription => Loc.T(_closeEffect == 1
+        ? "settings.animations.close.genie.description"
+        : "settings.animations.effect.windows.description");
 
     private double _openDurationMs = 450;
     public double OpenDurationMs { get => _openDurationMs; set => Set(ref _openDurationMs, Math.Round(Math.Clamp(value, 100, 1500))); }
@@ -158,9 +158,25 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
 
-    public string AutostartDescription => MacWin.Settings.Autostart.IsInstalled
-        ? "MacWin startuje po zalogowaniu z uprawnieniami administratora, bez pytania UAC. Zmiana wymaga jednego potwierdzenia."
-        : "MacWin startuje po zalogowaniu i siedzi w zasobniku.";
+    public string AutostartDescription => Loc.T(MacWin.Settings.Autostart.IsInstalled
+        ? "settings.general.autostart.description.installed"
+        : "settings.general.autostart.description");
+
+    private string _language = "auto";
+    /// <summary>"auto" (the Windows display language) or one of <see cref="Loc.Languages"/>.</summary>
+    public string Language
+    {
+        get => _language;
+        set => Set(ref _language, string.IsNullOrEmpty(value) ? "auto" : value);
+    }
+
+    private bool _updateCheck = true;
+    /// <summary>MacWin asks GitHub once a day whether a new version is out.</summary>
+    public bool UpdateCheck { get => _updateCheck; set => Set(ref _updateCheck, value); }
+
+    private bool _updateAutoInstall;
+    /// <summary>New versions are installed without asking.</summary>
+    public bool UpdateAutoInstall { get => _updateAutoInstall; set => Set(ref _updateAutoInstall, value); }
 
     private async Task ApplyAutostartAsync(bool value)
     {

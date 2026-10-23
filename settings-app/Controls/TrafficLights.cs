@@ -22,13 +22,13 @@ public sealed class TrafficLights : StackPanel
         Orientation = Orientation.Horizontal;
         WindowChrome.SetIsHitTestVisibleInChrome(this, true);
         Background = Brushes.Transparent;
-        Add("#FFFF5F57", "#FFE2463F", CloseGlyph(), w => w.Close(), "Zamknij");
-        Add("#FFFEBC2E", "#FFDFA023", MinimizeGlyph(), w => SystemCommands.MinimizeWindow(w), "Minimalizuj");
+        Add("#FFFF5F57", "#FFE2463F", CloseGlyph(), w => w.Close(), Loc.T("settings.window.close"));
+        Add("#FFFEBC2E", "#FFDFA023", MinimizeGlyph(), w => SystemCommands.MinimizeWindow(w), Loc.T("settings.window.minimize"));
         Add("#FF28C840", "#FF1DAD2C", ZoomGlyph(), w =>
         {
             if (w.WindowState == WindowState.Maximized) SystemCommands.RestoreWindow(w);
             else SystemCommands.MaximizeWindow(w);
-        }, "Powiększ");
+        }, Loc.T("settings.window.zoom"));
         MouseEnter += (_, _) => Refresh();
         MouseLeave += (_, _) => Refresh();
         Loaded += (_, _) =>

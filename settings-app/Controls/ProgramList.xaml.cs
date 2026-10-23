@@ -66,8 +66,8 @@ public partial class ProgramList : UserControl
     {
         var dialog = new OpenFileDialog
         {
-            Title = "Wybierz program",
-            Filter = "Programy (*.exe)|*.exe",
+            Title = Loc.T("settings.list.dialog.title"),
+            Filter = Loc.T("settings.list.dialog.filter"),
             InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) == true) Add(Path.GetFileName(dialog.FileName));

@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -9,9 +8,19 @@ public partial class AboutPage : UserControl
     public AboutPage()
     {
         InitializeComponent();
-        var v = Assembly.GetExecutingAssembly().GetName().Version;
-        VersionText.Text = $"Wersja {v?.Major}.{v?.Minor}.{v?.Build}";
+        VersionText.Text = Loc.F("settings.about.version", Project.Version);
+        AuthorText.Text = Loc.F("settings.about.author", Project.Author);
     }
+
+    private void Author_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl("https://github.com/" + Project.Author);
+
+    private void Repo_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.RepoUrl);
+
+    private void Changelog_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.ChangelogUrl);
+
+    private void Issues_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.IssuesUrl);
+
+    private void License_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.LicenseUrl);
 
     private void OpenLog_Click(object sender, RoutedEventArgs e) => HostControl.Open(HostControl.LogPath);
 

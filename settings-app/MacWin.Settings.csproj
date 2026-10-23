@@ -22,4 +22,9 @@
     <TieredPGO>true</TieredPGO>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- UI translations, the same files the host and the docs use. -->
+    <EmbeddedResource Include="..\i18n\*.json" LogicalName="i18n.%(Filename).json" WithCulture="false" Link="i18n\%(Filename)%(Extension)" />
+  </ItemGroup>
+
 </Project>

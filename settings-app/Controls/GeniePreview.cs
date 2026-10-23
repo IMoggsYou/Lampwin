@@ -78,7 +78,7 @@ public sealed class GeniePreview : Grid
     {
         ClipToBounds = true;
         Cursor = Cursors.Hand;
-        ToolTip = "Kliknij w trakcie animacji, żeby ją odwrócić";
+        ToolTip = Loc.T("settings.animations.preview.tooltip");
 
         _scene.Children.Add(_wallpaper);
 
@@ -318,7 +318,9 @@ public sealed class GeniePreview : Grid
         title.Children.Add(dots);
         title.Children.Add(new TextBlock
         {
-            Text = "Notatnik",
+            Text = Loc.T("settings.animations.preview.windowTitle"),
+            // Drawn off-screen, outside the window's tree: the font is set here.
+            FontFamily = Application.Current.TryFindResource("Font.Text") as FontFamily ?? new FontFamily("Segoe UI"),
             FontSize = 9.5,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(dark ? Hex("#FFE5E5EA") : Hex("#FF3A3A3C")),

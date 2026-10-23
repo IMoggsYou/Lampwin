@@ -1,10 +1,11 @@
 <UserControl x:Class="MacWin.Settings.Pages.AnimationsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
     <StackPanel>
-        <!-- Live preview -->
-        <Border Style="{StaticResource Group}" Padding="0" ClipToBounds="True">
+        <!-- Live preview (a picture of a desktop: never mirrored for right-to-left languages) -->
+        <Border Style="{StaticResource Group}" Padding="0" ClipToBounds="True" FlowDirection="LeftToRight">
             <Grid>
                 <Border CornerRadius="9" ClipToBounds="True">
                     <c:GeniePreview Height="240" GenieStyle="{Binding Style}" DurationMs="{Binding DurationMs}"
@@ -13,35 +14,38 @@
                 </Border>
                 <Border HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10" CornerRadius="6" Padding="8,3"
                         Background="#59000000" IsHitTestVisible="False">
-                    <TextBlock Text="Podgląd na żywo · kliknij, żeby odwrócić" FontSize="11" Foreground="White"/>
+                    <TextBlock Text="{l:Tr settings.animations.preview.hint}" FontSize="11" Foreground="White"
+                               FlowDirection="{x:Static l:Loc.FlowDirection}"/>
                 </Border>
             </Grid>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Wygląd"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.animations.appearance}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Styl animacji" Description="{Binding StyleDescription}">
-                    <c:SegmentedControl Width="230" Items="Nowoczesny dżin, Klasyczny dżin"
+                <c:SettingRow Title="{l:Tr settings.animations.style.title}" Description="{Binding StyleDescription}">
+                    <c:SegmentedControl MinWidth="230"
+                                        ItemKeys="settings.animations.style.modern|settings.animations.style.classic"
                                         SelectedIndex="{Binding Style, Mode=TwoWay}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Czas trwania" Description="Jak długo okno wpada do paska zadań i z niego wraca.">
+                <c:SettingRow Title="{l:Tr settings.animations.duration.title}"
+                              Description="{l:Tr settings.animations.duration.description}">
                     <StackPanel Orientation="Horizontal">
                         <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="100" Maximum="1500"
                                 TickFrequency="10" SmallChange="10" LargeChange="100" Value="{Binding DurationMs}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.ms}" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
-                                   Text="{Binding DurationMs, StringFormat={}{0:0} ms}"/>
+                                   Text="{Binding DurationMs, Converter={StaticResource Unit.Ms}}"/>
                     </StackPanel>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Jakość siatki" IsEnabled="{Binding IsModern}"
-                              Description="Więcej kafelków to gładsza krzywa (styl nowoczesny). Na karcie graficznej koszt jest pomijalny.">
+                <c:SettingRow Title="{l:Tr settings.animations.mesh.title}" IsEnabled="{Binding IsModern}"
+                              Description="{l:Tr settings.animations.mesh.description}">
                     <StackPanel Orientation="Horizontal">
                         <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="8" Maximum="96"
                                 TickFrequency="1" SmallChange="1" LargeChange="8" Value="{Binding MeshQuality}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.ms}" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
                                    Text="{Binding MeshQuality, StringFormat={}{0:0}}"/>
                     </StackPanel>
@@ -49,88 +53,99 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Otwieranie i zamykanie okien"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.animations.openClose.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Otwieranie" Description="{Binding OpenDescription}">
-                    <c:SegmentedControl Width="230" Items="Windows, Dżin"
+                <c:SettingRow Title="{l:Tr settings.animations.open.title}" Description="{Binding OpenDescription}">
+                    <c:SegmentedControl MinWidth="230"
+                                        ItemKeys="settings.animations.effect.windows|settings.animations.effect.genie"
                                         SelectedIndex="{Binding OpenEffect, Mode=TwoWay}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Czas otwierania" IsEnabled="{Binding HasOpenEffect}"
-                              Description="Jak długo okno wylatuje z paska zadań.">
+                <c:SettingRow Title="{l:Tr settings.animations.openDuration.title}" IsEnabled="{Binding HasOpenEffect}"
+                              Description="{l:Tr settings.animations.openDuration.description}">
                     <StackPanel Orientation="Horizontal">
                         <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="150" Maximum="1000"
                                 TickFrequency="10" SmallChange="10" LargeChange="50" Value="{Binding OpenDurationMs}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.ms}" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
-                                   Text="{Binding OpenDurationMs, StringFormat={}{0:0} ms}"/>
+                                   Text="{Binding OpenDurationMs, Converter={StaticResource Unit.Ms}}"/>
                     </StackPanel>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Zamykanie" Description="{Binding CloseDescription}">
-                    <c:SegmentedControl Width="230" Items="Windows, Dżin"
+                <c:SettingRow Title="{l:Tr settings.animations.close.title}" Description="{Binding CloseDescription}">
+                    <c:SegmentedControl MinWidth="230"
+                                        ItemKeys="settings.animations.effect.windows|settings.animations.effect.genie"
                                         SelectedIndex="{Binding CloseEffect, Mode=TwoWay}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Czas zamykania" IsEnabled="{Binding HasCloseEffect}"
-                              Description="Jak długo zamykane okno wpada do paska zadań.">
+                <c:SettingRow Title="{l:Tr settings.animations.closeDuration.title}" IsEnabled="{Binding HasCloseEffect}"
+                              Description="{l:Tr settings.animations.closeDuration.description}">
                     <StackPanel Orientation="Horizontal">
                         <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="100" Maximum="800"
                                 TickFrequency="10" SmallChange="10" LargeChange="50" Value="{Binding CloseDurationMs}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.ms}" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
-                                   Text="{Binding CloseDurationMs, StringFormat={}{0:0} ms}"/>
+                                   Text="{Binding CloseDurationMs, Converter={StaticResource Unit.Ms}}"/>
                     </StackPanel>
                 </c:SettingRow>
             </StackPanel>
         </Border>
-        <Grid Margin="0,-6,0,14">
-            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="360"
-                       HorizontalAlignment="Left" TextWrapping="Wrap"
-                       Text="Działa w programach, do których MacWin ma dostęp. Windows: okno zachowuje się jak bez MacWin."/>
-            <Button HorizontalAlignment="Right" Style="{StaticResource MacButton}" Content="Wypróbuj otwieranie i zamykanie"
-                    Click="TryOpenClose_Click"/>
+        <Grid Margin="6,-6,0,14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="0,0,16,0"
+                       Text="{l:Tr settings.animations.openClose.note}"/>
+            <Button Grid.Column="1" Style="{StaticResource MacButton}" VerticalAlignment="Center"
+                    Content="{l:Tr settings.animations.tryOpenClose}" Click="TryOpenClose_Click"/>
         </Grid>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Kiedy animować"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.animations.when.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Przywracanie okien" Description="Okno wylatuje z paska zadań z powrotem na swoje miejsce.">
+                <c:SettingRow Title="{l:Tr settings.animations.restore.title}"
+                              Description="{l:Tr settings.animations.restore.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding Restore}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Wiele monitorów" Description="Eksperymentalne: dżin trafia do paska zadań na monitorze okna, a nie głównym.">
+                <c:SettingRow Title="{l:Tr settings.animations.multiMonitor.title}"
+                              Description="{l:Tr settings.animations.multiMonitor.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding MultiMonitor}"/>
                 </c:SettingRow>
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Automatycznie ukrywany pasek zadań"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.animations.autoHide.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="Pokazuj pasek podczas minimalizacji"
-                              Description="Ukryty pasek wysuwa się, żeby okno miało gdzie wpaść.">
+                <c:SettingRow Title="{l:Tr settings.animations.unhide.title}"
+                              Description="{l:Tr settings.animations.unhide.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UnhideTaskbar}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
-                <c:SettingRow Title="Jak długo pasek zostaje widoczny" IsEnabled="{Binding UnhideTaskbar}">
+                <c:SettingRow Title="{l:Tr settings.animations.unhideDuration.title}" IsEnabled="{Binding UnhideTaskbar}">
                     <StackPanel Orientation="Horizontal">
                         <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="0" Maximum="3000"
                                 TickFrequency="50" SmallChange="50" LargeChange="250" Value="{Binding UnhideDurationMs}"/>
-                        <TextBlock Width="62" TextAlignment="Right" VerticalAlignment="Center"
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.ms}" TextAlignment="Right" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Brush.TextSecondary}"
-                                   Text="{Binding UnhideDurationMs, StringFormat={}{0:0} ms}"/>
+                                   Text="{Binding UnhideDurationMs, Converter={StaticResource Unit.Ms}}"/>
                     </StackPanel>
                 </c:SettingRow>
             </StackPanel>
         </Border>
 
-        <Grid Margin="0,-6,0,0">
-            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="6,0,0,0" MaxWidth="360"
-                       HorizontalAlignment="Left" Text="Zmiany działają od razu – nie trzeba niczego zapisywać ani restartować."/>
-            <Button HorizontalAlignment="Right" Style="{StaticResource MacButton}" Content="Wypróbuj na prawdziwym oknie"
-                    Click="TryReal_Click"/>
+        <Grid Margin="6,-6,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Style="{StaticResource Text.Secondary}" VerticalAlignment="Center" Margin="0,0,16,0"
+                       Text="{l:Tr settings.animations.instant.note}"/>
+            <Button Grid.Column="1" Style="{StaticResource MacButton}" VerticalAlignment="Center"
+                    Content="{l:Tr settings.animations.tryReal}" Click="TryReal_Click"/>
         </Grid>
     </StackPanel>
 </UserControl>

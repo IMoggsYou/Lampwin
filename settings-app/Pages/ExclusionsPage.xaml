@@ -1,22 +1,23 @@
 <UserControl x:Class="MacWin.Settings.Pages.ExclusionsPage"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:c="clr-namespace:MacWin.Settings.Controls">
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
     <StackPanel>
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Bez animacji"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.exclusions.noAnimation.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
                 <TextBlock Style="{StaticResource Text.Secondary}" Margin="14,12,14,6"
-                           Text="Okna tych programów minimalizują się zwykłą animacją Windows. Działa od razu."/>
+                           Text="{l:Tr settings.exclusions.noAnimation.description}"/>
                 <c:ProgramList Items="{Binding Excluded}"/>
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Nigdy nie wczytuj MacWin"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.exclusions.noInject.header}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
                 <TextBlock Style="{StaticResource Text.Secondary}" Margin="14,12,14,6"
-                           Text="MacWin w ogóle nie wchodzi do tych programów – np. gier z ochroną przed oszustwami, które nie lubią obcych bibliotek. Zmiana działa po ponownym uruchomieniu programu."/>
+                           Text="{l:Tr settings.exclusions.noInject.description}"/>
                 <c:ProgramList Items="{Binding NoInject}"/>
             </StackPanel>
         </Border>

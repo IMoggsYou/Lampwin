@@ -121,10 +121,50 @@ internal static class Native
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
 
-    public static void ActivateWindow(string title)
+    [DllImport("user32.dll")]
+    private static extern bool AllowSetForegroundWindow(int processId);
+
+    /// <summary>"Show yourself" (wParam: page index + 1, 0 = keep the page), sent by a
+    /// second copy of this app to the one already open.</summary>
+    public const string ShowMessage = "MacWin_SettingsShow_v1";
+
+    /// <summary>Asks the settings window that is already open (another process of this
+    /// app) to come to the front. The window title is translated, so it is found by its
+    /// process instead.</summary>
+    public static bool ShowOtherInstance(int page)
     {
-        IntPtr hwnd = FindWindow(null, title);
-        if (hwnd == IntPtr.Zero) return;
+        using var self = System.Diagnostics.Process.GetCurrentProcess();
+        uint message = RegisterWindowMessage(ShowMessage);
+        bool posted = false;
+        foreach (var other in System.Diagnostics.Process.GetProcessesByName(self.ProcessName))
+        {
+            using (other)
+            {
+                if (other.Id == self.Id || other.SessionId != self.SessionId) continue;
+                AllowSetForegroundWindow(other.Id);   // we were just started by the user: we may hand it on
+                // Its top-level windows (the settings window and its shadow): only the
+                // settings window knows the message.
+                EnumWindows((hwnd, _) =>
+                {
+                    GetWindowThreadProcessId(hwnd, out uint pid);
+                    if (pid == (uint)other.Id) posted |= PostMessage(hwnd, message, (IntPtr)(page + 1), IntPtr.Zero);
+                    return true;
+                }, IntPtr.Zero);
+            }
+        }
+        return posted;
+    }
+
+    private delegate bool EnumWindowsProc(IntPtr hwnd, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern bool EnumWindows(EnumWindowsProc callback, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hwnd, out uint processId);
+
+    public static void Activate(IntPtr hwnd)
+    {
         if (IsIconic(hwnd)) ShowWindow(hwnd, SW_RESTORE);
         SetForegroundWindow(hwnd);
     }

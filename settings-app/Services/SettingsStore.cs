@@ -82,9 +82,13 @@ public sealed class SettingsStore
             _root = ReadRoot();
             var m = Model;
             m.Enabled = Bool(_root, "enabled", true);
-            m.DevMode = Bool(_root, "devMode", true);
-            SettingsModel.Replace(m.DevAllowlist, Strings(_root, "devAllowlist", ["notepad.exe", "macwintestwindow.exe"]));
-            SettingsModel.Replace(m.NoInject, Strings(_root, "noInject", []));
+            m.DevMode = Bool(_root, "devMode", false);
+            SettingsModel.Replace(m.DevAllowlist, Strings(_root, "devAllowlist", DefaultDevAllowlist));
+            SettingsModel.Replace(m.NoInject, Strings(_root, "noInject", DefaultNoInject));
+            m.Language = Str(_root, "language", "auto");
+            var updates = _root["updates"] as JsonObject ?? new JsonObject();
+            m.UpdateCheck = Bool(updates, "check", true);
+            m.UpdateAutoInstall = Bool(updates, "autoInstall", false);
             var genie = _root["genie"] as JsonObject ?? new JsonObject();
             m.Style = Str(genie, "style", "modern") == "classic" ? 1 : 0;
             m.DurationMs = Num(genie, "durationMs", 450);
@@ -124,6 +128,11 @@ public sealed class SettingsStore
         _root["devMode"] = m.DevMode;
         _root["devAllowlist"] = Array(m.DevAllowlist);
         _root["noInject"] = Array(m.NoInject);
+        _root["language"] = m.Language;
+        var updates = _root["updates"] as JsonObject ?? new JsonObject();
+        updates["check"] = m.UpdateCheck;
+        updates["autoInstall"] = m.UpdateAutoInstall;
+        _root["updates"] = updates;
         var genie = _root["genie"] as JsonObject ?? new JsonObject();
         genie["style"] = m.Style == 1 ? "classic" : "modern";
         genie["durationMs"] = (int)m.DurationMs;
@@ -158,6 +167,19 @@ public sealed class SettingsStore
             _saveTimer.Start();
         }
     }
+
+    /// <summary>The "language" setting, read before any window exists.</summary>
+    public static string ReadLanguage() => Str(ReadRoot(), "language", "auto");
+
+    // The same defaults as the host (src/host/settings_store.h).
+    private static readonly string[] DefaultDevAllowlist = ["notepad.exe", "macwintestwindow.exe"];
+    private static readonly string[] DefaultNoInject =
+    [
+        "robloxplayerbeta.exe", "valorant-win64-shipping.exe", "fortniteclient-win64-shipping.exe",
+        "r5apex.exe", "r5apex_dx12.exe", "cs2.exe", "overwatch.exe", "cod.exe", "wow.exe",
+        @"\steamapps\common\", @"\epic games\", @"\riot games\", @"\xboxgames\", @"\ea games\",
+        @"\ubisoft game launcher\games\", @"\gog galaxy\games\",
+    ];
 
     private static JsonObject ReadRoot()
     {
