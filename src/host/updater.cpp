@@ -328,6 +328,9 @@ void Updater::Start(HWND notify, UINT msg) {
     notify_ = notify;
     msg_ = msg;
     LoadState();
+    // The file may still say "installing" (written by the version before this update) or
+    // "checking": the settings window shows what is true now.
+    SaveState();
     wake_ = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     thread_ = std::thread([this] { ThreadMain(); });
 }
