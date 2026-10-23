@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// Portions ported from the Windhawk mod "MacOS Minimize Animation" (MIT, Abdullah Masood
+// and Potassiumuncher); see THIRD_PARTY_NOTICES.md.
+
 // MacWin genie renderer. Both styles come from the "MacOS Minimize Animation" Windhawk
 // mod (MIT): the modern lamp curve is Potassiumuncher's CalculateLampVertexMacOS, the
 // classic one the mod's original strip warp. Both are evaluated per vertex on the GPU

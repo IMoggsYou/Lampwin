@@ -1,4 +1,7 @@
-﻿; MacWin installer (Inno Setup 6.5+). Build: cmake --build --preset x64 --target MacWinSetup
+﻿; SPDX-License-Identifier: GPL-3.0-or-later
+; MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+
+; MacWin installer (Inno Setup 6.5+). Build: cmake --build --preset x64 --target MacWinSetup
 ; Output: build\installer\MacWinSetup-<version>.exe
 ; Copyright (C) 2026 KosaWLeb - GPL-3.0-or-later - https://github.com/KosaWLeb/MacWin
 

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+
 // Window corners: cuts the windows of this process to the corner MacWin draws in the
 // genie (macOS squircle or a plain round corner, radius from the settings) with a
 // window region. Windows 11 itself can only round by 8 px; anything else needs a

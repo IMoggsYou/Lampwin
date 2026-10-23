@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+
 #include "host/ipc_server.h"
 #include <dwmapi.h>
 #include <shellscalingapi.h>

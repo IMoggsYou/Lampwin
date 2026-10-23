@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+
 // MacWinTestWindow.exe - development helper. Shows a plain window and, on request,
 // minimizes / restores itself through both paths the hooks cover (the title bar's
 // SC_MINIMIZE / SC_RESTORE and ShowWindow):

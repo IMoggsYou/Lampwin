@@ -9,7 +9,7 @@ unchanged under the [Inno Setup license](https://jrsoftware.org/files/is/license
 | --- | --- | --- |
 | `ChineseSimplified.isl` | `Files/Languages/ChineseSimplified.isl` | Inno Setup contributors |
 | `Hindi.islu` | `Files/Languages/Unofficial/Hindi.islu` | Him Prasad Gautam |
-| `Bengali.islu` | `Files/Languages/Unofficial/Bengali.islu` | see file |
+| `Bengali.islu` | `Files/Languages/Unofficial/Bengali.islu` | Mehedi Shanto |
 
 The Hindi and Bengali files are for Inno Setup 5.5.3; the newer messages MacWin's
 installer can show are added in `../Hindi.isl` and `../Bengali.isl`.

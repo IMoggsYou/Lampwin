@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// Portions ported from the Windhawk mod "MacOS Minimize Animation" (MIT, Abdullah Masood
+// and Potassiumuncher); see THIRD_PARTY_NOTICES.md.
+
 #include <windows.h>
 #include <MinHook.h>
 #include "hook/runtime.h"

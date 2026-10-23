@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// Portions ported from the Windhawk mod "MacOS Minimize Animation" (MIT, Abdullah Masood
+// and Potassiumuncher); see THIRD_PARTY_NOTICES.md.
+
 // Genie minimize / restore: the decision, hide and reveal logic of the Windhawk mod
 // "MacOS Minimize Animation" v3.1.7 by Abdullah Masood (MIT), including Potassiumuncher's
 // genie engine - see THIRD_PARTY_NOTICES.md. Everything that decides WHEN to animate and

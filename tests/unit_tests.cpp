@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+
 // Unit tests for the pure parts of MacWin (no framework: CTest runs this exe, a
 // non-zero exit code is a failure). Build: cmake --build --preset x64; run: ctest --test-dir build/x64
 
