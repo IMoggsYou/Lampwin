@@ -95,7 +95,7 @@ later version (GPL-3.0-or-later), with the additional terms in [NOTICE](NOTICE).
 
   If you forgot it, fix the last commit with `git commit --amend -s --no-edit`, or add it
   to several commits with `git rebase --signoff main`.
-- **Relicensing grant.** By contributing to MacWin, you also grant KosaWLeb a perpetual,
+- **Relicensing grant.** By contributing to MacWin, you also grant IMoggsYou a perpetual,
   irrevocable, worldwide, non-exclusive, royalty-free license to use, copy, modify,
   distribute, sublicense and **relicense** your contribution, under any license terms,
   as part of MacWin. This lets the project change its license in the future without

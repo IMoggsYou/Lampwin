@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
 
 // MacWinTestWindow --corners: checks MacWin's window corners (hook/effects/corners.cpp)
 // on a window MacWin takes for a Chromium one - Chromium's class name prefix, no title

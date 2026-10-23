@@ -14,9 +14,9 @@
     <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
     <Product>MacWin</Product>
     <Description>MacWin Settings</Description>
-    <Company>KosaWLeb</Company>
-    <Authors>KosaWLeb</Authors>
-    <Copyright>Copyright (C) 2026 KosaWLeb. Licensed under GPL-3.0-or-later.</Copyright>
+    <Company>IMoggsYou</Company>
+    <Authors>IMoggsYou</Authors>
+    <Copyright>Copyright (C) 2026 IMoggsYou. Licensed under GPL-3.0-or-later.</Copyright>
     <!-- UI translations are embedded JSON (i18n/*.json), not satellite assemblies. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TieredPGO>true</TieredPGO>

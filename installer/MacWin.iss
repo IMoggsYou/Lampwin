@@ -1,9 +1,9 @@
 ﻿; SPDX-License-Identifier: GPL-3.0-or-later
-; MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
+; MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
 
 ; MacWin installer (Inno Setup 6.5+). Build: cmake --build --preset x64 --target MacWinSetup
 ; Output: build\installer\MacWinSetup-<version>.exe
-; Copyright (C) 2026 KosaWLeb - GPL-3.0-or-later - https://github.com/IMoggsYou/MacWin
+; Copyright (C) 2026 IMoggsYou - GPL-3.0-or-later - https://github.com/IMoggsYou/MacWin
 
 ; The version comes from the repository's VERSION file (CMake also passes /DAppVersion).
 #ifndef AppVersion
@@ -19,11 +19,11 @@ AppId={{6F0B3E9A-2C47-4E7B-9C1D-5A8E2B7F4D10}
 AppName=MacWin
 AppVersion={#AppVersion}
 AppVerName=MacWin {#AppVersion}
-AppPublisher=KosaWLeb
+AppPublisher=IMoggsYou
 AppPublisherURL={#RepoUrl}
 AppSupportURL={#RepoUrl}/issues
 AppUpdatesURL={#RepoUrl}/releases
-AppCopyright=Copyright (C) 2026 KosaWLeb
+AppCopyright=Copyright (C) 2026 IMoggsYou
 AppComments={cm:AppComments}
 DefaultDirName={autopf}\MacWin
 DisableProgramGroupPage=yes
@@ -50,8 +50,8 @@ LanguageDetectionMethod=uilanguage
 CloseApplications=no
 RestartApplications=no
 VersionInfoVersion={#AppVersion}
-VersionInfoCompany=KosaWLeb
-VersionInfoCopyright=Copyright (C) 2026 KosaWLeb. Licensed under GPL-3.0-or-later.
+VersionInfoCompany=IMoggsYou
+VersionInfoCopyright=Copyright (C) 2026 IMoggsYou. Licensed under GPL-3.0-or-later.
 VersionInfoDescription=MacWin Setup
 VersionInfoProductName=MacWin
 VersionInfoProductVersion={#AppVersion}

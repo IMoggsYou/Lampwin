@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
 
 using System.IO;
 using System.Text.Json;
@@ -9,7 +9,7 @@ namespace MacWin.Settings;
 /// <summary>Links to the project on GitHub.</summary>
 internal static class Project
 {
-    public const string Author = "KosaWLeb";
+    public const string Author = "IMoggsYou";
     public const string AuthorUrl = "https://github.com/IMoggsYou";
     public const string RepoUrl = "https://github.com/IMoggsYou/MacWin";
     public const string ReleasesUrl = RepoUrl + "/releases";

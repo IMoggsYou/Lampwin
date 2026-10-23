@@ -9,6 +9,14 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-23
+
+### Changed
+
+- The author is shown as **IMoggsYou**, the project's GitHub account, in the About window,
+  the installer, the file properties and the license notices; every link points to
+  github.com/IMoggsYou/MacWin.
+
 ## [1.0.0] - 2026-10-23
 
 The first public release.
@@ -55,5 +63,6 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/IMoggsYou/MacWin/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/IMoggsYou/MacWin/releases/tag/v1.0.0

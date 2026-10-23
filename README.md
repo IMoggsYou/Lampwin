@@ -192,7 +192,7 @@ Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 
-Created by **[KosaWLeb](https://github.com/IMoggsYou)**. Copyright © 2026 KosaWLeb.
+Created by **[IMoggsYou](https://github.com/IMoggsYou)**. Copyright © 2026 IMoggsYou.
 
 MacWin is free software under the [GNU General Public License v3.0 or later](LICENSE),
 with the additional terms in [NOTICE](NOTICE): keep the author attribution, mark modified

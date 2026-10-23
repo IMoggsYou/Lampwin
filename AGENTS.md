@@ -5,8 +5,8 @@ humans who want the short version. `CLAUDE.md` and `.github/copilot-instructions
 point here; keep this file the single source.
 
 MacWin brings macOS-style window animations (the genie effect) and squircle window
-corners to Windows 11. Author: **KosaWLeb**. License: **GPL-3.0-or-later** with the
-additional terms in `NOTICE` (keep "Created by KosaWLeb" in file headers and in the About
+corners to Windows 11. Author: **IMoggsYou**. License: **GPL-3.0-or-later** with the
+additional terms in `NOTICE` (keep "Created by IMoggsYou" in file headers and in the About
 page; modified versions must be renamed).
 
 ## Architecture in one minute
@@ -98,8 +98,8 @@ Removed, Security). Write it for users, not for developers.
 
 ## Working with GitHub
 
-- Repository: <https://github.com/IMoggsYou/MacWin> (owner account **IMoggsYou**; the
-  author name in the app and the license is **KosaWLeb**, keep both as they are). Use the
+- Repository: <https://github.com/IMoggsYou/MacWin>, owned by **IMoggsYou**, who is also
+  the author named in the app, the license and the file headers. Use the
   `gh` CLI for issues, pull requests, runs and releases.
 - Commit e-mail: the GitHub noreply address that is already in `git config user.email`;
   never a personal address.

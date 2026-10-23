@@ -188,7 +188,7 @@ Pełne informacje: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Licencja
 
-Autor: **[KosaWLeb](https://github.com/IMoggsYou)**. Copyright © 2026 KosaWLeb.
+Autor: **[IMoggsYou](https://github.com/IMoggsYou)**. Copyright © 2026 IMoggsYou.
 
 MacWin to wolne oprogramowanie na licencji [GNU GPL w wersji 3.0 lub nowszej](LICENSE),
 z dodatkowymi warunkami z pliku [NOTICE](NOTICE): zachowaj informację o autorze, oznacz

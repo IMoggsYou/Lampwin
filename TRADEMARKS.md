@@ -1,7 +1,7 @@
 # Trademark policy
 
 The name **MacWin** and the MacWin icon and logo (`assets/MacWin.ico`) belong to
-[KosaWLeb](https://github.com/IMoggsYou). The GNU GPL license of the source code does
+[IMoggsYou](https://github.com/IMoggsYou). The GNU GPL license of the source code does
 not grant any right to them (see GPL section 7(e) and [NOTICE](NOTICE)).
 
 ## What you may do
@@ -23,7 +23,7 @@ not grant any right to them (see GPL section 7(e) and [NOTICE](NOTICE)).
 
 - Give it a different name and a different icon.
 - Mark it as modified.
-- Keep the author attribution "Created by KosaWLeb" in the source file headers and in
+- Keep the author attribution "Created by IMoggsYou" in the source file headers and in
   the About page, as required by [NOTICE](NOTICE).
 
 If you are not sure whether a use is fine, ask in
