@@ -38,7 +38,8 @@ powershell -ExecutionPolicy Bypass -File tools\build-release.ps1   # all of it, 
   `build/x64-dev/bin` (own object names, `host-dev.log`).
 - **Functional checks** (MacWin must be running): `MacWinTestWindow.exe --cycle 3`,
   `--rapid 3`, `--open-close 3`, `--corners --quiet` (exit code 0 = pass);
-  `MacWinTestWindow32.exe` for 32-bit.
+  `MacWinTestWindow32.exe` for 32-bit. Run them with **one** MacWin: an installed copy
+  and a dev build running together both animate the same window and `--corners` fails.
 - **Settings window without clicking:** `MacWin.Settings.exe --snapshot <dir> --lang <code>
   [--theme light|dark] [--page general]` renders every page to PNG (and `page<n>-end.png`
   scrolled down) and exits. Use it to check layouts and translations.

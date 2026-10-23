@@ -29,7 +29,8 @@ add_compile_definitions(UNICODE _UNICODE WIN32_LEAN_AND_MEAN NOMINMAX
 # Test build: its own shared-object names and log (see src/common/names.h).
 option(MACWIN_DEV_NAMES "Test build that shares no objects with an installed MacWin" OFF)
 if(MACWIN_DEV_NAMES)
-  add_compile_definitions(MACWIN_DEV_NAMES)
+  # Test builds also get the hook DLL's OutputDebugString messages (DebugView).
+  add_compile_definitions(MACWIN_DEV_NAMES MACWIN_DEBUG_LOG)
 endif()
 add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers
                     -Wno-cast-function-type)
@@ -75,7 +76,7 @@ target_include_directories(MacWinHook PRIVATE src)
 target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
 # --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
 target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
-target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32 advapi32)
+target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32)
 macwin_version_resource(MacWinHook "MacWin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
 
 # --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---

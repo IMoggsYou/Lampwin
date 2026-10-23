@@ -45,6 +45,6 @@ read it.
 ## Debugging tips
 
 - `host.log` shows every animation with its frame count and CPU time per frame.
-- Build with `-DCMAKE_CXX_FLAGS=-DMACWIN_DEBUG_LOG` to get the DLL's `OutputDebugString`
+- The `x64-dev` preset (or `-DCMAKE_CXX_FLAGS=-DMACWIN_DEBUG_LOG`) gives the DLL's `OutputDebugString`
   messages (DebugView).
 - Ctrl+Alt+Shift+F12 quits MacWin at once if something goes wrong while testing.

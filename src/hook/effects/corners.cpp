@@ -1151,18 +1151,26 @@ bool CornersOnShutdown() {
     AcquireSRWLockShared(&g_lock);
     for (const auto& kv : g_cuts) windows.push_back(kv.first);
     ReleaseSRWLockShared(&g_lock);
+    bool hung = false;
     for (HWND h : windows) {
         DWORD_PTR result = 0;
         if (SendMessageTimeoutW(h, g_cornersMsg, kRemove, 0, SMTO_ABORTIFHUNG, 500, &result)) {
             Uncut(h);
         } else {
             // A hung window keeps its region, but its shade goes once the thread wakes up.
+            hung = true;
             Cut c;
             if (FindCut(h, &c)) {
                 DestroyShade(c.shade);
                 DestroyGrip(c.grip);
             }
         }
+    }
+    if (hung) {
+        // That window's thread may be inside PlaceShade right now, using its visuals and
+        // the GPU objects: free nothing, and the DLL stays loaded (hooks off) for good.
+        DbgLog(L"a cut window is hung; keeping the corner resources");
+        return false;
     }
     std::vector<ShadeVisuals*> left;
     AcquireSRWLockExclusive(&g_lock);
