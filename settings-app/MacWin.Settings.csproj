@@ -20,6 +20,10 @@
     <!-- UI translations are embedded JSON (i18n/*.json), not satellite assemblies. -->
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <TieredPGO>true</TieredPGO>
+    <!-- Precompiled (ReadyToRun) for a fast first start; still the shared .NET runtime. -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>false</SelfContained>
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>

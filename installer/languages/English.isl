@@ -1,0 +1,20 @@
+﻿; MacWin installer texts (English). Loaded after Inno Setup's own messages for this
+; language (see installer/MacWin.iss). Keep the [CustomMessages] keys the same in
+; every file: tools/check_i18n.cmake checks them.
+
+[Messages]
+WelcomeLabel2=This will install [name/ver] – macOS-style window animations: windows fall into the taskbar like a genie and fly back out.%n%nMacWin runs in the background with an icon in the notification area.
+
+[CustomMessages]
+AppComments=macOS-style window animations for Windows 11
+GroupStartup=Startup:
+TaskAutostart=Start MacWin when I sign in
+RegisteringTask=Registering MacWin's startup task…
+LaunchMacWin=Start MacWin
+OpenSettings=Open the settings
+ShortcutComment=Window animation settings
+DotNetDownloading=Downloading the .NET 10 Desktop Runtime from Microsoft…
+DotNetInstalling=Installing the .NET 10 Desktop Runtime…
+DotNetFailed=The .NET 10 Desktop Runtime could not be installed (%1). The animations work without it, but the settings window needs it. You can get it later from:%n%n%2
+Arm64NotSupported=MacWin needs a 64-bit Intel or AMD (x64) processor. Windows on ARM is not supported yet.
+RemoveSettings=Also remove your MacWin settings and logs?
