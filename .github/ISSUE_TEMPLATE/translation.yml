@@ -6,7 +6,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thank you for helping to make MacWin better in your language. You can also fix it yourself: edit the file for your language in the `i18n` folder and open a pull request (see [CONTRIBUTING.md](https://github.com/KosaWLeb/MacWin/blob/main/CONTRIBUTING.md#translations)).
+        Thank you for helping to make MacWin better in your language. You can also fix it yourself: edit the file for your language in the `i18n` folder and open a pull request (see [CONTRIBUTING.md](https://github.com/IMoggsYou/MacWin/blob/main/CONTRIBUTING.md#translations)).
   - type: dropdown
     id: language
     attributes:

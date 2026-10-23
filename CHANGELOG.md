@@ -55,5 +55,5 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/KosaWLeb/MacWin/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/KosaWLeb/MacWin/releases/tag/v1.0.0
+[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/IMoggsYou/MacWin/releases/tag/v1.0.0

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
 
 using System.Windows;
 using System.Windows.Controls;
@@ -15,7 +15,7 @@ public partial class AboutPage : UserControl
         AuthorText.Text = Loc.F("settings.about.author", Project.Author);
     }
 
-    private void Author_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl("https://github.com/" + Project.Author);
+    private void Author_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.AuthorUrl);
 
     private void Repo_Click(object sender, RoutedEventArgs e) => HostControl.OpenUrl(Project.RepoUrl);
 

@@ -9,14 +9,14 @@
 Windows fall into the taskbar like a genie and fly back out, open and close the same way,
 and get soft macOS-style corners. Light, free and open source.
 
-[![Latest release](https://img.shields.io/github/v/release/KosaWLeb/MacWin?style=for-the-badge&logo=github&label=release&color=0A84FF)](https://github.com/KosaWLeb/MacWin/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/KosaWLeb/MacWin/total?style=for-the-badge&color=34C759)](https://github.com/KosaWLeb/MacWin/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/KosaWLeb/MacWin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/KosaWLeb/MacWin/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/IMoggsYou/MacWin?style=for-the-badge&logo=github&label=release&color=0A84FF)](https://github.com/IMoggsYou/MacWin/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/IMoggsYou/MacWin/total?style=for-the-badge&color=34C759)](https://github.com/IMoggsYou/MacWin/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/IMoggsYou/MacWin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/IMoggsYou/MacWin/actions/workflows/build.yml)
 [![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#requirements)
 [![Languages](https://img.shields.io/badge/languages-11-AF52DE?style=for-the-badge)](#languages)
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=for-the-badge)](LICENSE)
 
-### [⬇&nbsp; Download MacWin for Windows 11](https://github.com/KosaWLeb/MacWin/releases/latest)
+### [⬇&nbsp; Download MacWin for Windows 11](https://github.com/IMoggsYou/MacWin/releases/latest)
 
 <img src="docs/media/demo.gif" width="860" alt="A window falls into its taskbar icon with the genie effect and flies back out">
 
@@ -57,7 +57,7 @@ and get soft macOS-style corners. Light, free and open source.
 ## Install
 
 1. Download **`MacWinSetup-x.y.z.exe`** from the
-   [latest release](https://github.com/KosaWLeb/MacWin/releases/latest).
+   [latest release](https://github.com/IMoggsYou/MacWin/releases/latest).
 2. Run it. If the .NET 10 Desktop Runtime (needed by the settings window) is missing, the
    installer downloads it from Microsoft for you.
 3. Done — minimize any window. MacWin starts with Windows; its icon is in the
@@ -67,7 +67,7 @@ and get soft macOS-style corners. Light, free and open source.
 > MacWin is not code-signed yet, so Windows SmartScreen may say *"Windows protected your
 > PC"*. Click **More info → Run anyway**. Every release is built by GitHub Actions from
 > this repository, with a published SHA-256 (`SHA256SUMS.txt`) and a
-> [build provenance attestation](https://github.com/KosaWLeb/MacWin/attestations).
+> [build provenance attestation](https://github.com/IMoggsYou/MacWin/attestations).
 
 ### Requirements
 
@@ -135,7 +135,7 @@ Never load MacWin**.
 <summary><b>Something looks wrong. How do I turn it off right now?</b></summary>
 
 Press **Ctrl+Alt+Shift+F12**. MacWin quits and every window behaves normally again. Then
-please [report the problem](https://github.com/KosaWLeb/MacWin/issues/new/choose) with the
+please [report the problem](https://github.com/IMoggsYou/MacWin/issues/new/choose) with the
 log (`%LOCALAPPDATA%\MacWin\host.log`).
 </details>
 
@@ -192,7 +192,7 @@ Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 
-Created by **[KosaWLeb](https://github.com/KosaWLeb)**. Copyright © 2026 KosaWLeb.
+Created by **[KosaWLeb](https://github.com/IMoggsYou)**. Copyright © 2026 KosaWLeb.
 
 MacWin is free software under the [GNU General Public License v3.0 or later](LICENSE),
 with the additional terms in [NOTICE](NOTICE): keep the author attribution, mark modified

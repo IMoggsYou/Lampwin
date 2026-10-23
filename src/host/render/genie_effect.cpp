@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
 // Portions ported from the Windhawk mod "MacOS Minimize Animation" (MIT, Abdullah Masood
 // and Potassiumuncher); see THIRD_PARTY_NOTICES.md.
 

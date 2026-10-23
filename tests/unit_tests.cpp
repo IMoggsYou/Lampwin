@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
 
 // Unit tests for the pure parts of MacWin (no framework: CTest runs this exe, a
 // non-zero exit code is a failure). Build: cmake --build --preset x64; run: ctest --test-dir build/x64
@@ -37,13 +37,13 @@ void TestVersions() {
 }
 
 const wchar_t* kRelease = LR"({
-  "tag_name": "v1.2.0", "html_url": "https://github.com/KosaWLeb/MacWin/releases/tag/v1.2.0",
+  "tag_name": "v1.2.0", "html_url": "https://github.com/IMoggsYou/MacWin/releases/tag/v1.2.0",
   "draft": false, "prerelease": false, "body": "notes",
   "assets": [
     {"name": "MacWinSetup-1.2.0.exe",
-     "browser_download_url": "https://github.com/KosaWLeb/MacWin/releases/download/v1.2.0/MacWinSetup-1.2.0.exe"},
+     "browser_download_url": "https://github.com/IMoggsYou/MacWin/releases/download/v1.2.0/MacWinSetup-1.2.0.exe"},
     {"name": "SHA256SUMS.txt",
-     "browser_download_url": "https://github.com/KosaWLeb/MacWin/releases/download/v1.2.0/SHA256SUMS.txt"}
+     "browser_download_url": "https://github.com/IMoggsYou/MacWin/releases/download/v1.2.0/SHA256SUMS.txt"}
   ]
 })";
 
@@ -52,7 +52,7 @@ void TestRelease() {
     CHECK(ParseLatestRelease(kRelease, &r));
     CHECK(r.version == L"1.2.0");
     CHECK(r.installerName == L"MacWinSetup-1.2.0.exe");
-    CHECK(r.notesUrl == L"https://github.com/KosaWLeb/MacWin/releases/tag/v1.2.0");
+    CHECK(r.notesUrl == L"https://github.com/IMoggsYou/MacWin/releases/tag/v1.2.0");
     CHECK(r.sumsUrl.find(L"SHA256SUMS.txt") != std::wstring::npos);
 
     std::wstring draft = kRelease;
@@ -61,7 +61,7 @@ void TestRelease() {
 
     // Assets from anywhere else are never used.
     std::wstring foreign = kRelease;
-    size_t at = foreign.find(L"https://github.com/KosaWLeb/MacWin/releases/download/v1.2.0/MacWinSetup");
+    size_t at = foreign.find(L"https://github.com/IMoggsYou/MacWin/releases/download/v1.2.0/MacWinSetup");
     foreign.replace(at, 19, L"https://evil.example");
     CHECK(!ParseLatestRelease(foreign, &r));
 

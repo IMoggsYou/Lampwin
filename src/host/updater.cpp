@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/KosaWLeb/MacWin
+// MacWin - Copyright (C) 2026 KosaWLeb. Created by KosaWLeb: https://github.com/IMoggsYou/MacWin
 
 #include "host/updater.h"
 #include <bcrypt.h>
@@ -13,9 +13,9 @@
 
 namespace {
 
-const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/KosaWLeb/MacWin)";
-const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/KosaWLeb/MacWin/releases/latest";
-const wchar_t kDownloadPrefix[] = L"https://github.com/KosaWLeb/MacWin/releases/download/";
+const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/MacWin)";
+const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/IMoggsYou/MacWin/releases/latest";
+const wchar_t kDownloadPrefix[] = L"https://github.com/IMoggsYou/MacWin/releases/download/";
 const size_t kMaxApiBytes = 1u << 20;
 const size_t kMaxInstallerBytes = 256u << 20;
 // Scheduled checks: once a day (a little less, so the timer never just misses it).
