@@ -183,6 +183,84 @@ bool Parse(const std::wstring& text, Value* out) {
     return parser.p == parser.end;
 }
 
+Value Bool(bool b) {
+    Value v;
+    v.type = Value::Bool;
+    v.boolean = b;
+    return v;
+}
+
+Value Number(double n) {
+    Value v;
+    v.type = Value::Number;
+    v.number = n;
+    return v;
+}
+
+Value String(const std::wstring& s) {
+    Value v;
+    v.type = Value::String;
+    v.str = s;
+    return v;
+}
+
+Value Strings(const std::vector<std::wstring>& items) {
+    Value v;
+    v.type = Value::Array;
+    for (const std::wstring& s : items) v.items.push_back(String(s));
+    return v;
+}
+
+Value Object() {
+    Value v;
+    v.type = Value::Object;
+    return v;
+}
+
+void Set(Value* object, const wchar_t* key, Value v) {
+    for (auto& m : object->members) {
+        if (m.first == key) {
+            m.second = std::move(v);
+            return;
+        }
+    }
+    object->members.emplace_back(key, std::move(v));
+}
+
+std::wstring Serialize(const Value& v, int indent) {
+    const std::wstring pad((size_t)indent + 2, L' '), close((size_t)indent, L' ');
+    switch (v.type) {
+        case Value::Null: return L"null";
+        case Value::Bool: return v.boolean ? L"true" : L"false";
+        case Value::Number: {
+            wchar_t buf[32];
+            if (v.number == (double)(long long)v.number) swprintf(buf, 32, L"%lld", (long long)v.number);
+            else swprintf(buf, 32, L"%.17g", v.number);
+            return buf;
+        }
+        case Value::String: return Quote(v.str);
+        case Value::Array: {
+            if (v.items.empty()) return L"[]";
+            std::wstring out = L"[\n";
+            for (size_t i = 0; i < v.items.size(); ++i) {
+                out += pad + Serialize(v.items[i], indent + 2);
+                out += i + 1 < v.items.size() ? L",\n" : L"\n";
+            }
+            return out + close + L"]";
+        }
+        case Value::Object: {
+            if (v.members.empty()) return L"{}";
+            std::wstring out = L"{\n";
+            for (size_t i = 0; i < v.members.size(); ++i) {
+                out += pad + Quote(v.members[i].first) + L": " + Serialize(v.members[i].second, indent + 2);
+                out += i + 1 < v.members.size() ? L",\n" : L"\n";
+            }
+            return out + close + L"}";
+        }
+    }
+    return L"null";
+}
+
 std::wstring Quote(const std::wstring& s) {
     std::wstring out = L"\"";
     for (wchar_t c : s) {

@@ -5,3 +5,16 @@
 
 // CREATEPROCESS_MANIFEST_RESOURCE_ID, RT_MANIFEST
 1 24 "@CMAKE_SOURCE_DIR@/src/host/MacWin.manifest"
+
+// UI strings (i18n/*.json, UTF-8), ids in the order of i18n::kLanguages (src/host/i18n.cpp).
+100 RCDATA "@CMAKE_SOURCE_DIR@/i18n/en.json"
+101 RCDATA "@CMAKE_SOURCE_DIR@/i18n/pl.json"
+102 RCDATA "@CMAKE_SOURCE_DIR@/i18n/zh-Hans.json"
+103 RCDATA "@CMAKE_SOURCE_DIR@/i18n/hi.json"
+104 RCDATA "@CMAKE_SOURCE_DIR@/i18n/es.json"
+105 RCDATA "@CMAKE_SOURCE_DIR@/i18n/fr.json"
+106 RCDATA "@CMAKE_SOURCE_DIR@/i18n/ar.json"
+107 RCDATA "@CMAKE_SOURCE_DIR@/i18n/bn.json"
+108 RCDATA "@CMAKE_SOURCE_DIR@/i18n/ru.json"
+109 RCDATA "@CMAKE_SOURCE_DIR@/i18n/pt-BR.json"
+110 RCDATA "@CMAKE_SOURCE_DIR@/i18n/ja.json"

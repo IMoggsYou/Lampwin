@@ -1,35 +1,51 @@
 // MacWin host: tray icon, settings, hook installation, IPC and the GPU renderer.
 
 #include <windows.h>
+#include <commctrl.h>
 #include <shellapi.h>
 #include <string>
 #include <vector>
 #include "common/names.h"
 #include "host/app_icon.h"
+#include "host/crash.h"
 #include "host/elevation.h"
 #include "host/helper32.h"
+#include "host/i18n.h"
 #include "host/injector.h"
 #include "host/ipc_server.h"
 #include "host/log.h"
 #include "host/render/device.h"
 #include "host/settings_store.h"
 #include "host/taskbar_locator.h"
+#include "host/updater.h"
 #include "host/win_events.h"
+#include "version.h"
 
 namespace {
 
 const UINT WM_APP_TRAY = WM_APP + 1;
 const UINT WM_APP_HELPER_EXITED = WM_APP + 3;
+const UINT WM_APP_UPDATE = WM_APP + 4;
 const UINT_PTR kPreloadTimer = 1;
+const UINT_PTR kUpdateTimer = 2;
+const UINT kFirstUpdateCheckMs = 60 * 1000;           // after start: let the session settle
+const UINT kUpdateCheckEveryMs = 3 * 60 * 60 * 1000;  // the updater checks at most once a day
 const int kHotkeyQuit = 1;
+// Settings app -> host (src/common/names.h has the rest): wParam 1 = check now, 2 = install.
+const wchar_t kUpdateMessage[] = L"MacWin_" MACWIN_NS L"Update_v1";
+const wchar_t kReleasesUrl[] = L"https://github.com/KosaWLeb/MacWin/releases";
 
 enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
     ID_DEVMODE,
     ID_OPEN_LOG,
+    ID_UPDATE,
     ID_QUIT,
 };
+
+// What a click on the current notification balloon does.
+enum class BalloonAction { None, UpdateDialog, ReleaseNotes };
 
 class App {
 public:
@@ -42,6 +58,11 @@ private:
     void AddTrayIcon();
     void UpdateTrayIcon();
     void ShowMenu();
+    void ShowBalloon(const std::wstring& title, const std::wstring& text, BalloonAction action);
+    void OnUpdateEvent(WPARAM event);
+    void ShowUpdateDialog();
+    void StartUpdate();
+    void RunInstaller();
     void ApplySettings(bool save);
     void RefreshWindowCorners();
     void ReloadSettings();
@@ -55,7 +76,10 @@ private:
     UINT reloadMsg_ = 0;
     UINT quitMsg_ = 0;
     UINT cornersMsg_ = 0;
+    UINT updateMsg_ = 0;
     bool elevated_ = false;
+    BalloonAction balloon_ = BalloonAction::None;
+    bool installAfterDownload_ = false;
     HICON iconOn_ = nullptr, iconOff_ = nullptr;
     bool trayAdded_ = false;
 
@@ -68,6 +92,7 @@ private:
     Injector injector_;
     Helper32 helper32_;
     WinEvents winEvents_;
+    Updater updater_;
     IpcServer ipc_{renderer_, settings_, locator_};
 };
 
@@ -86,7 +111,7 @@ bool App::Init(HINSTANCE hInst) {
     QueryPerformanceCounter(&q);
     const uint32_t instance = GetCurrentProcessId() * 2654435761u ^ (uint32_t)q.QuadPart;
     elevated_ = IsElevated();
-    Log(L"MacWin starting (pid %lu, instance %08X, %ls)", GetCurrentProcessId(), instance,
+    Log(L"MacWin %ls starting (pid %lu, instance %08X, %ls)", MACWIN_VERSION_W, GetCurrentProcessId(), instance,
         elevated_ ? L"administrator: elevated programs are animated too" : L"standard user");
 
     // Per-instance objects the DLLs watch: the shutdown event, and a mutex we hold for
@@ -107,12 +132,13 @@ bool App::Init(HINSTANCE hInst) {
     }
 
     if (!settings_.Create(instance, sectionSa.get())) {
-        MessageBoxW(nullptr, L"MacWin nie może utworzyć ustawień współdzielonych. Jeśli przed chwilą działał "
-                             L"z uprawnieniami administratora, wyloguj się i zaloguj ponownie.",
-                    L"MacWin", MB_ICONERROR);
+        settings_.Load();
+        i18n::Init(settings_.Get().language);
+        i18n::Message(nullptr, i18n::T(L"host.error.sharedSettings"), MB_ICONERROR);
         return false;
     }
     settings_.Load();
+    i18n::Init(settings_.Get().language);
 
     WNDCLASSEXW wc = {sizeof(wc)};
     wc.lpfnWndProc = WndProc;
@@ -128,6 +154,7 @@ bool App::Init(HINSTANCE hInst) {
     reloadMsg_ = RegisterWindowMessageW(MACWIN_RELOAD_MESSAGE);
     quitMsg_ = RegisterWindowMessageW(MACWIN_QUIT_MESSAGE);
     cornersMsg_ = RegisterWindowMessageW(MACWIN_CORNERS_MESSAGE);
+    updateMsg_ = RegisterWindowMessageW(kUpdateMessage);
     // Lower-integrity senders (every DLL, the settings app, Explorer's tray callbacks)
     // are blocked by UIPI while we are elevated, unless let through explicitly.
     ChangeWindowMessageFilterEx(hwnd_, WM_COPYDATA, MSGFLT_ALLOW, nullptr);
@@ -135,13 +162,13 @@ bool App::Init(HINSTANCE hInst) {
     ChangeWindowMessageFilterEx(hwnd_, reloadMsg_, MSGFLT_ALLOW, nullptr);
     ChangeWindowMessageFilterEx(hwnd_, quitMsg_, MSGFLT_ALLOW, nullptr);
     ChangeWindowMessageFilterEx(hwnd_, taskbarCreatedMsg_, MSGFLT_ALLOW, nullptr);
+    ChangeWindowMessageFilterEx(hwnd_, updateMsg_, MSGFLT_ALLOW, nullptr);
 
     settings_.SetIpcWindow(hwnd_);
     settings_.Publish();
 
     if (!renderer_.Start()) {
-        MessageBoxW(nullptr, L"MacWin nie może uruchomić renderera (Direct3D 11 / DirectComposition).\n"
-                             L"Szczegóły są w logu.", L"MacWin", MB_ICONERROR);
+        i18n::Message(nullptr, i18n::T(L"host.error.renderer"), MB_ICONERROR);
         return false;
     }
     locator_.Start();
@@ -152,8 +179,7 @@ bool App::Init(HINSTANCE hInst) {
                       [this] { locator_.Invalidate(); }});
 
     if (!injector_.Start(ExeDir() + L"\\MacWinHook64.dll")) {
-        MessageBoxW(nullptr, L"MacWin nie może załadować MacWinHook64.dll. Szczegóły są w logu.", L"MacWin",
-                    MB_ICONERROR);
+        i18n::Message(nullptr, i18n::T(L"host.error.hookDll"), MB_ICONERROR);
         return false;
     }
     injector_.BeginPreload();
@@ -168,11 +194,21 @@ bool App::Init(HINSTANCE hInst) {
     iconOn_ = CreateAppIcon(GetSystemMetrics(SM_CXSMICON), true);
     iconOff_ = CreateAppIcon(GetSystemMetrics(SM_CXSMICON), false);
     AddTrayIcon();
+
+    updater_.Start(hwnd_, WM_APP_UPDATE);
+    SetTimer(hwnd_, kUpdateTimer, kFirstUpdateCheckMs, nullptr);
+    std::wstring updatedFrom = updater_.UpdatedFrom();
+    if (!updatedFrom.empty()) {
+        Log(L"updated from %ls", updatedFrom.c_str());
+        ShowBalloon(i18n::F(L"host.update.done.title", MACWIN_VERSION_W), i18n::T(L"host.update.done.text"),
+                    BalloonAction::ReleaseNotes);
+    }
     Log(L"ready");
     return true;
 }
 
 void App::Shutdown() {
+    updater_.Stop();
     Log(L"shutting down");
     // 1. No new animations from here on.
     settings_.PublishDisabled();
@@ -209,7 +245,8 @@ void App::AddTrayIcon() {
     nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
     nid.uCallbackMessage = WM_APP_TRAY;
     nid.hIcon = settings_.Get().enabled ? iconOn_ : iconOff_;
-    wcscpy(nid.szTip, L"MacWin – animacje okien");
+    wcsncpy(nid.szTip, i18n::T(settings_.Get().enabled ? L"host.tray.tooltip.on" : L"host.tray.tooltip.off").c_str(),
+            ARRAYSIZE(nid.szTip) - 1);
     trayAdded_ = Shell_NotifyIconW(NIM_ADD, &nid) != FALSE;
     nid.uVersion = NOTIFYICON_VERSION_4;
     Shell_NotifyIconW(NIM_SETVERSION, &nid);
@@ -221,8 +258,105 @@ void App::UpdateTrayIcon() {
     nid.uID = 1;
     nid.uFlags = NIF_ICON | NIF_TIP;
     nid.hIcon = settings_.Get().enabled ? iconOn_ : iconOff_;
-    wcscpy(nid.szTip, settings_.Get().enabled ? L"MacWin – animacje okien" : L"MacWin – wyłączony");
+    wcsncpy(nid.szTip, i18n::T(settings_.Get().enabled ? L"host.tray.tooltip.on" : L"host.tray.tooltip.off").c_str(),
+            ARRAYSIZE(nid.szTip) - 1);
     Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
+// A Windows notification from the tray icon; a click on it does `action`.
+void App::ShowBalloon(const std::wstring& title, const std::wstring& text, BalloonAction action) {
+    NOTIFYICONDATAW nid = {sizeof(nid)};
+    nid.hWnd = hwnd_;
+    nid.uID = 1;
+    nid.uFlags = NIF_INFO;
+    nid.dwInfoFlags = NIIF_INFO | NIIF_RESPECT_QUIET_TIME;
+    wcsncpy(nid.szInfoTitle, title.c_str(), ARRAYSIZE(nid.szInfoTitle) - 1);
+    wcsncpy(nid.szInfo, text.c_str(), ARRAYSIZE(nid.szInfo) - 1);
+    if (Shell_NotifyIconW(NIM_MODIFY, &nid)) balloon_ = action;
+}
+
+// ---------------------------------------------------------------------------
+// Updates (the logic is in updater.cpp; this is the user's side of it)
+// ---------------------------------------------------------------------------
+
+void App::OnUpdateEvent(WPARAM event) {
+    if (event == Updater::kInstallerReady) {
+        if (installAfterDownload_ || settings_.Get().updateAutoInstall) RunInstaller();
+        return;
+    }
+    if (updater_.Status() != L"available") return;
+    if (settings_.Get().updateAutoInstall) {
+        installAfterDownload_ = true;
+        updater_.Download();
+    } else if (updater_.ShouldNotify()) {
+        Release r = updater_.Available();
+        ShowBalloon(i18n::F(L"host.update.available.title", r.version), i18n::T(L"host.update.available.text"),
+                    BalloonAction::UpdateDialog);
+    }
+}
+
+// "MacWin X is available": [Install now] [What's new] [Later].
+void App::ShowUpdateDialog() {
+    Release r = updater_.Available();
+    if (r.version.empty()) return;
+    std::wstring heading = i18n::F(L"host.update.dialog.heading", r.version);
+    std::wstring text = i18n::F(L"host.update.dialog.text", MACWIN_VERSION_W);
+    const int kInstall = 100, kNotes = 101, kLater = 102;
+    TASKDIALOG_BUTTON buttons[] = {
+        {kInstall, i18n::T(L"host.update.dialog.install").c_str()},
+        {kNotes, i18n::T(L"host.update.dialog.whatsNew").c_str()},
+        {kLater, i18n::T(L"host.update.dialog.later").c_str()},
+    };
+    TASKDIALOGCONFIG tdc = {sizeof(tdc)};
+    tdc.hwndParent = nullptr;
+    tdc.hInstance = hInst_;
+    tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION |
+                  (i18n::IsRightToLeft() ? TDF_RTL_LAYOUT : 0);
+    tdc.pszWindowTitle = i18n::T(L"host.update.dialog.title").c_str();
+    tdc.hMainIcon = iconOn_;
+    tdc.dwFlags |= TDF_USE_HICON_MAIN;
+    tdc.pszMainInstruction = heading.c_str();
+    tdc.pszContent = text.c_str();
+    tdc.cButtons = ARRAYSIZE(buttons);
+    tdc.pButtons = buttons;
+    tdc.nDefaultButton = kInstall;
+    int pressed = 0;
+    SetForegroundWindow(hwnd_);
+    if (FAILED(TaskDialogIndirect(&tdc, &pressed, nullptr, nullptr))) return;
+    if (pressed == kInstall) StartUpdate();
+    else if (pressed == kNotes) OpenAsUser(r.notesUrl.empty() ? kReleasesUrl : r.notesUrl);
+}
+
+void App::StartUpdate() {
+    std::wstring status = updater_.Status();
+    if (status != L"available" && status != L"failedInstall") return;
+    installAfterDownload_ = true;
+    updater_.Download();
+}
+
+// Runs the verified installer. It stops this MacWin, replaces the files and starts the
+// new version itself (silent: a progress window only; fully automatic: nothing at all).
+void App::RunInstaller() {
+    installAfterDownload_ = false;
+    std::wstring path = updater_.InstallerPath();
+    if (path.empty()) return;
+    std::wstring args = settings_.Get().updateAutoInstall ? L"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+                                                          : L"/SILENT /SUPPRESSMSGBOXES /NORESTART";
+    SHELLEXECUTEINFOW sei = {sizeof(sei)};
+    sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
+    sei.lpVerb = elevated_ ? L"open" : L"runas";   // the installer needs administrator rights
+    sei.lpFile = path.c_str();
+    sei.lpParameters = args.c_str();
+    sei.nShow = SW_SHOWNORMAL;
+    updater_.SetInstalling();
+    if (ShellExecuteExW(&sei)) {
+        Log(L"update: installer started");
+        return;
+    }
+    DWORD err = GetLastError();
+    Log(L"update: installer did not start: %lu", err);
+    updater_.SetFailed();
+    if (err != ERROR_CANCELLED) i18n::Message(nullptr, i18n::T(L"host.update.failed"), MB_ICONWARNING);
 }
 
 void App::ApplySettings(bool save) {
@@ -270,7 +404,9 @@ void App::ReloadSettings() {
     HostSettings before = settings_.Get();
     settings_.Load();
     const HostSettings& after = settings_.Get();
+    if (after.language != before.language) i18n::Init(after.language);
     ApplySettings(false);
+    if (after.updateCheck && !before.updateCheck) updater_.Check(false);
     if (before.devMode != after.devMode || before.devAllowlist != after.devAllowlist ||
         before.noInject != after.noInject) {
         injector_.BeginPreload();
@@ -282,21 +418,29 @@ void App::ReloadSettings() {
 void App::ShowMenu() {
     const HostSettings& s = settings_.Get();
     HMENU menu = CreatePopupMenu();
-    AppendMenuW(menu, MF_STRING, ID_SETTINGS, L"Ustawienia…");
+    // Right-to-left languages: items aligned and read from the right.
+    const UINT rtl = i18n::IsRightToLeft() ? MFT_RIGHTORDER | MFT_RIGHTJUSTIFY : 0;
+    AppendMenuW(menu, MF_STRING | rtl, ID_SETTINGS, i18n::T(L"host.menu.settings").c_str());
     SetMenuDefaultItem(menu, ID_SETTINGS, FALSE);
+    std::wstring status = updater_.Status();
+    if (status == L"available" || status == L"failedInstall") {
+        std::wstring update = i18n::F(L"host.menu.update", updater_.Available().version);
+        AppendMenuW(menu, MF_STRING | rtl, ID_UPDATE, update.c_str());
+    }
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING | (s.enabled ? MF_CHECKED : 0), ID_ENABLED, L"Animacje włączone");
-    AppendMenuW(menu, MF_STRING | (s.devMode ? MF_CHECKED : 0), ID_DEVMODE,
-                L"Tryb testowy (tylko programy z listy)");
+    AppendMenuW(menu, MF_STRING | rtl | (s.enabled ? MF_CHECKED : 0), ID_ENABLED, i18n::T(L"host.menu.enabled").c_str());
+    AppendMenuW(menu, MF_STRING | rtl | (s.devMode ? MF_CHECKED : 0), ID_DEVMODE, i18n::T(L"host.menu.testMode").c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_OPEN_LOG, L"Otwórz dziennik");
+    AppendMenuW(menu, MF_STRING | rtl, ID_OPEN_LOG, i18n::T(L"host.menu.openLog").c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_QUIT, L"Zakończ\tCtrl+Alt+Shift+F12");
+    std::wstring quit = i18n::T(L"host.menu.quit") + L"\tCtrl+Alt+Shift+F12";
+    AppendMenuW(menu, MF_STRING | rtl, ID_QUIT, quit.c_str());
 
     POINT pt;
     GetCursorPos(&pt);
     SetForegroundWindow(hwnd_);   // required so the menu closes when clicking elsewhere
-    UINT cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY, pt.x, pt.y, 0, hwnd_, nullptr);
+    UINT flags = TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_NONOTIFY | (i18n::IsRightToLeft() ? TPM_LAYOUTRTL : 0);
+    UINT cmd = TrackPopupMenu(menu, flags, pt.x, pt.y, 0, hwnd_, nullptr);
     DestroyMenu(menu);
     PostMessageW(hwnd_, WM_NULL, 0, 0);
 
@@ -320,6 +464,9 @@ void App::ShowMenu() {
             break;
         case ID_OPEN_LOG:
             OpenAsUser(LogPath());
+            break;
+        case ID_UPDATE:
+            ShowUpdateDialog();
             break;
         case ID_QUIT:
             DestroyWindow(hwnd_);
@@ -353,11 +500,19 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
         DestroyWindow(hwnd_);
         return 0;
     }
+    if (msg == updateMsg_ && msg) {
+        if (wp == 1) updater_.Check(true);
+        else if (wp == 2) StartUpdate();
+        return 0;
+    }
     switch (msg) {
         case WM_COPYDATA:
             return ipc_.Handle((const COPYDATASTRUCT*)lp);
         case WM_APP_HELPER_EXITED:
             helper32_.OnExited();
+            return 0;
+        case WM_APP_UPDATE:
+            OnUpdateEvent(wp);
             return 0;
         case WM_APP_TRAY:
             switch (LOWORD(lp)) {
@@ -368,12 +523,25 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
                 case WM_CONTEXTMENU:
                     ShowMenu();          // right click: the quick menu
                     break;
+                case NIN_BALLOONUSERCLICK: {
+                    BalloonAction action = balloon_;
+                    balloon_ = BalloonAction::None;
+                    if (action == BalloonAction::UpdateDialog) ShowUpdateDialog();
+                    else if (action == BalloonAction::ReleaseNotes) OpenAsUser(kReleasesUrl);
+                    break;
+                }
+                case NIN_BALLOONTIMEOUT:
+                    balloon_ = BalloonAction::None;
+                    break;
             }
             return 0;
         case WM_TIMER:
             if (wp == kPreloadTimer) {
                 KillTimer(hwnd_, kPreloadTimer);
                 injector_.EndPreload();
+            } else if (wp == kUpdateTimer) {
+                SetTimer(hwnd_, kUpdateTimer, kUpdateCheckEveryMs, nullptr);
+                if (settings_.Get().updateCheck) updater_.Check(false);
             }
             return 0;
         case WM_HOTKEY:
@@ -446,6 +614,9 @@ int Configure(const std::vector<std::wstring>& args) {
 }  // namespace
 
 int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
+    // DLLs only from System32 and next to MacWin.exe: nothing planted in the current
+    // directory or on PATH is ever loaded.
+    SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32 | LOAD_LIBRARY_SEARCH_APPLICATION_DIR);
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     // The main thread reads windows' AppUserModelIDs (shell property stores): COM.
     CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
@@ -474,12 +645,11 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     // scheduled task, which runs us elevated without a UAC prompt.
     if (!elevated && !fromTask && IsInSecureLocation() && TaskExists() && RunTask()) return 0;
     if (elevated && !IsInSecureLocation()) {
-        MessageBoxW(nullptr,
-                    L"MacWin z uprawnieniami administratora może działać tylko z folderu Program Files "
-                    L"(po instalacji). Z tego folderu każdy program mógłby podmienić MacWinHook64.dll "
-                    L"i dostać się do programów uruchomionych jako administrator.\n\n"
-                    L"Uruchom MacWin bez uprawnień administratora albo zainstaluj go instalatorem.",
-                    L"MacWin", MB_ICONWARNING);
+        SettingsStore store;
+        store.InitPath();
+        store.Load();
+        i18n::Init(store.Get().language);
+        i18n::Message(nullptr, i18n::T(L"host.error.elevatedOutside"), MB_ICONWARNING);
         return 1;
     }
 
@@ -488,12 +658,27 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     HANDLE single = CreateMutexW(nullptr, TRUE, MACWIN_SINGLE_INSTANCE);
     DWORD singleErr = GetLastError();
     if (!single || singleErr == ERROR_ALREADY_EXISTS || FindWindowW(MACWIN_HOST_WNDCLASS, nullptr)) {
-        if (!fromTask) MessageBoxW(nullptr, L"MacWin już działa (ikona w zasobniku).", L"MacWin", MB_ICONINFORMATION);
         if (single) CloseHandle(single);
+        if (fromTask) return 0;
+        // Started again (Start menu, a desktop shortcut): show the settings instead.
+        wchar_t exe[MAX_PATH];
+        DWORD n = GetModuleFileNameW(nullptr, exe, MAX_PATH);
+        std::wstring dir(exe, n);
+        dir = dir.substr(0, dir.find_last_of(L'\\'));
+        std::wstring settingsApp = dir + L"\\MacWin.Settings.exe";
+        if (GetFileAttributesW(settingsApp.c_str()) == INVALID_FILE_ATTRIBUTES ||
+            (INT_PTR)ShellExecuteW(nullptr, L"open", settingsApp.c_str(), nullptr, nullptr, SW_SHOWNORMAL) <= 32) {
+            SettingsStore store;
+            store.InitPath();
+            store.Load();
+            i18n::Init(store.Get().language);
+            i18n::Message(nullptr, i18n::T(L"host.alreadyRunning"), MB_ICONINFORMATION);
+        }
         return 0;
     }
 
     LogInit();
+    InstallCrashHandler();
     App app;
     int code = 0;
     if (app.Init(hInst)) {

@@ -1,6 +1,7 @@
 #include "host/elevation.h"
 #include <sddl.h>
 #include <shlobj.h>
+#include <wtsapi32.h>
 #include <wctype.h>
 #include <vector>
 #include "common/names.h"
@@ -103,6 +104,36 @@ std::wstring CurrentUserSid() {
     return sid;
 }
 
+// The user signed in to this session. Usually the same as CurrentUserSid(); not when
+// an administrator's password elevated the installer for a standard user ("over the
+// shoulder"): the task then must be the signed-in user's, not the administrator's.
+std::wstring SessionUserSid() {
+    std::wstring sid;
+    DWORD session = 0;
+    LPWSTR user = nullptr, domain = nullptr;
+    DWORD bytes = 0;
+    if (ProcessIdToSessionId(GetCurrentProcessId(), &session) &&
+        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session, WTSUserName, &user, &bytes) &&
+        WTSQuerySessionInformationW(WTS_CURRENT_SERVER_HANDLE, session, WTSDomainName, &domain, &bytes) && user &&
+        *user) {
+        std::wstring account = (domain && *domain) ? std::wstring(domain) + L"\\" + user : std::wstring(user);
+        BYTE sidBuf[SECURITY_MAX_SID_SIZE];
+        DWORD sidSize = sizeof(sidBuf);
+        wchar_t refDomain[256];
+        DWORD refSize = ARRAYSIZE(refDomain);
+        SID_NAME_USE use;
+        LPWSTR str = nullptr;
+        if (LookupAccountNameW(nullptr, account.c_str(), sidBuf, &sidSize, refDomain, &refSize, &use) &&
+            ConvertSidToStringSidW(sidBuf, &str)) {
+            sid = str;
+            LocalFree(str);
+        }
+    }
+    if (user) WTSFreeMemory(user);
+    if (domain) WTSFreeMemory(domain);
+    return sid.empty() ? CurrentUserSid() : sid;
+}
+
 SecurityAttributes::SecurityAttributes(const std::wstring& sddl) {
     if (ConvertStringSecurityDescriptorToSecurityDescriptorW(sddl.c_str(), SDDL_REVISION_1, &sd_, nullptr)) {
         sa_.nLength = sizeof(sa_);
@@ -149,15 +180,17 @@ bool RunTask() {
 int InstallTask(bool atLogon) {
     if (!IsElevated()) return ERROR_ELEVATION_REQUIRED;
     if (!IsInSecureLocation()) return ERROR_ACCESS_DENIED;
-    std::wstring sid = CurrentUserSid();
+    std::wstring sid = SessionUserSid();
     if (sid.empty()) return ERROR_INVALID_SID;
 
     // Interactive, highest privileges, no battery / idle / time limits, normal priority
     // (a task's default priority is "below normal", which would hurt the animation).
+    // A crash (non-zero exit) is restarted after a minute, three times at most.
     std::wstring xml =
         L"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n"
         L"<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n"
-        L"  <RegistrationInfo><Description>MacWin: animacje okien w stylu macOS</Description></RegistrationInfo>\r\n"
+        L"  <RegistrationInfo><Author>KosaWLeb</Author><Description>MacWin: macOS-style window animations "
+        L"(https://github.com/KosaWLeb/MacWin)</Description></RegistrationInfo>\r\n"
         L"  <Triggers>";
     if (atLogon) xml += L"<LogonTrigger><Enabled>true</Enabled><UserId>" + sid + L"</UserId></LogonTrigger>";
     xml += L"</Triggers>\r\n"
@@ -178,6 +211,7 @@ int InstallTask(bool atLogon) {
            L"    <WakeToRun>false</WakeToRun>\r\n"
            L"    <ExecutionTimeLimit>PT0S</ExecutionTimeLimit>\r\n"
            L"    <Priority>4</Priority>\r\n"
+           L"    <RestartOnFailure><Interval>PT1M</Interval><Count>3</Count></RestartOnFailure>\r\n"
            L"  </Settings>\r\n"
            L"  <Actions Context=\"Author\"><Exec><Command>" + XmlEscape(ExePath()) +
            L"</Command><Arguments>--task</Arguments></Exec></Actions>\r\n"

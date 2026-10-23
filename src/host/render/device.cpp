@@ -140,9 +140,13 @@ void Renderer::ThreadMain(HANDLE ready, bool* ok) {
         AcquireSRWLockExclusive(&queueLock_);
         jobs.swap(queue_);
         ReleaseSRWLockExclusive(&queueLock_);
+        if (!jobs.empty() && DeviceLost()) RecoverDevice();
         LARGE_INTEGER now;
         QueryPerformanceCounter(&now);
-        for (GenieJob* j : jobs) StartJob(j, now);
+        for (GenieJob* j : jobs) {
+            if (broken_) FailJob(j);
+            else StartJob(j, now);
+        }
 
         PumpMessages();
         if (anims_.empty() && superseded_.empty()) {
@@ -153,6 +157,10 @@ void Renderer::ThreadMain(HANDLE ready, bool* ok) {
 
         QueryPerformanceCounter(&now);
         for (auto& a : anims_) StepAnim(a.get(), now);
+        if (DeviceLost()) {
+            RecoverDevice();   // finishes every animation
+            continue;
+        }
         ProcessSuperseded(now, false);
         if (anims_.empty()) {
             // Only superseded jobs left, waiting for their window to settle.
@@ -196,23 +204,26 @@ void Renderer::ThreadMain(HANDLE ready, bool* ok) {
     DestroyDevice();
 }
 
+// Any GPU (AMD, Intel, NVIDIA, a basic display adapter) or none: a driver that fails
+// anywhere on the way gets WARP, Direct3D on the CPU, which is plenty for one mesh.
 bool Renderer::CreateDevice() {
+    if (CreateDeviceOn(D3D_DRIVER_TYPE_HARDWARE)) return true;
+    DestroyDevice();
+    Log(L"render: hardware device unusable, falling back to WARP");
+    return CreateDeviceOn(D3D_DRIVER_TYPE_WARP);
+}
+
+bool Renderer::CreateDeviceOn(D3D_DRIVER_TYPE type) {
     const D3D_FEATURE_LEVEL levels[] = {D3D_FEATURE_LEVEL_11_1, D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_1,
                                         D3D_FEATURE_LEVEL_10_0};
     ComPtr<ID3D11Device> dev;
     ComPtr<ID3D11DeviceContext> ctx;
     D3D_FEATURE_LEVEL fl = {};
-    HRESULT hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT,
-                                   levels, ARRAYSIZE(levels), D3D11_SDK_VERSION, dev.put(), &fl, ctx.put());
-    warp_ = false;
+    warp_ = type == D3D_DRIVER_TYPE_WARP;
+    HRESULT hr = D3D11CreateDevice(nullptr, type, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels,
+                                   ARRAYSIZE(levels), D3D11_SDK_VERSION, dev.put(), &fl, ctx.put());
     if (FAILED(hr)) {
-        Log(L"render: no hardware device (0x%08lX), falling back to WARP", (unsigned long)hr);
-        hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_WARP, nullptr, D3D11_CREATE_DEVICE_BGRA_SUPPORT, levels,
-                               ARRAYSIZE(levels), D3D11_SDK_VERSION, dev.put(), &fl, ctx.put());
-        warp_ = true;
-    }
-    if (FAILED(hr)) {
-        Log(L"render: D3D11CreateDevice failed: 0x%08lX", (unsigned long)hr);
+        Log(L"render: D3D11CreateDevice(%ls) failed: 0x%08lX", warp_ ? L"WARP" : L"hardware", (unsigned long)hr);
         return false;
     }
 
@@ -226,6 +237,10 @@ bool Renderer::CreateDevice() {
     }
     DXGI_ADAPTER_DESC ad = {};
     adapter->GetDesc(&ad);
+    // Minimize snapshots wait on the GPU for the restore. Integrated graphics and WARP
+    // take that memory from the system RAM, so they get a smaller budget.
+    const size_t mb = 1ull << 20;
+    cache_.SetBudget(warp_ ? 96 * mb : ad.DedicatedVideoMemory >= (2ull << 30) ? 384 * mb : 160 * mb);
 
     if (!dcompDll_) dcompDll_ = LoadLibraryExW(L"dcomp.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
     typedef HRESULT(WINAPI * CreateDevice_t)(IDXGIDevice*, REFIID, void**);
@@ -295,6 +310,34 @@ bool Renderer::CreateDevice() {
     Log(L"render: %ls%ls, feature level %x, MSAA %ux, compositor clock %ls", ad.Description,
         warp_ ? L" (WARP)" : L"", (unsigned)fl, msaaCount_, waitClock_ ? L"yes" : L"no (DwmFlush)");
     return true;
+}
+
+bool Renderer::DeviceLost() {
+    return device_ && device_->GetDeviceRemovedReason() != S_OK;
+}
+
+void Renderer::RecoverDevice() {
+    Log(L"render: graphics device lost (0x%08lX), making it again",
+        (unsigned long)(device_ ? device_->GetDeviceRemovedReason() : E_FAIL));
+    AbortAll();   // the DLLs reveal their windows
+    for (auto& s : slots_) {
+        if (s->hwnd) DestroyWindow(s->hwnd);
+    }
+    slots_.clear();
+    cache_.Clear();
+    DestroyDevice();
+    // A driver that is being updated or reset can take a few seconds to come back.
+    for (int attempt = 0; attempt < 8 && !stop_; ++attempt) {
+        if (CreateDevice()) {
+            broken_ = false;
+            Log(L"render: device ready again");
+            return;
+        }
+        DestroyDevice();
+        WaitForSingleObject(wake_, 250u << (attempt < 4 ? attempt : 4));
+    }
+    broken_ = true;
+    Log(L"render: no graphics device; windows keep the standard animations until MacWin restarts");
 }
 
 void Renderer::DestroyDevice() {

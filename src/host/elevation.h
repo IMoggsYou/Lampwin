@@ -12,6 +12,9 @@
 bool IsElevated();
 bool IsInSecureLocation();   // this exe lives under Program Files
 std::wstring CurrentUserSid();
+// The user signed in to this session (differs from CurrentUserSid() when an
+// administrator's credentials elevated this process for a standard user).
+std::wstring SessionUserSid();
 
 // SDDL -> SECURITY_ATTRIBUTES for the named objects the DLLs open.
 class SecurityAttributes {

@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include "common/settings.h"
+#include "host/json.h"
 
 struct GenieSettings {
     int style = 0;   // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original)
@@ -26,16 +27,22 @@ struct GenieSettings {
     std::vector<std::wstring> excluded;
 };
 
+// Programs that must never get the DLL: games whose anti-cheat reacts to foreign
+// modules, and the folders games are installed to. The same list is the settings
+// app's default (settings-app/Services/SettingsStore.cs).
+std::vector<std::wstring> DefaultNoInject();
+
 struct HostSettings {
     bool enabled = true;
     // Test mode: the DLL only loads into the programs on devAllowlist.
-    bool devMode = true;
+    bool devMode = false;
     std::vector<std::wstring> devAllowlist{L"notepad.exe", L"macwintestwindow.exe"};
-    // Programs that must never get the DLL, e.g. games whose anti-cheat reacts to
-    // foreign modules.
-    std::vector<std::wstring> noInject{
-        L"robloxplayerbeta.exe", L"valorant-win64-shipping.exe", L"fortniteclient-win64-shipping.exe",
-        L"r5apex.exe", L"r5apex_dx12.exe", L"cs2.exe"};
+    std::vector<std::wstring> noInject = DefaultNoInject();
+    // "auto" (the Windows display language) or a language code (see i18n.h).
+    std::wstring language = L"auto";
+    // GitHub Releases: check once a day; install without asking.
+    bool updateCheck = true;
+    bool updateAutoInstall = false;
     GenieSettings genie;
 };
 
@@ -47,7 +54,10 @@ public:
     // File only (no shared section): for one-off command-line edits.
     void InitPath();
     void SetIpcWindow(HWND hwnd);
-    void Load();   // missing or broken file: defaults (a missing file is written out)
+    // Missing or broken file: defaults (a missing file is written out). Settings from
+    // an older version are brought up to date (and saved).
+    void Load();
+    // Keys this version doesn't know (written by a newer one) are kept.
     bool Save() const;
     void Publish();
     // Publishes enabled = false without touching the file (used while shutting down).
@@ -62,6 +72,7 @@ private:
     HANDLE map_ = nullptr;
     SharedSettings* view_ = nullptr;
     HostSettings s_;
+    json::Value root_;   // the file as read: unknown keys survive a Save
     std::wstring path_;
     uint32_t instance_ = 0;
     uint64_t ipcHwnd_ = 0;

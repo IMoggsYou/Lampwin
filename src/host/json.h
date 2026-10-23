@@ -23,5 +23,15 @@ struct Value {
 
 bool Parse(const std::wstring& text, Value* out);
 std::wstring Quote(const std::wstring& s);
+// Pretty-printed (2 spaces), members in their order.
+std::wstring Serialize(const Value& v, int indent = 0);
+
+Value Bool(bool b);
+Value Number(double n);
+Value String(const std::wstring& s);
+Value Strings(const std::vector<std::wstring>& items);
+Value Object();
+// Replaces the member `key` of an object (keeping its place) or appends it.
+void Set(Value* object, const wchar_t* key, Value v);
 
 }  // namespace json

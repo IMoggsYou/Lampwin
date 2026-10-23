@@ -62,20 +62,17 @@ int EffectFromJson(const json::Value* v, int fallback) {
     return fallback;
 }
 
-std::wstring ListJson(const std::vector<std::wstring>& items, const wchar_t* indent) {
-    if (items.empty()) return L"[]";
-    std::wstring out = L"[\n";
-    for (size_t i = 0; i < items.size(); ++i) {
-        out += indent;
-        out += L"  " + json::Quote(items[i]);
-        out += (i + 1 < items.size()) ? L",\n" : L"\n";
-    }
-    out += indent;
-    out += L"]";
-    return out;
-}
+// settings.json layout version: 2 added the game folders to noInject.
+const int kSettingsVersion = 2;
 
 }  // namespace
+
+std::vector<std::wstring> DefaultNoInject() {
+    return {L"robloxplayerbeta.exe", L"valorant-win64-shipping.exe", L"fortniteclient-win64-shipping.exe",
+            L"r5apex.exe", L"r5apex_dx12.exe", L"cs2.exe", L"overwatch.exe", L"cod.exe", L"wow.exe",
+            L"\\steamapps\\common\\", L"\\epic games\\", L"\\riot games\\", L"\\xboxgames\\",
+            L"\\ea games\\", L"\\ubisoft game launcher\\games\\", L"\\gog galaxy\\games\\"};
+}
 
 void SettingsStore::InitPath() {
     path_ = RoamingDataDir() + L"\\settings.json";
@@ -122,13 +119,21 @@ void SettingsStore::Load() {
     json::Value root;
     if (!json::Parse(text, &root) || root.type != json::Value::Object) {
         s_ = d;
-        Log(L"settings: %ls is not valid JSON, using defaults", path_.c_str());
+        root_ = json::Object();
+        Log(L"settings: %ls is not valid JSON, using defaults (the file is left as it is)", path_.c_str());
         return;
     }
+    root_ = root;
     s_.enabled = root.GetBool(L"enabled", d.enabled);
     s_.devMode = root.GetBool(L"devMode", d.devMode);
     s_.devAllowlist = root.GetStrings(L"devAllowlist", d.devAllowlist);
     s_.noInject = root.GetStrings(L"noInject", d.noInject);
+    const json::Value* language = root.Get(L"language");
+    s_.language = language && language->type == json::Value::String ? language->str : d.language;
+    if (const json::Value* u = root.Get(L"updates"); u && u->type == json::Value::Object) {
+        s_.updateCheck = u->GetBool(L"check", d.updateCheck);
+        s_.updateAutoInstall = u->GetBool(L"autoInstall", d.updateAutoInstall);
+    }
     const json::Value* g = root.Get(L"genie");
     json::Value empty;
     empty.type = json::Value::Object;
@@ -150,32 +155,52 @@ void SettingsStore::Load() {
     s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
     Log(L"settings: loaded %ls", path_.c_str());
+
+    // An older file: new default protections are added to what the user has.
+    if (root.GetInt(L"settingsVersion", 1) < kSettingsVersion) {
+        for (const std::wstring& entry : DefaultNoInject()) {
+            bool present = false;
+            for (const std::wstring& have : s_.noInject) present = present || _wcsicmp(have.c_str(), entry.c_str()) == 0;
+            if (!present) s_.noInject.push_back(entry);
+        }
+        Log(L"settings: updated to version %d", kSettingsVersion);
+        Save();
+    }
 }
 
 bool SettingsStore::Save() const {
     const HostSettings& s = s_;
-    std::wstring t = L"{\n";
-    t += L"  \"enabled\": " + std::wstring(s.enabled ? L"true" : L"false") + L",\n";
-    t += L"  \"devMode\": " + std::wstring(s.devMode ? L"true" : L"false") + L",\n";
-    t += L"  \"devAllowlist\": " + ListJson(s.devAllowlist, L"  ") + L",\n";
-    t += L"  \"noInject\": " + ListJson(s.noInject, L"  ") + L",\n";
-    t += L"  \"genie\": {\n";
-    t += L"    \"style\": " + std::wstring(s.genie.style == 1 ? L"\"classic\"" : L"\"modern\"") + L",\n";
-    t += L"    \"durationMs\": " + std::to_wstring(s.genie.durationMs) + L",\n";
-    t += L"    \"restoreAnimation\": " + std::wstring(s.genie.restore ? L"true" : L"false") + L",\n";
-    t += L"    \"openAnimation\": \"" + std::wstring(kEffectNames[s.genie.openEffect]) + L"\",\n";
-    t += L"    \"closeAnimation\": \"" + std::wstring(kEffectNames[s.genie.closeEffect]) + L"\",\n";
-    t += L"    \"openDurationMs\": " + std::to_wstring(s.genie.openDurationMs) + L",\n";
-    t += L"    \"closeDurationMs\": " + std::to_wstring(s.genie.closeDurationMs) + L",\n";
-    t += L"    \"multiMonitor\": " + std::wstring(s.genie.multiMonitor ? L"true" : L"false") + L",\n";
-    t += L"    \"unhideTaskbar\": " + std::wstring(s.genie.unhideTaskbar ? L"true" : L"false") + L",\n";
-    t += L"    \"unhideDurationMs\": " + std::to_wstring(s.genie.unhideDurationMs) + L",\n";
-    t += L"    \"meshQuality\": " + std::to_wstring(s.genie.meshQuality) + L",\n";
-    t += L"    \"cornerRadius\": " + std::to_wstring(s.genie.cornerRadius) + L",\n";
-    t += L"    \"cornerSmoothing\": " + std::to_wstring(s.genie.cornerSmoothing) + L",\n";
-    t += L"    \"windowCorners\": " + std::wstring(s.genie.windowCorners ? L"true" : L"false") + L",\n";
-    t += L"    \"excludedPrograms\": " + ListJson(s.genie.excluded, L"    ") + L"\n";
-    t += L"  }\n}\n";
+    json::Value root = root_.type == json::Value::Object ? root_ : json::Object();
+    json::Set(&root, L"settingsVersion", json::Number(kSettingsVersion));
+    json::Set(&root, L"enabled", json::Bool(s.enabled));
+    json::Set(&root, L"devMode", json::Bool(s.devMode));
+    json::Set(&root, L"devAllowlist", json::Strings(s.devAllowlist));
+    json::Set(&root, L"noInject", json::Strings(s.noInject));
+    json::Set(&root, L"language", json::String(s.language));
+    const json::Value* oldUpdates = root.Get(L"updates");
+    json::Value updates = oldUpdates && oldUpdates->type == json::Value::Object ? *oldUpdates : json::Object();
+    json::Set(&updates, L"check", json::Bool(s.updateCheck));
+    json::Set(&updates, L"autoInstall", json::Bool(s.updateAutoInstall));
+    json::Set(&root, L"updates", updates);
+    const json::Value* oldGenie = root.Get(L"genie");
+    json::Value g = oldGenie && oldGenie->type == json::Value::Object ? *oldGenie : json::Object();
+    json::Set(&g, L"style", json::String(s.genie.style == 1 ? L"classic" : L"modern"));
+    json::Set(&g, L"durationMs", json::Number(s.genie.durationMs));
+    json::Set(&g, L"restoreAnimation", json::Bool(s.genie.restore));
+    json::Set(&g, L"openAnimation", json::String(kEffectNames[s.genie.openEffect]));
+    json::Set(&g, L"closeAnimation", json::String(kEffectNames[s.genie.closeEffect]));
+    json::Set(&g, L"openDurationMs", json::Number(s.genie.openDurationMs));
+    json::Set(&g, L"closeDurationMs", json::Number(s.genie.closeDurationMs));
+    json::Set(&g, L"multiMonitor", json::Bool(s.genie.multiMonitor));
+    json::Set(&g, L"unhideTaskbar", json::Bool(s.genie.unhideTaskbar));
+    json::Set(&g, L"unhideDurationMs", json::Number(s.genie.unhideDurationMs));
+    json::Set(&g, L"meshQuality", json::Number(s.genie.meshQuality));
+    json::Set(&g, L"cornerRadius", json::Number(s.genie.cornerRadius));
+    json::Set(&g, L"cornerSmoothing", json::Number(s.genie.cornerSmoothing));
+    json::Set(&g, L"windowCorners", json::Bool(s.genie.windowCorners));
+    json::Set(&g, L"excludedPrograms", json::Strings(s.genie.excluded));
+    json::Set(&root, L"genie", g);
+    std::wstring t = json::Serialize(root) + L"\n";
 
     int n = WideCharToMultiByte(CP_UTF8, 0, t.c_str(), (int)t.size(), nullptr, 0, nullptr, nullptr);
     std::string bytes((size_t)n, '\0');

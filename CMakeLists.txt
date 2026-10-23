@@ -81,15 +81,22 @@ if(MACWIN_BITS EQUAL 64)
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS src/host/render/genie.hlsl)
   configure_file(src/host/render/genie_hlsl.h.in ${CMAKE_BINARY_DIR}/gen/genie_hlsl.h @ONLY)
   configure_file(src/host/host.rc.in ${CMAKE_BINARY_DIR}/gen/host.rc @ONLY)
+  # The translations are embedded as RCDATA: a changed language file rebuilds the resource.
+  file(GLOB MACWIN_I18N CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/i18n/*.json)
+  set_source_files_properties(${CMAKE_BINARY_DIR}/gen/host.rc PROPERTIES
+    OBJECT_DEPENDS "${MACWIN_I18N};${CMAKE_SOURCE_DIR}/src/host/MacWin.manifest")
 
   add_executable(MacWin WIN32
     src/host/main.cpp
     src/host/elevation.cpp
     ${CMAKE_BINARY_DIR}/gen/host.rc
     src/host/app_icon.cpp
+    src/host/crash.cpp
+    src/host/i18n.cpp
     src/host/log.cpp
     src/host/json.cpp
     src/host/settings_store.cpp
+    src/host/updater.cpp
     src/host/injector.cpp
     src/host/helper32.cpp
     src/host/ipc_server.cpp
@@ -101,7 +108,7 @@ if(MACWIN_BITS EQUAL 64)
   target_include_directories(MacWin PRIVATE src ${CMAKE_BINARY_DIR}/gen)
   target_link_options(MacWin PRIVATE -municode)
   target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
-                        shell32 user32 gdi32 advapi32)
+                        shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32)
   add_dependencies(MacWin MacWinHook)
   macwin_version_resource(MacWin "MacWin - macOS-style window animations" MacWin.exe VFT_APP)
 
@@ -152,4 +159,17 @@ else()
   target_link_options(MacWinTestWindow32 PRIVATE -municode)
   target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
   macwin_version_resource(MacWinTestWindow32 "MacWin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
+endif()
+
+# --- Tests: ctest --test-dir build/x64 ---
+if(MACWIN_BITS EQUAL 64)
+  enable_testing()
+  add_executable(MacWinTests tests/unit_tests.cpp src/host/json.cpp src/host/updater.cpp
+                 src/host/i18n.cpp src/host/log.cpp)
+  target_include_directories(MacWinTests PRIVATE src ${CMAKE_BINARY_DIR}/gen)
+  target_link_options(MacWinTests PRIVATE -municode)
+  target_link_libraries(MacWinTests PRIVATE winhttp bcrypt shell32 ole32)
+  set_target_properties(MacWinTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+  add_test(NAME unit COMMAND MacWinTests)
+  add_test(NAME i18n COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tools/check_i18n.cmake)
 endif()

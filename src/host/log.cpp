@@ -9,6 +9,22 @@ namespace {
 SRWLOCK g_logLock = SRWLOCK_INIT;
 HANDLE g_logFile = INVALID_HANDLE_VALUE;
 LARGE_INTEGER g_qpcFreq, g_qpcStart;
+ULONGLONG g_logBytes = 0;
+// A log that grows past this starts over (the full one becomes the .old one).
+const ULONGLONG kMaxLogBytes = 4ull << 20;
+
+std::wstring OldLogPath() {
+    std::wstring path = LogPath();
+    return path.substr(0, path.size() - 4) + L".old.log";
+}
+
+// The previous log becomes *.old.log (a crash's log survives the restart after it).
+void OpenFresh() {
+    MoveFileExW(LogPath().c_str(), OldLogPath().c_str(), MOVEFILE_REPLACE_EXISTING);
+    g_logFile = CreateFileW(LogPath().c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
+                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    g_logBytes = 0;
+}
 
 std::wstring KnownDir(REFKNOWNFOLDERID id) {
     PWSTR path = nullptr;
@@ -44,8 +60,9 @@ std::wstring LogPath() {
 void LogInit() {
     QueryPerformanceFrequency(&g_qpcFreq);
     QueryPerformanceCounter(&g_qpcStart);
-    g_logFile = CreateFileW(LogPath().c_str(), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_DELETE, nullptr,
-                            CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    AcquireSRWLockExclusive(&g_logLock);
+    OpenFresh();
+    ReleaseSRWLockExclusive(&g_logLock);
 }
 
 void LogClose() {
@@ -75,8 +92,13 @@ void Log(const wchar_t* fmt, ...) {
     int len = WideCharToMultiByte(CP_UTF8, 0, msg, -1, utf8, sizeof(utf8), nullptr, nullptr);
     AcquireSRWLockExclusive(&g_logLock);
     if (g_logFile != INVALID_HANDLE_VALUE && len > 1) {
-        DWORD written;
-        WriteFile(g_logFile, utf8, (DWORD)(len - 1), &written, nullptr);
+        if (g_logBytes > kMaxLogBytes) {
+            CloseHandle(g_logFile);
+            OpenFresh();
+        }
+        DWORD written = 0;
+        if (g_logFile != INVALID_HANDLE_VALUE) WriteFile(g_logFile, utf8, (DWORD)(len - 1), &written, nullptr);
+        g_logBytes += written;
     }
     ReleaseSRWLockExclusive(&g_logLock);
     OutputDebugStringW(msg);

@@ -105,8 +105,14 @@ private:
     };
 
     void ThreadMain(HANDLE ready, bool* ok);
+    // The GPU device: hardware first, WARP (the CPU) if any step fails on it.
     bool CreateDevice();
+    bool CreateDeviceOn(D3D_DRIVER_TYPE type);
     void DestroyDevice();
+    // Device removed (driver update, TDR, GPU unplugged): every animation is finished
+    // (the DLLs reveal their windows) and the device is made again.
+    bool DeviceLost();
+    void RecoverDevice();
     bool CompileShaders();
     ID3D11Buffer* GridIndices(int tiles, UINT* count);
     bool PrepareSnapshot(GenieJob* job, SnapshotCache::Entry* out);
@@ -152,6 +158,7 @@ private:
     std::unordered_map<int, ComPtr<ID3D11Buffer>> grids_;
     UINT msaaCount_ = 1;
     bool warp_ = false;
+    bool broken_ = false;   // no device could be made again: every job fails over to Windows
 
     typedef DWORD(WINAPI* WaitClock_t)(UINT, const HANDLE*, DWORD);
     WaitClock_t waitClock_ = nullptr;

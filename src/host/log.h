@@ -1,7 +1,8 @@
 #pragma once
 #include <string>
 
-// Host log: %LOCALAPPDATA%\MacWin\host.log, truncated at every start.
+// Host log: %LOCALAPPDATA%\MacWin\host.log. Each start moves the previous one to
+// host.old.log; past 4 MB it starts over the same way.
 void LogInit();
 void LogClose();
 void Log(const wchar_t* fmt, ...);
