@@ -1,0 +1,78 @@
+# Publishes a GitHub Release for a version tag (vX.Y.Z): the installer, its SHA-256
+# (MacWin's updater checks it) and a build provenance attestation. The release notes
+# are that version's section of CHANGELOG.md. See AGENTS.md, "Releasing".
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+
+  release:
+    name: GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # create the release
+      id-token: write        # sign the attestation
+      attestations: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches VERSION
+        id: version
+        run: |
+          version="$(tr -d '[:space:]' < VERSION)"
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($version)"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: MacWinSetup
+          path: dist
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          test -f "MacWinSetup-${{ steps.version.outputs.version }}.exe"
+          sha256sum MacWinSetup-*.exe > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/MacWinSetup-*.exe
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          awk -v v="${{ steps.version.outputs.version }}" '
+            $0 ~ "^## \\[" v "\\]" { on = 1; next }
+            on && /^## \[/ { exit }
+            on { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for ${{ steps.version.outputs.version }}"
+            exit 1
+          fi
+          {
+            echo
+            echo "---"
+            echo "**Download:** \`MacWinSetup-${{ steps.version.outputs.version }}.exe\` below (Windows 11, x64)."
+            echo "Installed copies of MacWin update themselves. SHA-256 checksums: \`SHA256SUMS.txt\`."
+          } >> notes.md
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/MacWinSetup-*.exe dist/SHA256SUMS.txt \
+            --title "MacWin ${{ steps.version.outputs.version }}" --notes-file notes.md --verify-tag

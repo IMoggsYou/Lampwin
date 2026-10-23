@@ -1,0 +1,77 @@
+# Builds MacWin (x64 + x86), runs the tests and builds the installer.
+# Also called by release.yml, which publishes the installer this produces.
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # The same toolchain the project is developed with (scoop: mingw-mstorsjo-llvm-ucrt).
+  LLVM_MINGW: llvm-mingw-20261006-ucrt-x86_64
+
+jobs:
+  build:
+    name: Windows x64 + x86
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache llvm-mingw
+        id: llvm-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\llvm-mingw
+          key: ${{ env.LLVM_MINGW }}
+
+      - name: Download llvm-mingw
+        if: steps.llvm-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\llvm-mingw.zip"
+          Invoke-WebRequest "https://github.com/mstorsjo/llvm-mingw/releases/download/20261006/$env:LLVM_MINGW.zip" -OutFile $zip
+          Expand-Archive $zip -DestinationPath C:\
+          Rename-Item "C:\$env:LLVM_MINGW" C:\llvm-mingw
+
+      - name: Toolchain on PATH (llvm-mingw, Ninja, Inno Setup)
+        shell: pwsh
+        run: |
+          "C:\llvm-mingw\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          python -m pip install --disable-pip-version-check --quiet ninja
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup --yes --no-progress
+          }
+
+      - name: Configure and build (x64)
+        run: |
+          cmake --preset x64
+          cmake --build --preset x64
+
+      - name: Tests
+        run: ctest --test-dir build/x64 --output-on-failure
+
+      - name: Installer (builds the x86 part too)
+        run: cmake --build --preset x64 --target MacWinSetup
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacWinSetup
+          path: build/installer/MacWinSetup-*.exe
+          if-no-files-found: error
+          retention-days: 14
