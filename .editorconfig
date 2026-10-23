@@ -1,0 +1,28 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.md]
+trim_trailing_whitespace = false
+
+[{CMakeLists.txt,*.cmake,*.json,*.yml,*.yaml,*.csproj,*.manifest}]
+indent_size = 2
+
+# Inno Setup reads these as UTF-8 only when they start with a byte order mark.
+[*.{iss,isl}]
+charset = utf-8-bom
+
+# Vendored code keeps its own style.
+[third_party/**]
+charset = unset
+end_of_line = unset
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset

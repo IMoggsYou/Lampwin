@@ -1,0 +1,12 @@
+# Text is stored with LF in the repository (that is what is already committed).
+* text=auto eol=lf
+
+*.isl text
+*.json text
+
+*.ico binary
+*.png binary
+*.gif binary
+
+# Vendored code is not part of MacWin's own language statistics on GitHub.
+third_party/** linguist-vendored

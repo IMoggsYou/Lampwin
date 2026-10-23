@@ -1,0 +1,57 @@
+name: Translation fix
+description: A text in MacWin is wrongly translated, unclear or missing
+title: "[Translation]: "
+labels: ["translation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping to make MacWin better in your language. You can also fix it yourself: edit the file for your language in the `i18n` folder and open a pull request (see [CONTRIBUTING.md](https://github.com/KosaWLeb/MacWin/blob/main/CONTRIBUTING.md#translations)).
+  - type: dropdown
+    id: language
+    attributes:
+      label: Language
+      description: The language the text is in.
+      options:
+        - English (en)
+        - Polish (pl)
+        - Chinese, Simplified (zh-Hans)
+        - Hindi (hi)
+        - Spanish (es)
+        - French (fr)
+        - Arabic (ar)
+        - Bengali (bn)
+        - Russian (ru)
+        - Portuguese, Brazil (pt-BR)
+        - Japanese (ja)
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current text
+      description: The text as MacWin shows it now. Write "missing" if there is no text or it shows in the wrong language.
+    validations:
+      required: true
+  - type: textarea
+    id: suggested
+    attributes:
+      label: Suggested text
+      description: How it should read.
+    validations:
+      required: true
+  - type: input
+    id: where
+    attributes:
+      label: Where it appears
+      description: The page, setting or message where you see the text.
+      placeholder: "Settings > Animations, tray menu, installer, ..."
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Why the change is better, the context, or a screenshot. If you know the key in the `i18n` file, add it here.
+    validations:
+      required: false

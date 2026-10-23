@@ -1,0 +1,121 @@
+name: Bug report
+description: Something in MacWin does not work as it should
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more exact the details, the faster it can be fixed.
+
+        If this is a **security problem**, do not report it here. Use the [private security report](https://github.com/KosaWLeb/MacWin/security/advisories/new) instead.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the existing issues and this has not been reported yet.
+          required: true
+        - label: I am using the latest MacWin release.
+          required: false
+  - type: input
+    id: macwin_version
+    attributes:
+      label: MacWin version
+      description: Shown on the About page of the MacWin settings.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: windows_version
+    attributes:
+      label: Windows version and build
+      description: Press Win+R, type `winver` and press Enter. Copy the version and the OS build.
+      placeholder: "Windows 11 24H2, OS build 26100.1234"
+    validations:
+      required: true
+  - type: dropdown
+    id: gpu
+    attributes:
+      label: GPU
+      description: The graphics card that drives your display. Task Manager, Performance tab, GPU, shows the exact model; add it under "Additional context" if you can.
+      options:
+        - AMD
+        - Intel
+        - NVIDIA
+        - None (integrated graphics only)
+        - Other / not sure
+    validations:
+      required: true
+  - type: dropdown
+    id: language
+    attributes:
+      label: MacWin language
+      description: The language MacWin shows its settings and messages in.
+      options:
+        - English (en)
+        - Polish (pl)
+        - Chinese, Simplified (zh-Hans)
+        - Hindi (hi)
+        - Spanish (es)
+        - French (fr)
+        - Arabic (ar)
+        - Bengali (bn)
+        - Russian (ru)
+        - Portuguese, Brazil (pt-BR)
+        - Japanese (ja)
+    validations:
+      required: true
+  - type: input
+    id: program
+    attributes:
+      label: Which program misbehaved
+      description: The name and, if you know it, the version of the program whose window was affected. Write "all programs" if it happens everywhere.
+      placeholder: "Notepad, Windows Terminal 1.21, Chrome 130, ..."
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: What did you do, step by step?
+      placeholder: |
+        1. Open ...
+        2. Minimize the window ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? A screenshot or a short screen recording helps a lot. You can drag files into this box.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and crash dumps
+      description: |
+        Please attach (drag into this box) these files if they exist:
+
+        - `%LOCALAPPDATA%\MacWin\host.log`
+        - any dump from `%LOCALAPPDATA%\MacWin\crashes`
+
+        Paste `%LOCALAPPDATA%\MacWin` into the File Explorer address bar to open the folder. The files may contain names of your programs and file paths; look through them before you post.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Anything else that may matter, such as other monitors, display scaling, other window or shell tweaks, security software, or how often it happens.
+    validations:
+      required: false

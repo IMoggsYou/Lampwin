@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea or an improvement for MacWin
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. MacWin tries to stay small and close to how macOS behaves, so please explain the problem you want to solve, not only the solution.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched the existing issues and discussions and this has not been suggested yet.
+          required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What can you not do today, or what is annoying? Why does it matter to you?
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: The solution you would like
+      description: How should MacWin behave? If you know how macOS does it, say so.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Other ways to solve it, or other tools that already do it.
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, videos, links, anything that helps.
+    validations:
+      required: false
