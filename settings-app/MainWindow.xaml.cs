@@ -299,7 +299,9 @@ public partial class MainWindow : Window
             using (var dc = visual.RenderOpen())
             {
                 var rect = new Rect(0, 0, Root.ActualWidth, Root.ActualHeight);
-                dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x5A, 0x6E, 0x96)), null, rect);
+                // --transparent: only the window (README screenshots); else on a desktop color.
+                if (!Environment.GetCommandLineArgs().Contains("--transparent"))
+                    dc.DrawRectangle(new SolidColorBrush(Color.FromRgb(0x5A, 0x6E, 0x96)), null, rect);
                 // Right-to-left: Frame mirrors Root on screen; Root rendered alone is not.
                 if (Loc.IsRightToLeft) dc.PushTransform(new MatrixTransform(-1, 0, 0, 1, rect.Width, 0));
                 dc.DrawImage(content, rect);
