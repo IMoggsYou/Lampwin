@@ -175,9 +175,22 @@ public sealed class GeniePreview : Grid
         _phaseStart = now - startProgress * DurationMs;
     }
 
+    /// <summary>Driven by <see cref="RenderFrame"/> instead of the screen (--record-preview).</summary>
+    internal bool ManualClock { get; set; }
+
+    /// <summary>The scene at `nowMs` on a clock of its own: frame-exact recordings.</summary>
+    internal void RenderFrame(double nowMs) => Step(nowMs, loop: true);
+
     private void OnFrame(object? sender, EventArgs e)
     {
-        double now = _clock.Elapsed.TotalMilliseconds;
+        if (ManualClock) return;
+        // The loop waits at rest while the window is in the background; a click still
+        // turns the genie around.
+        Step(_clock.Elapsed.TotalMilliseconds, Window.GetWindow(this)?.IsActive ?? true);
+    }
+
+    private void Step(double now, bool loop)
+    {
         if (!_started)
         {
             // The loop starts with the first frame actually shown, not at construction.
@@ -188,9 +201,6 @@ public sealed class GeniePreview : Grid
         double duration = Math.Max(50, DurationMs);
         int style = GenieStyle;
         double t;
-        // The loop waits at rest while the window is in the background; a click still
-        // turns the genie around.
-        bool loop = Window.GetWindow(this)?.IsActive ?? true;
         switch (_phase)
         {
             case Phase.Shown:

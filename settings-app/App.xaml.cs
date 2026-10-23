@@ -46,6 +46,15 @@ public partial class App : Application
         // --lang <code>: this run only (screenshots, checking a translation).
         Loc.Apply(ArgValue(e.Args, "--lang") ?? SettingsStore.ReadLanguage());
 
+        // --record-preview <dir>: the live preview's genie as PNG frames (README animation).
+        if (ArgValue(e.Args, "--record-preview") is string recordDir)
+        {
+            Theme.Apply(ArgValue(e.Args, "--theme") == "dark");
+            PreviewRecorder.Run(recordDir);
+            Shutdown();
+            return;
+        }
+
         string? snapshotDir = ArgValue(e.Args, "--snapshot");
         string? page = ArgValue(e.Args, "--page");
         // Snapshots run beside an open settings window; everything else is one window.
