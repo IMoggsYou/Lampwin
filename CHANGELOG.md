@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-24
+
 ### Added
 
 - **Desktop widgets** in a new **Settings → Widgets** page: a clock, a calendar, the
@@ -91,7 +93,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.0.2...HEAD
+[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/IMoggsYou/MacWin/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/IMoggsYou/MacWin/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/IMoggsYou/MacWin/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/IMoggsYou/MacWin/releases/tag/v1.0.0
