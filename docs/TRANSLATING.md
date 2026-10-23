@@ -34,9 +34,12 @@ messages). `language.name` is the language's own name, shown in the language men
 ```powershell
 cmake -P tools/check_i18n.cmake        # same keys, nothing empty, same placeholders
 MacWin.Settings.exe --snapshot C:\temp\snap --lang <code>   # every page as PNG
+MacWin.exe --widget-snapshot C:\temp\snap --lang <code>     # every desktop widget (widgets.png)
 ```
 
-Look at the PNGs for text that is cut off or wraps badly. Open a pull request (or use the
+Look at the PNGs for text that is cut off or wraps badly. `host.widgets.date.*` are not
+sentences but Windows date patterns (`dddd` weekday, `d` day, `MMMM` month, `yyyy` year,
+text in single quotes): put them in your language's order. Open a pull request (or use the
 *Translation* issue form) and say which language you checked.
 
 ## Adding a language
@@ -46,6 +49,8 @@ Look at the PNGs for text that is cut off or wraps badly. Open a pull request (o
    and an RCDATA line (`src/host/i18n.cpp`, `src/host/host.rc.in`, same order), and
    `LANGUAGES` in `tools/check_i18n.cmake`. Map regional variants in both `Resolve`
    functions if needed, and give the script a font in `Loc.ApplyFonts` if Segoe UI lacks it.
+   The widgets write dates with a Windows locale: add one to `i18n::LocaleName`
+   (`src/host/i18n.cpp`) and, if it isn't the code itself, to `WidgetPreview.DateCulture`.
 3. Add the installer language: a `[Languages]` line in `installer/MacWin.iss` and
    `installer/languages/<Language>.isl`.
 4. Add it to the language tables in the READMEs and to `CHANGELOG.md`.

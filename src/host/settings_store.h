@@ -7,6 +7,7 @@
 #include <vector>
 #include "common/settings.h"
 #include "host/json.h"
+#include "host/widgets/widget_config.h"
 
 struct GenieSettings {
     int style = 0;   // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original)
@@ -47,6 +48,7 @@ struct HostSettings {
     bool updateCheck = true;
     bool updateAutoInstall = false;
     GenieSettings genie;
+    widgets::Config widgets;
 };
 
 // settings.json (%APPDATA%\MacWin) <-> HostSettings <-> shared section read by the DLLs.

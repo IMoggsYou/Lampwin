@@ -1,0 +1,225 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin -->
+
+<UserControl x:Class="MacWin.Settings.Pages.WidgetsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:p="clr-namespace:MacWin.Settings.Pages"
+             xmlns:l="clr-namespace:MacWin.Settings">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="Visible"/>
+        <p:FirstItemHidden x:Key="NotFirst"/>
+        <p:VisibleWhenFalse x:Key="Hidden"/>
+
+        <!-- A gallery tile: the widget lifts a little and a "+" appears under the pointer -->
+        <Style x:Key="GalleryTile" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="Transparent" Padding="6,4,6,6">
+                            <StackPanel>
+                                <Grid x:Name="Tile" Width="76" Height="76" RenderTransformOrigin="0.5,0.5">
+                                    <Grid.RenderTransform>
+                                        <ScaleTransform x:Name="Lift"/>
+                                    </Grid.RenderTransform>
+                                    <ContentPresenter/>
+                                    <Border x:Name="Plus" Width="22" Height="22" CornerRadius="11" Margin="0,-7,-7,0"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" Opacity="0"
+                                            Background="{DynamicResource Brush.Accent}">
+                                        <Path Data="M5.5,11 H16.5 M11,5.5 V16.5" Stroke="White" StrokeThickness="2"
+                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                    </Border>
+                                </Grid>
+                                <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Center" Margin="0,9,0,0"
+                                           FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="88"/>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="ScaleX" To="1.05"
+                                                             Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="ScaleY" To="1.05"
+                                                             Duration="0:0:0.18" EasingFunction="{StaticResource EaseOut}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Plus" Storyboard.TargetProperty="Opacity" To="1"
+                                                             Duration="0:0:0.15"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="ScaleX" To="1"
+                                                             Duration="0:0:0.22" EasingFunction="{StaticResource EaseOut}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Lift" Storyboard.TargetProperty="ScaleY" To="1"
+                                                             Duration="0:0:0.22" EasingFunction="{StaticResource EaseOut}"/>
+                                            <DoubleAnimation Storyboard.TargetName="Plus" Storyboard.TargetProperty="Opacity" To="0"
+                                                             Duration="0:0:0.2"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Tile" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <!-- Gallery: a click puts the widget on the desktop -->
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.widgets.gallery.header}"/>
+        <Border Style="{StaticResource Group}" Padding="8,16,8,10">
+            <ItemsControl x:Name="Gallery" Focusable="False" HorizontalAlignment="Center">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Style="{StaticResource GalleryTile}" Width="90" Tag="{Binding Name}"
+                                ToolTip="{l:Tr settings.widgets.add.tooltip}" Click="Add_Click" CommandParameter="{Binding Kind}">
+                            <c:WidgetPreview Kind="{Binding Kind}" FlowDirection="LeftToRight">
+                                <c:WidgetPreview.Effect>
+                                    <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.22"/>
+                                </c:WidgetPreview.Effect>
+                            </c:WidgetPreview>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Border>
+
+        <!-- The widgets on the desktop -->
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.widgets.desktop.header}"/>
+        <Border Style="{StaticResource Group}">
+            <Grid>
+                <TextBlock Margin="14,14" TextWrapping="Wrap" Foreground="{DynamicResource Brush.TextSecondary}"
+                           Text="{l:Tr settings.widgets.desktop.empty}"
+                           Visibility="{Binding HasWidgets, Converter={StaticResource Hidden}}"/>
+                <ItemsControl ItemsSource="{Binding Widgets}" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <Rectangle Style="{StaticResource RowSeparator}"
+                                           Visibility="{Binding RelativeSource={RelativeSource PreviousData}, Converter={StaticResource NotFirst}}"/>
+                                <Grid Margin="14,9,10,9">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <c:WidgetPreview Kind="{Binding Kind}" Look="{Binding Theme}" Width="30" Height="30"
+                                                     FlowDirection="LeftToRight"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" Margin="11,0,8,0" VerticalAlignment="Center"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <ComboBox Grid.Column="2" Style="{StaticResource MacComboBox}" MinWidth="120" Margin="0,0,8,0"
+                                              ItemsSource="{Binding Source={x:Static l:WidgetEntry.Themes}}"
+                                              DisplayMemberPath="Name" SelectedValuePath="Value" SelectedValue="{Binding Theme}"
+                                              Visibility="{Binding HasTheme, Converter={StaticResource Visible}}"/>
+                                    <ComboBox Grid.Column="3" Style="{StaticResource MacComboBox}" MinWidth="110"
+                                              ItemsSource="{Binding Sizes}" DisplayMemberPath="Name" SelectedValuePath="Value"
+                                              SelectedValue="{Binding Size}"/>
+                                    <Button Grid.Column="4" Style="{StaticResource ListToolButton}" Content="−" Margin="6,0,0,0"
+                                            ToolTip="{l:Tr settings.widgets.remove.tooltip}" Click="Remove_Click"/>
+                                </Grid>
+                                <TextBox Style="{StaticResource MacTextArea}" Height="92" Margin="55,0,14,12"
+                                         Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                         Tag="{l:Tr settings.widgets.notes.placeholder}"
+                                         Visibility="{Binding IsNotes, Converter={StaticResource Visible}}"/>
+                                <DockPanel Margin="55,0,14,12" Visibility="{Binding IsPhoto, Converter={StaticResource Visible}}">
+                                    <Button Style="{StaticResource MacButton}" Padding="12,3" Content="{l:Tr settings.widgets.photo.choose}"
+                                            Click="ChoosePhoto_Click"/>
+                                    <TextBlock Text="{Binding PathName}" Margin="10,0,0,0" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource Brush.TextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                </DockPanel>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.widgets.options.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.widgets.show.title}" Description="{l:Tr settings.widgets.show.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding WidgetsShow}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.widgets.scale.title}" Description="{l:Tr settings.widgets.scale.description}">
+                    <StackPanel Orientation="Horizontal">
+                        <Slider Style="{StaticResource MacSlider}" Width="190" Minimum="80" Maximum="130" TickFrequency="5"
+                                IsSnapToTickEnabled="True" SmallChange="5" LargeChange="10" Value="{Binding WidgetScale}"/>
+                        <TextBlock MinWidth="{l:UnitWidth settings.unit.percent}" TextAlignment="Right" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Brush.TextSecondary}"
+                                   Text="{Binding WidgetScale, Converter={StaticResource Unit.Percent}}"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.widgets.seconds.title}" Description="{l:Tr settings.widgets.seconds.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding ClockSeconds}"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.widgets.weather.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.widgets.location.title}"
+                              Description="{l:Tr settings.widgets.location.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding AutoPlace}"/>
+                </c:SettingRow>
+                <!-- What "my location" found, as MacWin last reported it -->
+                <DockPanel x:Name="LocationRow" Margin="14,-4,14,10" Visibility="Collapsed">
+                    <Button x:Name="LocationSettings" DockPanel.Dock="Right" Style="{StaticResource MacButton}" Padding="12,3"
+                            Margin="12,0,0,0" VerticalAlignment="Center" Visibility="Collapsed"
+                            Content="{l:Tr settings.widgets.location.open}" Click="LocationSettings_Click"/>
+                    <Path x:Name="LocationIcon" Width="11" Height="11" Margin="0,0,7,0" VerticalAlignment="Center" Stretch="Uniform"
+                          Data="M11,0 L6.6,11 L5.4,6.6 L1,5.4 Z" Fill="{DynamicResource Brush.Accent}"/>
+                    <TextBlock x:Name="LocationText" Style="{StaticResource Text.Secondary}" VerticalAlignment="Center"/>
+                </DockPanel>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.widgets.place.title}" Description="{Binding PlaceRowDescription}">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBox x:Name="PlaceBox" Width="170" Style="{StaticResource MacTextBox}"
+                                 Tag="{l:Tr settings.widgets.place.placeholder}" KeyDown="PlaceBox_KeyDown"/>
+                        <Button x:Name="SearchButton" Style="{StaticResource MacButton}" Margin="8,0,0,0" Padding="12,3"
+                                Content="{l:Tr settings.widgets.place.search}" Click="Search_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <TextBlock x:Name="SearchStatus" Style="{StaticResource Text.Secondary}" Margin="14,-4,14,10" Visibility="Collapsed"/>
+                <ListBox x:Name="Results" Style="{StaticResource PlainList}" ItemContainerStyle="{StaticResource PlainListItem}"
+                         Margin="10,-6,10,10" MaxHeight="190" Visibility="Collapsed" SelectionChanged="Results_SelectionChanged">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal">
+                                <Path Data="M5,0.5 A4.5,4.5 0 0 1 9.5,5 C9.5,8 5,12.5 5,12.5 C5,12.5 0.5,8 0.5,5 A4.5,4.5 0 0 1 5,0.5 Z"
+                                      Fill="{DynamicResource Brush.Accent}" Width="10" Height="13" Stretch="Uniform" Margin="0,0,9,0"/>
+                                <TextBlock Text="{Binding Label}" VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.widgets.units.title}">
+                    <c:SegmentedControl MinWidth="120" Items="°C|°F" SelectedIndex="{Binding UnitIndex, Mode=TwoWay}"
+                                        FlowDirection="LeftToRight"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.widgets.footnote}"/>
+    </StackPanel>
+</UserControl>

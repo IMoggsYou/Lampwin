@@ -39,6 +39,10 @@ enum class SharedObject { Settings, ShutdownEvent, AliveMutex };
 // programs from writing - except the alive mutex, which they must be able to release.
 std::wstring SharedObjectSddl(SharedObject kind, bool elevated);
 
+// Starts a program as the signed-in user, with arguments, from an elevated MacWin: with
+// the token of the shell (Explorer). False if that is not possible.
+bool RunAsShellUser(const std::wstring& exe, const std::wstring& args);
+
 // The "MacWin" scheduled task: starts MacWin.exe --task with the highest privileges,
 // without a UAC prompt, optionally at every logon.
 bool TaskExists();

@@ -108,11 +108,21 @@ if(MACWIN_BITS EQUAL 64)
     src/host/snapshot_cache.cpp
     src/host/win_events.cpp
     src/host/render/device.cpp
-    src/host/render/genie_effect.cpp)
+    src/host/render/genie_effect.cpp
+    src/host/widgets/canvas.cpp
+    src/host/widgets/location.cpp
+    src/host/widgets/system_stats.cpp
+    src/host/widgets/weather.cpp
+    src/host/widgets/widget_config.cpp
+    src/host/widgets/widget_draw.cpp
+    src/host/widgets/widget_host.cpp
+    src/host/widgets/widget_layout.cpp
+    src/host/widgets/widget_snapshot.cpp)
   target_include_directories(MacWin PRIVATE src ${CMAKE_BINARY_DIR}/gen)
   target_link_options(MacWin PRIVATE -municode)
   target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
-                        shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32)
+                        shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32
+                        d2d1 dwrite windowscodecs runtimeobject)
   add_dependencies(MacWin MacWinHook)
   macwin_version_resource(MacWin "MacWin - macOS-style window animations" MacWin.exe VFT_APP)
 
@@ -169,10 +179,11 @@ endif()
 if(MACWIN_BITS EQUAL 64)
   enable_testing()
   add_executable(MacWinTests tests/unit_tests.cpp src/host/json.cpp src/host/updater.cpp
-                 src/host/i18n.cpp src/host/log.cpp)
+                 src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/weather.cpp
+                 src/host/widgets/widget_config.cpp src/host/widgets/widget_layout.cpp)
   target_include_directories(MacWinTests PRIVATE src ${CMAKE_BINARY_DIR}/gen)
   target_link_options(MacWinTests PRIVATE -municode)
-  target_link_libraries(MacWinTests PRIVATE winhttp bcrypt shell32 ole32)
+  target_link_libraries(MacWinTests PRIVATE winhttp bcrypt shell32 ole32 runtimeobject)
   set_target_properties(MacWinTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
   add_test(NAME unit COMMAND MacWinTests)
   add_test(NAME i18n COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tools/check_i18n.cmake)

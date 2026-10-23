@@ -62,6 +62,34 @@ std::wstring XmlEscape(const std::wstring& s) {
 
 }  // namespace
 
+bool RunAsShellUser(const std::wstring& exe, const std::wstring& args) {
+    DWORD pid = 0;
+    HWND shell = GetShellWindow();
+    if (!shell || !GetWindowThreadProcessId(shell, &pid) || !pid) return false;
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    HANDLE token = nullptr, primary = nullptr;
+    bool ok = process && OpenProcessToken(process, TOKEN_DUPLICATE, &token) &&
+              DuplicateTokenEx(token, TOKEN_QUERY | TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_ADJUST_DEFAULT |
+                                          TOKEN_ADJUST_SESSIONID,
+                               nullptr, SecurityImpersonation, TokenPrimary, &primary);
+    if (ok) {
+        std::wstring cmd = L"\"" + exe + L"\" " + args;
+        std::vector<wchar_t> buf(cmd.begin(), cmd.end());
+        buf.push_back(0);
+        STARTUPINFOW si = {sizeof(si)};
+        PROCESS_INFORMATION pi = {};
+        ok = CreateProcessWithTokenW(primary, 0, exe.c_str(), buf.data(), 0, nullptr, nullptr, &si, &pi) != FALSE;
+        if (ok) {
+            CloseHandle(pi.hThread);
+            CloseHandle(pi.hProcess);
+        }
+    }
+    if (primary) CloseHandle(primary);
+    if (token) CloseHandle(token);
+    if (process) CloseHandle(process);
+    return ok;
+}
+
 bool IsElevated() {
     HANDLE token = nullptr;
     if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;

@@ -124,6 +124,26 @@ std::wstring F(const wchar_t* key, const std::wstring& arg0) {
     return text;
 }
 
+std::unordered_map<std::wstring, std::wstring> All(const wchar_t* prefix) {
+    const size_t n = wcslen(prefix);
+    std::unordered_map<std::wstring, std::wstring> out;
+    for (const Strings* strings : {&g_english, &g_strings}) {
+        for (const auto& s : *strings) {
+            if (s.first.compare(0, n, prefix) == 0) out[s.first] = s.second;
+        }
+    }
+    return out;
+}
+
+std::wstring LocaleName() {
+    // Arabic as Egypt writes it: Saudi Arabia's default calendar is the Hijri one.
+    static const wchar_t* const kLocales[] = {L"en-US", L"pl-PL", L"zh-CN", L"hi-IN", L"es-ES", L"fr-FR",
+                                              L"ar-EG", L"bn-BD", L"ru-RU", L"pt-BR", L"ja-JP"};
+    static_assert(ARRAYSIZE(kLocales) == ARRAYSIZE(kLanguages), "one locale per language");
+    int i = IndexOf(g_language);
+    return kLocales[i >= 0 ? i : 0];
+}
+
 int Message(HWND owner, const std::wstring& text, UINT type) {
     if (IsRightToLeft()) type |= MB_RTLREADING | MB_RIGHT;
     return MessageBoxW(owner, text.c_str(), L"MacWin", type);

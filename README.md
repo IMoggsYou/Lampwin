@@ -36,6 +36,9 @@ and get soft macOS-style corners. Light, free and open source.
 - ⬛ **Squircle corners** — the macOS shape (100% smoothing) or the Windows 11 rounding,
   for the animation, the settings window and apps that draw their own title bar
   (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a matching shadow.
+- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note and a
+  photo, in three sizes, light or dark. They stay on the desktop under your windows and
+  snap to a grid like on macOS; drag them anywhere, right-click for size and look.
 - ⚙️ **A settings window like macOS System Settings** — live preview, search, light and
   dark mode, per-app exclusions.
 - 🌍 **11 languages**, picked automatically from Windows (see [Languages](#languages)).
@@ -114,11 +117,26 @@ Measured on Windows 11 with an NVIDIA GeForce RTX 2070, MacWin 1.0.0, idle for 3
 Nothing runs between animations: no polling, no timers. A genie frame takes about
 0.3 ms of CPU.
 
+Desktop widgets cost nothing until you add one. A widget is redrawn only when something on
+it changes — once a minute, every two seconds for the system gauges, every second for a
+clock with a second hand (about 0.4 ms of CPU per tick, only the hands are drawn again) —
+and not at all while the screen is off, the PC is locked or a full-screen game is running.
+
 ## Privacy
 
-MacWin collects nothing. The only network request is the update check: once a day it
-asks the GitHub API whether a new release exists, and downloads it from GitHub if you
-choose to update. You can turn it off in **Settings → General → Updates**.
+MacWin collects nothing. It goes online for two things only:
+
+- **Updates:** once a day it asks the GitHub API whether a new release exists, and
+  downloads it from GitHub if you choose to update. You can turn it off in
+  **Settings → General → Updates**.
+- **Weather**, only while a Weather widget is on the desktop: every 30 minutes MacWin asks
+  [Open-Meteo](https://open-meteo.com) for the forecast. With **Use my location** (on by
+  default) the place comes from Windows location services, and
+  [OpenStreetMap](https://nominatim.openstreetmap.org) names the town, asked only when the
+  PC has moved. Both get coordinates rounded to about a kilometre, never more precise.
+  Searching for a place by hand sends Open-Meteo the name you typed. Nothing else is sent,
+  and there is no account or key. Windows' own location switch
+  (**Settings → Privacy & security → Location**) turns the location part off.
 
 ## FAQ
 

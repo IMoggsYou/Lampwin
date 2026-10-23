@@ -17,6 +17,7 @@ page; modified versions must be renamed).
 | Hook DLL `MacWinHook64.dll` / `MacWinHook32.dll` | `src/hook/` | Loaded into **other programs**; MinHook detours of `ShowWindow`, `DefWindowProc`, `SetWindowPos`, … capture a snapshot and ask the host to animate; cuts window corners |
 | `MacWinHelper32.exe` | `src/helper32/` | Puts the 32-bit DLL into 32-bit programs (thread-specific hooks) |
 | Shared contracts | `src/common/` | `SharedSettings` (named section), `AnimRequest` (WM_COPYDATA), object names (`names.h`) |
+| Desktop widgets | `src/host/widgets/` | Run inside the host on their own thread (only while a widget is shown): Direct2D on the CPU into layered windows owned by the desktop, grid layout, drag and drop, weather from Open-Meteo |
 | Settings app | `settings-app/` (C# / WPF, .NET 10) | The window users see; edits `%APPDATA%\MacWin\settings.json`, tells the host to reload |
 | Installer | `installer/` (Inno Setup 6) | Program Files install, scheduled task (elevated autostart), .NET runtime, 11 languages |
 | Translations | `i18n/*.json` | Every user-visible string of the settings app and the host |
@@ -43,6 +44,9 @@ powershell -ExecutionPolicy Bypass -File tools\build-release.ps1   # all of it, 
 - **Settings window without clicking:** `MacWin.Settings.exe --snapshot <dir> --lang <code>
   [--theme light|dark] [--page general]` renders every page to PNG (and `page<n>-end.png`
   scrolled down) and exits. Use it to check layouts and translations.
+- **Widgets without the desktop:** `MacWin.exe --widget-snapshot <dir> [--lang <code>]
+  [--theme dark]` draws every widget in every size with sample data into `widgets.png` and
+  exits. Use it after changing `src/host/widgets/` or a `host.widgets.*` text.
 - Logs: `%LOCALAPPDATA%\MacWin\host.log` (previous run: `host.old.log`),
   `settings.log`, crash dumps in `crashes\`.
 
@@ -135,5 +139,9 @@ Removed, Security). Write it for users, not for developers.
   without handling older installs.
 - Don't put user-visible text in code, logs excepted (logs are English).
 - Don't run MacWin elevated from outside Program Files (the host refuses, on purpose).
-- Don't add network access other than the updater (privacy promise in the README).
+- Don't add network access other than the updater and the Weather widget (Open-Meteo for
+  the forecast, Nominatim for the town's name, rounded coordinates only, only while a
+  Weather widget is on the desktop) — privacy promise in the README.
+- Widgets: the main thread never waits for the widget thread (it answers the hook DLLs);
+  they talk through posted messages only. Redraw a widget only when what it shows changes.
 - Don't commit build output (`build/`) or personal settings.

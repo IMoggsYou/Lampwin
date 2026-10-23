@@ -68,6 +68,108 @@ int EffectFromJson(const json::Value* v, int fallback) {
 // settings.json layout version: 2 added the game folders to noInject.
 const int kSettingsVersion = 2;
 
+const json::Value* Typed(const json::Value* object, const wchar_t* key, json::Value::Type type) {
+    const json::Value* v = object ? object->Get(key) : nullptr;
+    return v && v->type == type ? v : nullptr;
+}
+
+std::wstring Str(const json::Value* object, const wchar_t* key) {
+    const json::Value* v = Typed(object, key, json::Value::String);
+    return v ? v->str : std::wstring();
+}
+
+// "widgets": what the settings app put on the desktop, and where the host placed it.
+widgets::Config LoadWidgets(const json::Value* w) {
+    widgets::Config c;
+    if (!w || w->type != json::Value::Object) return c;
+    c.show = w->GetBool(L"show", c.show);
+    c.scale = Clamp(w->GetInt(L"scale", c.scale), widgets::kMinScale, widgets::kMaxScale);
+    c.fahrenheit = Str(w, L"units") == L"f";
+    c.clockSeconds = w->GetBool(L"clockSeconds", c.clockSeconds);
+    c.autoPlace = w->GetBool(L"autoPlace", c.autoPlace);
+    if (const json::Value* place = Typed(w, L"place", json::Value::Object)) {
+        const json::Value* lat = Typed(place, L"latitude", json::Value::Number);
+        const json::Value* lon = Typed(place, L"longitude", json::Value::Number);
+        c.place.name = Str(place, L"name");
+        c.place.valid = lat && lon && !c.place.name.empty() && lat->number >= -90 && lat->number <= 90 &&
+                        lon->number >= -180 && lon->number <= 180;
+        if (c.place.valid) {
+            c.place.latitude = lat->number;
+            c.place.longitude = lon->number;
+        }
+    }
+    const json::Value* items = Typed(w, L"items", json::Value::Array);
+    for (size_t i = 0; items && i < items->items.size(); ++i) {
+        const json::Value& v = items->items[i];
+        widgets::Item item;
+        item.id = Str(&v, L"id");
+        bool duplicate = false;
+        for (const widgets::Item& other : c.items) duplicate = duplicate || other.id == item.id;
+        if (v.type != json::Value::Object || item.id.empty() || duplicate ||
+            !widgets::KindFromName(Str(&v, L"type"), &item.kind)) {
+            continue;
+        }
+        item.size = widgets::SizeFromName(Str(&v, L"size"));
+        if (!widgets::Supports(item.kind, item.size)) item.size = widgets::Size::Medium;
+        item.look = widgets::LookFromName(Str(&v, L"theme"));
+        const json::Value* col = Typed(&v, L"col", json::Value::Number);
+        const json::Value* row = Typed(&v, L"row", json::Value::Number);
+        item.placed = col && row && col->number >= 0 && row->number >= 0 && col->number < 1000 && row->number < 1000;
+        if (item.placed) {
+            item.monitor = Str(&v, L"monitor");
+            item.col = (int)col->number;
+            item.row = (int)row->number;
+        }
+        item.text = Str(&v, L"text");
+        item.path = Str(&v, L"path");
+        c.items.push_back(item);
+    }
+    return c;
+}
+
+// Keys this version doesn't know survive, in the object and in every widget.
+json::Value SaveWidgets(const widgets::Config& c, const json::Value* old) {
+    json::Value w = old && old->type == json::Value::Object ? *old : json::Object();
+    json::Set(&w, L"show", json::Bool(c.show));
+    json::Set(&w, L"scale", json::Number(c.scale));
+    json::Set(&w, L"units", json::String(c.fahrenheit ? L"f" : L"c"));
+    json::Set(&w, L"clockSeconds", json::Bool(c.clockSeconds));
+    json::Set(&w, L"autoPlace", json::Bool(c.autoPlace));
+    if (c.place.valid) {
+        const json::Value* oldPlace = Typed(&w, L"place", json::Value::Object);
+        json::Value place = oldPlace ? *oldPlace : json::Object();
+        json::Set(&place, L"name", json::String(c.place.name));
+        json::Set(&place, L"latitude", json::Number(c.place.latitude));
+        json::Set(&place, L"longitude", json::Number(c.place.longitude));
+        json::Set(&w, L"place", place);
+    }
+    const json::Value* oldItems = Typed(&w, L"items", json::Value::Array);
+    json::Value items;
+    items.type = json::Value::Array;
+    for (const widgets::Item& item : c.items) {
+        json::Value v = json::Object();
+        for (size_t i = 0; oldItems && i < oldItems->items.size(); ++i) {
+            if (oldItems->items[i].type == json::Value::Object && Str(&oldItems->items[i], L"id") == item.id) {
+                v = oldItems->items[i];
+            }
+        }
+        json::Set(&v, L"id", json::String(item.id));
+        json::Set(&v, L"type", json::String(widgets::KindName(item.kind)));
+        json::Set(&v, L"size", json::String(widgets::SizeName(item.size)));
+        json::Set(&v, L"theme", json::String(widgets::LookName(item.look)));
+        if (item.placed) {
+            json::Set(&v, L"monitor", json::String(item.monitor));
+            json::Set(&v, L"col", json::Number(item.col));
+            json::Set(&v, L"row", json::Number(item.row));
+        }
+        if (item.kind == widgets::Kind::Notes) json::Set(&v, L"text", json::String(item.text));
+        if (item.kind == widgets::Kind::Photo) json::Set(&v, L"path", json::String(item.path));
+        items.items.push_back(v);
+    }
+    json::Set(&w, L"items", items);
+    return w;
+}
+
 }  // namespace
 
 std::vector<std::wstring> DefaultNoInject() {
@@ -157,6 +259,7 @@ void SettingsStore::Load() {
     s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
     s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
+    s_.widgets = LoadWidgets(root.Get(L"widgets"));
     Log(L"settings: loaded %ls", path_.c_str());
 
     // An older file: new default protections are added to what the user has.
@@ -203,6 +306,7 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"windowCorners", json::Bool(s.genie.windowCorners));
     json::Set(&g, L"excludedPrograms", json::Strings(s.genie.excluded));
     json::Set(&root, L"genie", g);
+    json::Set(&root, L"widgets", SaveWidgets(s.widgets, root.Get(L"widgets")));
     std::wstring t = json::Serialize(root) + L"\n";
 
     int n = WideCharToMultiByte(CP_UTF8, 0, t.c_str(), (int)t.size(), nullptr, 0, nullptr, nullptr);

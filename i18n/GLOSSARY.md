@@ -20,6 +20,7 @@ this table.
 | window corners | rogi okien | 窗口圆角 | विंडो के कोने | esquinas de ventanas | coins des fenêtres | زوايا النوافذ | উইন্ডোর কোণ | углы окон | cantos das janelas | ウィンドウの角 |
 | squircle | squircle | 超椭圆（squircle） | squircle | squircle | squircle | squircle | squircle | squircle | squircle | スクワークル |
 | test mode | tryb testowy | 测试模式 | परीक्षण मोड | modo de prueba | mode test | وضع الاختبار | পরীক্ষা মোড | тестовый режим | modo de teste | テスト モード |
+| widget | widżet | 小组件 | विजेट | widget | widget | أداة (الأدوات) | উইজেট | виджет | widget | ウィジェット |
 | anti-cheat | ochrona przed oszustwami | 反作弊 | एंटी-चीट | antitrampas | anti-triche | مكافحة الغش | অ্যান্টি-চিট | античит | antitrapaça | アンチチート |
 
 Never translated: MacWin, Windows, Windows 11, macOS, GitHub, Figma, the program names
