@@ -27,6 +27,7 @@ bool g_alwaysAllowed = false;
 HANDLE g_hSettingsMap = nullptr;
 const SharedSettings* g_settings = nullptr;
 uint32_t g_waitInstance = 0;   // host instance we shut down for (kWaitHost)
+std::atomic<ULONGLONG> g_nextPeek{0};   // kWaitHost: earliest GetTickCount64 of the next look
 
 HANDLE g_hShutdown = nullptr;  // host's per-instance manual-reset event
 HANDLE g_hAlive = nullptr;     // host's per-instance mutex, abandoned if it crashes
@@ -115,95 +116,24 @@ void CloseHostHandles() {
 
 DWORD WINAPI WatcherThread(LPVOID);
 
-bool Activate() {
-    if (!MapSettings()) return false;
-
-    const uint32_t instance = g_settings->hostInstance;
-    // Any failure below waits for the next host instance instead of retrying on
-    // every hook call.
-    g_waitInstance = instance;
-    wchar_t name[96];
-    swprintf(name, 96, MACWIN_SHUTDOWN_EVENT_FMT, instance);
-    g_hShutdown = OpenEventW(SYNCHRONIZE, FALSE, name);
-    swprintf(name, 96, MACWIN_ALIVE_MUTEX_FMT, instance);
-    g_hAlive = OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, name);
-    g_hStop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
-    if (!g_hShutdown || !g_hAlive || !g_hStop) {
-        CloseHostHandles();
-        g_waitInstance = instance;
-        return false;
-    }
-    // Host already gone or going: don't install anything for it.
-    bool hostGone = WaitForSingleObject(g_hShutdown, 0) == WAIT_OBJECT_0;
-    if (!hostGone) {
-        DWORD r = WaitForSingleObject(g_hAlive, 0);
-        if (r == WAIT_OBJECT_0 || r == WAIT_ABANDONED) {
-            ReleaseMutex(g_hAlive);
-            hostGone = true;
-        }
-    }
-    if (hostGone) {
-        CloseHostHandles();
-        g_waitInstance = instance;
-        return false;
-    }
-
-    wchar_t path[MAX_PATH];
-    GetModuleFileNameW(nullptr, path, MAX_PATH);
-    mw::MakeImageNames(path, &g_self);
-    g_allowedGen.store(0xFFFFFFFFu);
-
-    // Our own module reference: the watcher drops it (FreeLibraryAndExitThread) only
-    // after every hook has been removed and every thread has left our code. Windows
-    // holds a separate reference for the window hook itself.
-    HMODULE self = nullptr;
-    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)&Activate, &self)) {
-        CloseHostHandles();
-        return false;
-    }
-
-    g_unloading.store(false);
-    bool ok = MH_Initialize() == MH_OK;
-    if (ok && (!GenieInstallHooks() || !CornersInstallHooks() || MH_QueueEnableHook(MH_ALL_HOOKS) != MH_OK ||
-               MH_ApplyQueued() != MH_OK)) {
-        MH_Uninitialize();
-        ok = false;
-    }
-    if (ok) {
-        HANDLE hWatcher = CreateThread(nullptr, 0, WatcherThread, nullptr, 0, nullptr);
-        if (hWatcher) {
-            CloseHandle(hWatcher);
-            CornersOnActivate();
-        } else {
-            MH_DisableHook(MH_ALL_HOOKS);
-            MH_Uninitialize();
-            ok = false;
-        }
-    }
-    if (!ok) {
-        CloseHostHandles();
-        FreeLibrary(self);   // Windows' own reference keeps us mapped
-        return false;
-    }
-#ifdef _WIN64
-    // The global WH_CBT hook reaches every thread here, so HCBT_MINMAX animates any of our
-    // windows whoever minimizes it (see PeerAnimatesItself). The 32-bit helper hooks one
-    // thread per program, so 32-bit programs leave it to the caller.
-    swprintf(name, 96, MACWIN_ACTIVE_FMT, instance, GetCurrentProcessId());
-    g_hActiveMark = CreateEventW(nullptr, TRUE, FALSE, name);
-#endif
-    DbgLog(L"active (host instance %08X)", instance);
-    return true;
-}
-
-// Returns true when everything was removed and the module may be released.
-bool Shutdown() {
-    // Needs the hooks: each window's thread undoes its own region and destroys its grip.
-    const bool cornersGone = CornersOnShutdown();
+// Switches every hook off and waits (bounded) until no thread runs hook code or a worker
+// any more. False if either fails: the DLL must then stay loaded, its hooks passing
+// straight through (g_unloading).
+bool DisableAndDrain() {
     g_unloading.store(true);
     CloseActiveMark();   // other processes stop handing their minimizes to us
-    SetEvent(g_hStop);
-    MH_DisableHook(MH_ALL_HOOKS);
+    if (g_hStop) SetEvent(g_hStop);
+    // MinHook fails only if it cannot write the code back (or freeze the threads for
+    // it); a hook that stays on keeps passing through, so trying again is safe.
+    bool off = false;
+    for (int i = 0; i < 5 && !off; ++i) {
+        off = MH_DisableHook(MH_ALL_HOOKS) == MH_OK;
+        if (!off) Sleep(20);
+    }
+    if (!off) {
+        DbgLog(L"could not disable the hooks; staying loaded");
+        return false;
+    }
 
     // Wait for threads still inside hook code or a worker. A thread can sit inside a
     // hooked call for a long time; if it never leaves, the DLL just stays loaded with
@@ -218,14 +148,119 @@ bool Shutdown() {
         }
         if (!drained) Sleep(20);
     }
-    if (!drained || !cornersGone) {
-        DbgLog(cornersGone ? L"could not drain hook calls; staying loaded (hooks disabled)"
-                           : L"a corner grip is left (hung window); staying loaded (hooks disabled)");
+    if (!drained) DbgLog(L"could not drain hook calls; staying loaded (hooks disabled)");
+    return drained;
+}
+
+State Activate() {
+    if (!MapSettings()) return kWaitHost;
+
+    const uint32_t instance = g_settings->hostInstance;
+    // Any failure below waits for the next host instance instead of retrying on
+    // every hook call.
+    g_waitInstance = instance;
+    wchar_t name[96];
+    swprintf(name, 96, MACWIN_SHUTDOWN_EVENT_FMT, instance);
+    g_hShutdown = OpenEventW(SYNCHRONIZE, FALSE, name);
+    swprintf(name, 96, MACWIN_ALIVE_MUTEX_FMT, instance);
+    g_hAlive = OpenMutexW(SYNCHRONIZE | MUTEX_MODIFY_STATE, FALSE, name);
+    g_hStop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (!g_hShutdown || !g_hAlive || !g_hStop) {
+        CloseHostHandles();
+        g_waitInstance = instance;
+        return kWaitHost;
+    }
+    // Host already gone or going: don't install anything for it.
+    bool hostGone = WaitForSingleObject(g_hShutdown, 0) == WAIT_OBJECT_0;
+    if (!hostGone) {
+        DWORD r = WaitForSingleObject(g_hAlive, 0);
+        if (r == WAIT_OBJECT_0 || r == WAIT_ABANDONED) {
+            ReleaseMutex(g_hAlive);
+            hostGone = true;
+        }
+    }
+    if (hostGone) {
+        CloseHostHandles();
+        g_waitInstance = instance;
+        return kWaitHost;
+    }
+
+    wchar_t path[MAX_PATH];
+    GetModuleFileNameW(nullptr, path, MAX_PATH);
+    mw::MakeImageNames(path, &g_self);
+    g_allowedGen.store(0xFFFFFFFFu);
+
+    // Our own module reference: the watcher drops it (FreeLibraryAndExitThread) only
+    // after every hook has been removed and every thread has left our code. Windows
+    // holds a separate reference for the window hook itself.
+    HMODULE self = nullptr;
+    if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)&Activate, &self)) {
+        CloseHostHandles();
+        return kWaitHost;
+    }
+
+    g_unloading.store(false);
+    if (MH_Initialize() != MH_OK) {
+        CloseHostHandles();
+        FreeLibrary(self);   // Windows' own reference keeps us mapped
+        return kWaitHost;
+    }
+    bool ok = GenieInstallHooks() && CornersInstallHooks() && MH_QueueEnableHook(MH_ALL_HOOKS) == MH_OK;
+    bool live = false;   // hooks may be on - and running in other threads - from here on
+    if (ok) {
+        live = true;
+        ok = MH_ApplyQueued() == MH_OK;
+    }
+    HANDLE hWatcher = ok ? CreateThread(nullptr, 0, WatcherThread, nullptr, 0, nullptr) : nullptr;
+    if (!hWatcher) {
+        // Undone like a shutdown (a window may have been cut meanwhile). If a hook cannot
+        // be taken out (or a thread does not leave our code), our own module reference
+        // is kept for good: the detours stay valid and pass straight through.
+        const bool cornersGone = !live || CornersOnShutdown();
+        if ((live && !DisableAndDrain()) || !cornersGone || MH_Uninitialize() != MH_OK) {
+            g_unloading.store(true);
+            DbgLog(L"activation failed and could not be undone; staying loaded (hooks pass through)");
+            return kDead;
+        }
+        GenieOnShutdown();
+        CloseWorkers();
+        CloseHostHandles();
+        FreeLibrary(self);   // Windows' own reference keeps us mapped
+        return kWaitHost;
+    }
+    CloseHandle(hWatcher);
+    CornersOnActivate();
+#ifdef _WIN64
+    // The global WH_CBT hook reaches every thread here, so HCBT_MINMAX animates any of our
+    // windows whoever minimizes it (see PeerAnimatesItself). The 32-bit helper hooks one
+    // thread per program, so 32-bit programs leave it to the caller.
+    swprintf(name, 96, MACWIN_ACTIVE_FMT, instance, GetCurrentProcessId());
+    g_hActiveMark = CreateEventW(nullptr, TRUE, FALSE, name);
+#endif
+    DbgLog(L"active (host instance %08X)", instance);
+    return kActive;
+}
+
+// Returns true when everything was removed and the module may be released. Otherwise
+// the DLL stays loaded for good (kDead) with every hook passing straight through.
+bool Shutdown() {
+    // Needs the hooks: each window's thread undoes its own region and destroys its grip.
+    const bool cornersGone = CornersOnShutdown();
+    if (!DisableAndDrain()) {
         g_state.store(kDead);
         return false;
     }
-
-    MH_Uninitialize();
+    if (!cornersGone) {
+        DbgLog(L"a corner grip is left (hung window); staying loaded (hooks disabled)");
+        g_state.store(kDead);
+        return false;
+    }
+    // Frees the trampolines: only once nothing can be in them (drained above).
+    if (MH_Uninitialize() != MH_OK) {
+        DbgLog(L"MH_Uninitialize failed; staying loaded (hooks disabled)");
+        g_state.store(kDead);
+        return false;
+    }
     GenieOnShutdown();
     CloseWorkers();
     g_waitInstance = g_settings ? g_settings->hostInstance : 0;
@@ -265,7 +300,11 @@ void EnsureInit() {
     int s = g_state.load(std::memory_order_acquire);
     if (s == kActive || s == kIniting || s == kDead) return;
     if (s == kWaitHost) {
-        // Re-activate only once a new host instance has published its settings.
+        // Re-activate only once a new host instance has published its settings. Hook
+        // calls come all the time (activations, clicks, ...): one look a second will do.
+        const ULONGLONG now = GetTickCount64();
+        ULONGLONG next = g_nextPeek.load(std::memory_order_relaxed);
+        if (now < next || !g_nextPeek.compare_exchange_strong(next, now + 1000, std::memory_order_relaxed)) return;
         uint32_t instance = 0;
         if (!PeekHostInstance(&instance) || instance == g_waitInstance) return;
     }
@@ -274,9 +313,9 @@ void EnsureInit() {
         return;
     }
     if (!g_state.compare_exchange_strong(s, kIniting, std::memory_order_acq_rel)) return;
-    bool ok = Activate();
-    if (!ok) UnmapSettings();
-    g_state.store(ok ? kActive : kWaitHost, std::memory_order_release);
+    const State result = Activate();
+    if (result == kWaitHost) UnmapSettings();   // kDead keeps everything: hooks may still run
+    g_state.store(result, std::memory_order_release);
 }
 
 const SharedSettings* Settings() {
@@ -340,6 +379,7 @@ bool SpawnWorker(LPTHREAD_START_ROUTINE proc, void* param, bool suspended, HANDL
     return h != nullptr;
 }
 
+#ifdef MACWIN_DEBUG_LOG
 void DbgLog(const wchar_t* fmt, ...) {
     wchar_t buf[512];
     int n = swprintf(buf, 512, L"[MacWin %lu] ", GetCurrentProcessId());
@@ -351,3 +391,4 @@ void DbgLog(const wchar_t* fmt, ...) {
     wcscat(buf, L"\n");
     OutputDebugStringW(buf);
 }
+#endif

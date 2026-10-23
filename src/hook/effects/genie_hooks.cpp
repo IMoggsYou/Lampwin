@@ -13,6 +13,7 @@
 #include <shellapi.h>
 #include <atomic>
 #include <iterator>
+#include <new>
 #include <unordered_map>
 #include <unordered_set>
 #include "common/strutil.h"
@@ -134,20 +135,65 @@ bool IsMinimizeCmd(int cmd) {
     return cmd == SW_MINIMIZE || cmd == SW_SHOWMINIMIZED || cmd == SW_SHOWMINNOACTIVE;
 }
 
+// SHAppBarMessage(ABM_GETSTATE), looked up on first use instead of imported: an import
+// would load shell32 (and everything it pulls in) into every process the DLL goes into.
+// Most programs that minimize a window have it loaded anyway. The reference is kept:
+// unloading a system DLL under a foreign program is never worth the risk.
+typedef UINT_PTR(WINAPI* SHAppBarMessage_t)(DWORD, PAPPBARDATA);
+UINT TaskbarState(HWND hTray) {
+    static const auto appBarMessage = []() -> SHAppBarMessage_t {
+        HMODULE shell32 = LoadLibraryExW(L"shell32.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        return shell32 ? (SHAppBarMessage_t)(void*)GetProcAddress(shell32, "SHAppBarMessage") : nullptr;
+    }();
+    if (!appBarMessage) return 0;
+    APPBARDATA abd = {sizeof(APPBARDATA)};
+    abd.hWnd = hTray;
+    return (UINT)appBarMessage(ABM_GETSTATE, &abd);
+}
+
 // The mod's "Excluded programs": matched against the process that OWNS the window,
-// because the hooks animate a window from whichever process manipulates it.
+// because the hooks animate a window from whichever process manipulates it. The answer
+// is cached per process and settings generation, so the image path is not looked up
+// (OpenProcess + QueryFullProcessImageName) for every window. Another process's entry
+// also expires after a few seconds: its pid may be reused by a new program.
+struct ExcludedEntry {
+    DWORD pid;
+    uint32_t generation;
+    ULONGLONG expires;
+    bool excluded;
+};
+const ULONGLONG kExcludedTtlMs = 5000;
+
 bool MacGenieIsExcluded(HWND hWnd) {
     static wchar_t list[MACWIN_LIST_CHARS];
+    static ExcludedEntry cache[8];
+    static unsigned cacheNext = 0;
     static SRWLOCK listLock = SRWLOCK_INIT;
     const SharedSettings* s = Settings();
     if (!s->genieExcluded[0]) return false;
     DWORD pid = 0;
     GetWindowThreadProcessId(hWnd, &pid);
+    if (!pid) return false;
+    const uint32_t gen = s->generation;
+    const ULONGLONG now = GetTickCount64();
+    const bool self = pid == GetCurrentProcessId();   // our own image never changes
+    AcquireSRWLockShared(&listLock);
+    for (const ExcludedEntry& e : cache) {
+        if (e.pid == pid && e.generation == gen && (self || now < e.expires)) {
+            const bool excluded = e.excluded;
+            ReleaseSRWLockShared(&listLock);
+            return excluded;
+        }
+    }
+    ReleaseSRWLockShared(&listLock);
+
     mw::ImageNames names;
     if (!mw::ProcessImageNames(pid, &names)) return false;
     AcquireSRWLockExclusive(&listLock);
     SettingsCopyList(s, s->genieExcluded, list, MACWIN_LIST_CHARS);
-    bool excluded = mw::ListMatches(list, names);
+    const bool excluded = mw::ListMatches(list, names);
+    cache[cacheNext] = {pid, gen, now + kExcludedTtlMs, excluded};
+    cacheNext = (cacheNext + 1) % ARRAYSIZE(cache);
     ReleaseSRWLockExclusive(&listLock);
     return excluded;
 }
@@ -411,11 +457,11 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
 
     // The worker is created up front (suspended), so once the host has accepted the
     // request there is always someone to finish it.
-    GenieTeardown* td = new GenieTeardown{hWnd, rising, originalExStyle, cloakHidden,
-                                          deferredMinimize, requestedUnhide, hNextApp,
-                                          durationMs, UnhideDurationMs(), hDone, hRevealed, token, 0};
+    GenieTeardown* td = new (std::nothrow) GenieTeardown{hWnd, rising, originalExStyle, cloakHidden,
+                                                         deferredMinimize, requestedUnhide, hNextApp,
+                                                         durationMs, UnhideDurationMs(), hDone, hRevealed, token, 0};
     HANDLE hWorker = nullptr;
-    if (!SpawnWorker(GenieTeardownThread, td, true, &hWorker)) {
+    if (!td || !SpawnWorker(GenieTeardownThread, td, true, &hWorker)) {
         delete td;
         closeEvents();
         release();
@@ -600,8 +646,8 @@ bool MacGenieLaunchPrepare(HWND hWnd, int nCmdShow, LONG_PTR* origExOut, BOOL* c
 }
 
 void MacGenieLaunchCommit(HWND hWnd, LONG_PTR originalExStyle, BOOL cloaked) {
-    MacGenieLaunchData* ld = new MacGenieLaunchData{hWnd, originalExStyle, cloaked};
-    if (!SpawnWorker(MacGenieLaunchThread, ld, false, nullptr)) {
+    MacGenieLaunchData* ld = new (std::nothrow) MacGenieLaunchData{hWnd, originalExStyle, cloaked};
+    if (!ld || !SpawnWorker(MacGenieLaunchThread, ld, false, nullptr)) {
         delete ld;
         MacGenieUndoRisingHide(hWnd, originalExStyle, cloaked);
     }
@@ -751,10 +797,7 @@ __attribute__((noinline)) LRESULT WINAPI DefWindowProcSlow(HWND hWnd, UINT Msg, 
                     }
                 }
                 if (hTray) {
-                    APPBARDATA abd = {sizeof(APPBARDATA)};
-                    abd.hWnd = hTray;
-                    UINT uState = (UINT)SHAppBarMessage(ABM_GETSTATE, &abd);
-                    if (uState & ABS_AUTOHIDE) {
+                    if (TaskbarState(hTray) & ABS_AUTOHIDE) {
                         requestedUnhide = TRUE;
                         HWND hwndIter = GetWindow(hWnd, GW_HWNDNEXT);
                         while (hwndIter) {
@@ -1025,8 +1068,8 @@ void GenieOnMinMax(HWND hWnd, int cmd) {
     LONG_PTR exStyle = GetWindowLongPtrW(hWnd, GWL_EXSTYLE);
     MacGenieSetDwmTransitions(hWnd, FALSE);
     MacGenieSetCloak(hWnd, TRUE);
-    PendingRestore* p = new PendingRestore{hWnd, exStyle};
-    if (!SpawnWorker(PendingRestoreThread, p, false, nullptr)) {
+    PendingRestore* p = new (std::nothrow) PendingRestore{hWnd, exStyle};
+    if (!p || !SpawnWorker(PendingRestoreThread, p, false, nullptr)) {
         delete p;
         MacGenieUndoRisingHide(hWnd, exStyle, TRUE);
     }
@@ -1047,10 +1090,12 @@ bool GenieInstallHooks() {
                             (void**)&GetWindowPlacement_Original);
 }
 
+// Frees the tables' memory too (clear() keeps the buckets): a DLL that is shut down may
+// stay mapped in the program for a long time.
 void GenieOnShutdown() {
     Locked l;
-    g_LaunchSeen.clear();
-    g_AnimActive.clear();
-    g_pendingMin.clear();
+    std::unordered_set<HWND>().swap(g_LaunchSeen);
+    std::unordered_map<HWND, ActiveAnim>().swap(g_AnimActive);
+    std::unordered_map<HWND, ULONGLONG>().swap(g_pendingMin);
     g_pendingCount.store(0);
 }

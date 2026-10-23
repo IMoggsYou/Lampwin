@@ -28,6 +28,7 @@
 #include <string.h>
 #include <wchar.h>
 #include <algorithm>
+#include <new>
 #include <unordered_map>
 #include <vector>
 #include <MinHook.h>
@@ -820,6 +821,8 @@ void ShapeGrip(HWND grip, int fw, int fh, int band, int radius, int smoothing) {
     if (ring && !SetWindowRgn(grip, ring, FALSE)) DeleteObject(ring);
 }
 
+void Uncut(HWND h);
+
 // Puts the shade and the grip around the window and shows them. The shade is redrawn
 // only for a new look (`render`: radius, scale) - a new size just re-lays its visuals.
 // The windows move in one DeferWindowPos, so they travel together. Coordinates in the
@@ -827,28 +830,33 @@ void ShapeGrip(HWND grip, int fw, int fh, int band, int radius, int smoothing) {
 void PlaceShade(HWND h, bool render) {
     Cut c;
     if (!FindCut(h, &c) || !c.region) return;
-    bool created = false;
-    if (!c.shade) {
-        c.shade = CreateShade(h);
-        created = true;
-    }
+    ShadeVisuals* newVis = nullptr;
+    HWND newShade = nullptr, newGrip = nullptr;
     if (!c.vis) {
-        c.vis = new ShadeVisuals();
-        created = true;
+        c.vis = newVis = new (std::nothrow) ShadeVisuals();
+        if (!c.vis) {   // out of memory: the window gets Windows' own frame back
+            Uncut(h);
+            return;
+        }
     }
-    if (!c.grip) {
-        c.grip = CreateGrip(h);
-        created = true;
-    }
-    if (created) {
+    if (!c.shade) c.shade = newShade = CreateShade(h);
+    if (!c.grip) c.grip = newGrip = CreateGrip(h);
+    if (newVis || newShade || newGrip) {
         AcquireSRWLockExclusive(&g_lock);
         auto it = g_cuts.find(h);
-        if (it != g_cuts.end()) {
+        const bool stillCut = it != g_cuts.end();
+        if (stillCut) {
             it->second.shade = c.shade;
             it->second.vis = c.vis;
             it->second.grip = c.grip;
         }
         ReleaseSRWLockExclusive(&g_lock);
+        if (!stillCut) {   // uncut meanwhile: what was made here would have no owner
+            DestroyShade(newShade);
+            FreeVisuals(newVis);
+            DestroyGrip(newGrip);
+            return;
+        }
         render = true;
     }
     DPI_AWARENESS_CONTEXT old = SetThreadDpiAwarenessContext(GetWindowDpiAwarenessContext(h));
@@ -1156,13 +1164,17 @@ bool CornersOnShutdown() {
     std::vector<ShadeVisuals*> left;
     AcquireSRWLockExclusive(&g_lock);
     for (const auto& kv : g_cuts) left.push_back(kv.second.vis);
-    g_cuts.clear();
-    g_programBorder.clear();
+    // Swapped out, not cleared: the memory goes too (a shut-down DLL may stay mapped).
+    std::unordered_map<HWND, Cut>().swap(g_cuts);
+    std::unordered_map<HWND, int>().swap(g_programBorder);
     ReleaseSRWLockExclusive(&g_lock);
     for (ShadeVisuals* v : left) FreeVisuals(v);
     AcquireSRWLockExclusive(&g_gpuLock);
     ReleaseGpu();   // d3d11 / dcomp stay loaded: the program may use them itself
     ReleaseSRWLockExclusive(&g_gpuLock);
+    AcquireSRWLockExclusive(&g_tilesLock);
+    g_tiles = ShadeTiles();   // the CPU shade tiles (up to a few hundred KB)
+    ReleaseSRWLockExclusive(&g_tilesLock);
     // The grip class points at this DLL's code: it must go (and can only go once no grip
     // is left), or a later load at another address would reuse a stale window procedure.
     if (!UnregisterClassW(kGripClass, g_hModule) && GetLastError() != ERROR_CLASS_DOES_NOT_EXIST) g_gripLeft = true;

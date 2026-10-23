@@ -46,12 +46,19 @@ inline bool ProcessImageNames(DWORD pid, ImageNames* out) {
 }
 
 // `list`: entries separated by L'\0', ended by an empty entry; at least the last two
-// characters of the buffer are NUL (SettingsCopyList guarantees it).
+// characters of the buffer are NUL (SettingsCopyList guarantees it). An entry matches the
+// full path, the file name or the file name without ".exe"; an entry with a backslash
+// that does not end in ".exe" is a folder pattern, found anywhere in the full path
+// (e.g. "\steamapps\common\" matches every program installed there).
 inline bool ListMatches(const wchar_t* list, const ImageNames& n) {
-    for (const wchar_t* p = list; *p; p += wcslen(p) + 1) {
+    for (const wchar_t* p = list; *p;) {
+        const size_t len = wcslen(p);
         if (wcscmp(p, n.full) == 0 || wcscmp(p, n.base) == 0 || wcscmp(p, n.baseNoExt) == 0) {
             return true;
         }
+        const bool exe = len >= 4 && wcscmp(p + len - 4, L".exe") == 0;
+        if (!exe && wcschr(p, L'\\') && wcsstr(n.full, p)) return true;
+        p += len + 1;
     }
     return false;
 }

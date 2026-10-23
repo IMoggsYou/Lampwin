@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -58,6 +59,21 @@ struct SharedSettings {
     wchar_t noInject[MACWIN_LIST_CHARS];       // the DLL refuses to load into these
     wchar_t devAllowlist[MACWIN_LIST_CHARS];
 };
+
+// The 64-bit host and the 32-bit and 64-bit DLLs must see one layout. A deliberate
+// change updates these numbers AND bumps the _vN object names (common/names.h).
+static_assert(sizeof(SharedSettings) == 12416, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, seq) == 8, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, generation) == 12, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, hostInstance) == 20, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, hostIpcHwnd) == 24, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, enabled) == 32, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, genieMeshQuality) == 64, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, windowCorners) == 76, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, closeDurationMs) == 92, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, genieExcluded) == 128, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, noInject) == 128 + 2 * MACWIN_LIST_CHARS, "SharedSettings layout changed");
+static_assert(offsetof(SharedSettings, devAllowlist) == 128 + 4 * MACWIN_LIST_CHARS, "SharedSettings layout changed");
 
 // Consistent copy of one list field (seqlock reader).
 inline void SettingsCopyList(const SharedSettings* s, const wchar_t* field,

@@ -72,7 +72,7 @@ target_include_directories(MacWinHook PRIVATE src)
 target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
 # --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
 target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
-target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32 advapi32 shell32)
+target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32 advapi32)
 macwin_version_resource(MacWinHook "MacWin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
 
 # --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---

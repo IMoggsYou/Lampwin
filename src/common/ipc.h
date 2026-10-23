@@ -1,4 +1,5 @@
 #pragma once
+#include <stddef.h>
 #include <stdint.h>
 
 // DLL -> host animation request, sent with WM_COPYDATA (COPYDATASTRUCT::dwData =
@@ -59,3 +60,15 @@ struct AnimRequest {
     uint64_t hDone;         // set after the last frame; the DLL then tears down
     uint64_t hRevealed;     // rising: set by the DLL once the real window is visible
 };
+
+// 32-bit DLLs talk to the 64-bit host: one layout for both. A deliberate change updates
+// these numbers AND MW_IPC_VERSION / the _vN object names (common/names.h).
+static_assert(sizeof(AnimRequest) == 80, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, hwnd) == 8, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, pid) == 16, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, hSection) == 24, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, rawW) == 32, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, cropU0) == 40, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, hFirstFrame) == 56, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, hDone) == 64, "AnimRequest layout changed");
+static_assert(offsetof(AnimRequest, hRevealed) == 72, "AnimRequest layout changed");

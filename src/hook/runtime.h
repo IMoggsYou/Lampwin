@@ -42,7 +42,12 @@ HANDLE LocalStopEvent();            // manual-reset, set when the DLL starts shu
 bool PeerAnimatesItself(DWORD pid);
 // Starts a tracked worker thread (joined before unload). Refused while unloading.
 bool SpawnWorker(LPTHREAD_START_ROUTINE proc, void* param, bool suspended, HANDLE* outThread);
+// OutputDebugString; compiled in only with MACWIN_DEBUG_LOG (no strings, no calls otherwise).
+#ifdef MACWIN_DEBUG_LOG
 void DbgLog(const wchar_t* fmt, ...);
+#else
+inline void DbgLog(const wchar_t*, ...) {}
+#endif
 
 // hooks.cpp
 bool CreateUser32Hook(const char* name, void* detour, void** original);
