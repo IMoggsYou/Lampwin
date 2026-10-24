@@ -10,18 +10,20 @@ Windows fall into the taskbar like a genie and fly back out, and get soft macOS-
 Your desktop gets macOS widgets, your programs get the icons you like, and Windows gets a
 little quieter about your data. Light, free and open source.
 
-[![Latest release](https://img.shields.io/github/v/release/IMoggsYou/MacWin?style=for-the-badge&logo=github&label=release&color=0A84FF)](https://github.com/IMoggsYou/MacWin/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/IMoggsYou/MacWin/total?style=for-the-badge&color=34C759)](https://github.com/IMoggsYou/MacWin/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/IMoggsYou/MacWin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/IMoggsYou/MacWin/actions/workflows/build.yml)
+[![Latest release](https://img.shields.io/github/v/release/IMoggsYou/Lampwin?style=for-the-badge&logo=github&label=release&color=0A84FF)](https://github.com/IMoggsYou/Lampwin/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/IMoggsYou/Lampwin/total?style=for-the-badge&color=34C759)](https://github.com/IMoggsYou/Lampwin/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/IMoggsYou/Lampwin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/IMoggsYou/Lampwin/actions/workflows/build.yml)
 [![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#requirements)
 [![Languages](https://img.shields.io/badge/languages-11-AF52DE?style=for-the-badge)](#languages)
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=for-the-badge)](LICENSE)
 
-### [⬇&nbsp; Download MacWin for Windows 11](https://github.com/IMoggsYou/MacWin/releases/latest)
+### [⬇&nbsp; Download MacWin for Windows 11](https://github.com/IMoggsYou/Lampwin/releases/latest)
 
 <img src="docs/media/demo.gif" width="860" alt="A window falls into its taskbar icon with the genie effect and flies back out">
 
 **English** · [Polski](README.pl.md)
+
+<sub>This repository was called MacWin until version 1.4.0; old links lead here.</sub>
 
 </div>
 
@@ -83,7 +85,7 @@ little quieter about your data. Light, free and open source.
 ## Install
 
 1. Download **`MacWinSetup-x.y.z.exe`** from the
-   [latest release](https://github.com/IMoggsYou/MacWin/releases/latest).
+   [latest release](https://github.com/IMoggsYou/Lampwin/releases/latest).
 2. Run it. If the .NET 10 Desktop Runtime (needed by the settings window) is missing, the
    installer downloads it from Microsoft for you.
 3. Done — minimize any window. MacWin starts with Windows; its icon is in the
@@ -93,7 +95,7 @@ little quieter about your data. Light, free and open source.
 > MacWin is not code-signed yet, so Windows SmartScreen may say *"Windows protected your
 > PC"*. Click **More info → Run anyway**. Every release is built by GitHub Actions from
 > this repository, with a published SHA-256 (`SHA256SUMS.txt`) and a
-> [build provenance attestation](https://github.com/IMoggsYou/MacWin/attestations).
+> [build provenance attestation](https://github.com/IMoggsYou/Lampwin/attestations).
 
 ### Requirements
 
@@ -178,7 +180,7 @@ Never load MacWin**.
 <summary><b>Something looks wrong. How do I turn it off right now?</b></summary>
 
 Press **Ctrl+Alt+Shift+F12**. MacWin quits and every window behaves normally again. Then
-please [report the problem](https://github.com/IMoggsYou/MacWin/issues/new/choose) with the
+please [report the problem](https://github.com/IMoggsYou/Lampwin/issues/new/choose) with the
 log (`%LOCALAPPDATA%\MacWin\host.log`).
 </details>
 

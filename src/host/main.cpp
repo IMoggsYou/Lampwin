@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 // MacWin host: tray icon, settings, hook installation, IPC and the GPU renderer.
 
@@ -40,7 +40,7 @@ const UINT kUpdateCheckEveryMs = 3 * 60 * 60 * 1000;  // the updater checks at m
 const int kHotkeyQuit = 1;
 // Settings app -> host (src/common/names.h has the rest): wParam 1 = check now, 2 = install.
 const wchar_t kUpdateMessage[] = L"MacWin_" MACWIN_NS L"Update_v1";
-const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/MacWin/releases";
+const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/Lampwin/releases";
 
 enum MenuId : UINT {
     ID_SETTINGS = 100,

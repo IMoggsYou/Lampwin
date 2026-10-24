@@ -27,4 +27,4 @@ not grant any right to them (see GPL section 7(e) and [NOTICE](NOTICE)).
   the About page, as required by [NOTICE](NOTICE).
 
 If you are not sure whether a use is fine, ask in
-[Discussions](https://github.com/IMoggsYou/MacWin/discussions) before you publish.
+[Discussions](https://github.com/IMoggsYou/Lampwin/discussions) before you publish.

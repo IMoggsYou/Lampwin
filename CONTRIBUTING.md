@@ -5,7 +5,7 @@ Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 
 - **Found a bug?** Open an issue with the *Bug report* form.
 - **Have an idea?** Use the *Feature request* form, or start a
-  [discussion](https://github.com/IMoggsYou/MacWin/discussions) if you are not sure yet.
+  [discussion](https://github.com/IMoggsYou/Lampwin/discussions) if you are not sure yet.
 - **A translation is wrong or missing?** Use the *Translation* form, or send a pull request
   that edits the file for your language (see [Translations](#translations)).
 - **Found a security problem?** Do not open an issue. Follow [SECURITY.md](SECURITY.md).

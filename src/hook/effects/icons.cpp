@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 // App icons: a program whose icon the user chose (the settings app's App icons page puts
 // it at %LOCALAPPDATA%\MacWin\icons\apps\<program>.ico) shows it on its windows - title
