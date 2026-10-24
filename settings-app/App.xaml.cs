@@ -13,6 +13,9 @@ public partial class App : Application
     private Mutex? _single;
     private static DateTime _lastReport = DateTime.MinValue;
 
+    /// <summary>--snapshot: the window only draws its pages; nothing on the PC is changed.</summary>
+    public static bool Snapshot { get; private set; }
+
     public static string LogPath { get; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MacWin", "settings.log");
 
@@ -64,6 +67,7 @@ public partial class App : Application
         }
 
         string? snapshotDir = ArgValue(e.Args, "--snapshot");
+        Snapshot = snapshotDir is not null;
         string? page = ArgValue(e.Args, "--page");
         // Snapshots run beside an open settings window; everything else is one window.
         if (snapshotDir is null)

@@ -104,7 +104,7 @@ public partial class AppIconsPage : UserControl
             _programs = await AppIconActions.ProgramsAsync();
             Rebuild();
             // An update of a program may have put back its shortcuts with the old icon.
-            var choices = _model?.AppIcons == true ? _model.AppIconChoices.ToList() : [];
+            var choices = _model?.AppIcons == true && !App.Snapshot ? _model.AppIconChoices.ToList() : [];
             if (choices.Count > 0 && await AppIconActions.Sta(() => ApplyShortcuts(choices)) > 0)
                 TaskbarBar.Visibility = Visibility.Visible;
         }

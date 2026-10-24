@@ -4,10 +4,11 @@
 
 # MacWin
 
-**The macOS genie effect and squircle window corners — for Windows 11.**
+**The macOS look for Windows 11: the genie effect, squircle corners, desktop widgets and app icons.**
 
-Windows fall into the taskbar like a genie and fly back out, open and close the same way,
-and get soft macOS-style corners. Light, free and open source.
+Windows fall into the taskbar like a genie and fly back out, and get soft macOS-style corners.
+Your desktop gets macOS widgets, your programs get the icons you like, and Windows gets a
+little quieter about your data. Light, free and open source.
 
 [![Latest release](https://img.shields.io/github/v/release/IMoggsYou/MacWin?style=for-the-badge&logo=github&label=release&color=0A84FF)](https://github.com/IMoggsYou/MacWin/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/IMoggsYou/MacWin/total?style=for-the-badge&color=34C759)](https://github.com/IMoggsYou/MacWin/releases)
@@ -41,10 +42,21 @@ and get soft macOS-style corners. Light, free and open source.
 - 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note and a
   photo, in three sizes, light or dark. They stay on the desktop under your windows and
   snap to a grid like on macOS; drag them anywhere, right-click for size and look.
+- 🎨 **App icons** — give any program an icon of your own: on its windows, in Alt+Tab, on
+  the taskbar and in the Start menu. Drop in macOS `.icns`, PNG, JPEG, WebP, HEIC, ICO or
+  take one from another program; MacWin trims it to the size of Windows icons and finds
+  the program from the file name. A set of macOS-style icons comes included. Save your
+  setup as an **icon set**, switch back to the **Windows icons** in one click, or remove
+  everything.
+- 🔒 **Privacy switches** — turn off Windows telemetry, the advertising ID, ads and tips in
+  Start and on the lock screen, web results in search, Copilot, Recall and more. Every value
+  is backed up first and **Restore** undoes it all; Windows Update, Defender, SmartScreen
+  and the firewall are never touched.
 - ⚙️ **A settings window like macOS System Settings** — live preview, search, light and
   dark mode, per-app exclusions.
 - 🌍 **11 languages**, picked automatically from Windows (see [Languages](#languages)).
-- 🔄 **Automatic updates** from GitHub, verified with SHA-256 — one click, or fully automatic.
+- 🔄 **Automatic updates** from GitHub, verified with SHA-256 — installed in the background,
+  or offered with a short "what's new" when you open the settings.
 - 🚀 **Starts with Windows**, sits in the notification area, uses no CPU while idle.
 - 🛡️ **Safe by design** — stays out of system processes and anti-cheat games, falls back
   to the normal Windows animation whenever anything goes wrong, and
@@ -55,8 +67,17 @@ and get soft macOS-style corners. Light, free and open source.
 ## Screenshots
 
 <p align="center">
-  <img src="docs/media/settings-light.png" width="49%" alt="MacWin settings, light mode">
-  <img src="docs/media/settings-dark.png" width="49%" alt="MacWin settings, dark mode">
+  <img src="docs/media/settings-light.png" width="49%" alt="Window Animations: the live genie preview and the three styles">
+  <img src="docs/media/settings-dark.png" width="49%" alt="Window Corners in dark mode: macOS squircle or Windows 11 corners">
+</p>
+
+<p align="center">
+  <img src="docs/media/app-icons.png" width="49%" alt="App Icons: macOS icons given to Signal, Spotify, Steam, Telegram and VS Code">
+  <img src="docs/media/privacy.png" width="49%" alt="Privacy: switches for Windows diagnostic data, each backed up and restorable">
+</p>
+
+<p align="center">
+  <img src="docs/media/widgets.png" width="860" alt="Desktop widgets: clocks, calendars, weather, system gauges and a note">
 </p>
 
 ## Install
@@ -80,7 +101,7 @@ and get soft macOS-style corners. Light, free and open source.
 | --- | --- |
 | Windows | Windows 11 (22H2 or newer recommended), 64-bit **x64** |
 | Graphics | Any: AMD, Intel, NVIDIA, or none (Direct3D 11 / WARP) |
-| Disk | ~5 MB (+ the .NET 10 Desktop Runtime for the settings window) |
+| Disk | ~20 MB, most of it the included icons (+ the .NET 10 Desktop Runtime for the settings window) |
 | Not supported yet | Windows on ARM (Snapdragon PCs) |
 
 ### Uninstall
@@ -140,6 +161,8 @@ MacWin collects nothing. It goes online for two things only:
   and there is no account or key. Windows' own location switch
   (**Settings → Privacy & security → Location**) turns the location part off.
 
+App icons and the Privacy page work entirely on your PC.
+
 ## FAQ
 
 <details>
@@ -172,6 +195,22 @@ sign-in.
 
 Windows with the system title bar break when their shape is changed. MacWin gives the
 squircle to the genie, its own window and apps that draw their own title bar.
+</details>
+
+<details>
+<summary><b>How do I get a program's own icon back?</b></summary>
+
+In **Settings → App Icons** pick **No program** next to the icon, or press **Use Windows
+icons** to give every program its own icon back (your icons stay in the list). Pinned
+taskbar icons refresh after **Restart File Explorer**.
+</details>
+
+<details>
+<summary><b>Will the Privacy page break Windows Update or my antivirus?</b></summary>
+
+No. It only has switches for telemetry, ads and similar features, never for Windows Update,
+Microsoft Defender, SmartScreen, the firewall or UAC. Each value is backed up before it
+changes, and **Restore** puts back exactly what was there.
 </details>
 
 <details>
