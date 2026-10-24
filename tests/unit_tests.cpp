@@ -72,6 +72,17 @@ void TestRelease() {
     foreign.replace(at, 19, L"https://evil.example");
     CHECK(!ParseLatestRelease(foreign, &r));
 
+    // After the rename GitHub links the files under the new name; another repository of
+    // the same owner is still refused.
+    auto rename = [](std::wstring text, const std::wstring& to) {
+        for (size_t p; (p = text.find(L"IMoggsYou/MacWin/releases/download")) != std::wstring::npos;)
+            text.replace(p + 10, 6, to);
+        return text;
+    };
+    CHECK(ParseLatestRelease(rename(kRelease, L"Lampwin"), &r));
+    CHECK(r.installerUrl == L"https://github.com/IMoggsYou/Lampwin/releases/download/v1.2.0/MacWinSetup-1.2.0.exe");
+    CHECK(!ParseLatestRelease(rename(kRelease, L"Other"), &r));
+
     std::wstring badName = kRelease;
     badName.replace(badName.find(L"\"MacWinSetup-1.2.0.exe\""), 23, L"\"..\\\\MacWinSetup.exe\"");
     CHECK(!ParseLatestRelease(badName, &r));

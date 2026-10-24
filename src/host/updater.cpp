@@ -14,8 +14,20 @@
 namespace {
 
 const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/MacWin)";
+// After the repository is renamed to Lampwin, GitHub answers this address with a redirect
+// (followed below) and names the new repository in the download links: both are accepted.
 const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/IMoggsYou/MacWin/releases/latest";
-const wchar_t kDownloadPrefix[] = L"https://github.com/IMoggsYou/MacWin/releases/download/";
+const wchar_t* const kDownloadPrefixes[] = {
+    L"https://github.com/IMoggsYou/MacWin/releases/download/",
+    L"https://github.com/IMoggsYou/Lampwin/releases/download/",
+};
+
+bool IsReleaseDownload(const std::wstring& url) {
+    for (const wchar_t* prefix : kDownloadPrefixes) {
+        if (url.rfind(prefix, 0) == 0) return true;
+    }
+    return false;
+}
 const size_t kMaxApiBytes = 1u << 20;
 const size_t kMaxInstallerBytes = 256u << 20;
 // Release notes are a few kilobytes; anything longer is cut (the settings window
@@ -300,7 +312,7 @@ bool ParseLatestRelease(const std::wstring& text, Release* out) {
         const json::Value* name = asset.Get(L"name");
         const json::Value* url = asset.Get(L"browser_download_url");
         if (!name || name->type != json::Value::String || !url || url->type != json::Value::String) continue;
-        if (url->str.rfind(kDownloadPrefix, 0) != 0 || !IsSafeFileName(name->str)) continue;
+        if (!IsReleaseDownload(url->str) || !IsSafeFileName(name->str)) continue;
         std::wstring lower = Lower(name->str);
         if (lower == L"sha256sums.txt") {
             r.sumsUrl = url->str;
