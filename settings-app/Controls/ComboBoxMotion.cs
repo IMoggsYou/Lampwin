@@ -11,9 +11,11 @@ namespace MacWin.Settings.Controls;
 
 /// <summary>
 /// ComboBoxMotion.IsEnabled (set by the MacComboBox style): the open menu unfolds - it
-/// grows in from its pop-up button and its items slide in one after another - and it
-/// stays with its button while the page scrolls. A popup is a window of its own and would
-/// otherwise stay where it opened; once the button scrolls out of sight the menu closes.
+/// grows in from its pop-up button and its items slide in one after another - and never
+/// floats away from its button: the wheel doesn't scroll the page under an open menu, and
+/// if the page scrolls anyway (keyboard, a smooth-scroll animation) the menu goes along,
+/// or closes once its button is out of sight. A popup is a window of its own and would
+/// otherwise stay where it opened.
 /// </summary>
 public static class ComboBoxMotion
 {
@@ -30,6 +32,21 @@ public static class ComboBoxMotion
         if (d is not ComboBox box || !(bool)e.NewValue) return;
         box.DropDownOpened += (_, _) => Opened(box);
         box.DropDownClosed += (_, _) => Follow(box, false);
+        // The open menu holds the mouse, so the wheel goes to it wherever the pointer is
+        // and the page under it would scroll away from the menu. Like a macOS menu: the
+        // wheel scrolls the menu's own list, anywhere else it closes the menu, and the
+        // page never moves while the menu is open.
+        box.PreviewMouseWheel += (_, e) =>
+        {
+            if (!box.IsDropDownOpen) return;
+            if (box.Template?.FindName("PART_Popup", box) is Popup { Child: UIElement menu } && menu.IsMouseOver) return;
+            e.Handled = true;
+            box.IsDropDownOpen = false;
+        };
+        box.MouseWheel += (_, e) =>
+        {
+            if (box.IsDropDownOpen) e.Handled = true;   // the list's leftover never reaches the page
+        };
     }
 
     private static void Opened(ComboBox box)

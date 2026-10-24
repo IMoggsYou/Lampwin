@@ -29,6 +29,33 @@ void CloseJobHandles(GenieJob* job) {
     job->hFirst = job->hDone = job->hRevealed = nullptr;
 }
 
+// Where the window is on screen (DWM's extended frame). A window already minimized when
+// its request is read sits at Windows' parking spot (-32000, -32000), and that rect would
+// stretch the genie's canvas over 30000 px: its normal - or maximized - place is used then.
+bool WindowScreenRect(HWND hwnd, RECT* out) {
+    if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out, sizeof(*out))) &&
+        !GetWindowRect(hwnd, out)) {
+        return false;
+    }
+    if (MonitorFromRect(out, MONITOR_DEFAULTTONULL)) return true;
+    WINDOWPLACEMENT wp = {sizeof(wp)};
+    MONITORINFO mi = {sizeof(mi)};
+    if (!GetWindowPlacement(hwnd, &wp) ||
+        !GetMonitorInfoW(MonitorFromRect(&wp.rcNormalPosition, MONITOR_DEFAULTTONEAREST), &mi)) {
+        return false;
+    }
+    if (wp.flags & WPF_RESTORETOMAXIMIZED) {
+        *out = mi.rcWork;
+        return true;
+    }
+    // The normal place is in work-area coordinates (screen ones for tool windows).
+    *out = wp.rcNormalPosition;
+    if (!(GetWindowLongW(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW)) {
+        OffsetRect(out, mi.rcWork.left - mi.rcMonitor.left, mi.rcWork.top - mi.rcMonitor.top);
+    }
+    return MonitorFromRect(out, MONITOR_DEFAULTTONULL) != nullptr;
+}
+
 }  // namespace
 
 LRESULT IpcServer::Handle(const COPYDATASTRUCT* cds) {
@@ -124,8 +151,8 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
 
     // Geometry in physical pixels (this process is per-monitor DPI aware).
     RECT rect;
-    if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, &rect, sizeof(rect))) &&
-        !GetWindowRect(hwnd, &rect)) {
+    if (!WindowScreenRect(hwnd, &rect)) {
+        Log(L"ipc: %p has no place on any monitor, left to Windows", (void*)hwnd);
         renderer_.FailJob(job);
         return MW_REPLY_FAIL;
     }
