@@ -2,7 +2,9 @@
 // MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
 
 using System.IO;
+using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace MacWin.Settings;
 
@@ -28,7 +30,8 @@ internal static class Project
 }
 
 /// <summary>What MacWin.exe's updater last did (it writes update.json next to its log).</summary>
-internal sealed record UpdateState(string Status, string? Current, string? Latest, DateTime? LastCheck, string? NotesUrl);
+internal sealed record UpdateState(string Status, string? Current, string? Latest, DateTime? LastCheck, string? NotesUrl,
+                                   string? Notes = null);
 
 /// <summary>
 /// The updater lives in MacWin.exe (it also works without this app): this side only
@@ -55,7 +58,8 @@ internal static class UpdateClient
                 DateTime? lastCheck = DateTime.TryParse(Text("lastCheck"), null,
                     System.Globalization.DateTimeStyles.AdjustToUniversal | System.Globalization.DateTimeStyles.AssumeUniversal,
                     out var t) ? t.ToLocalTime() : null;
-                return new UpdateState(Text("status") ?? "idle", Text("current"), Text("latest"), lastCheck, Text("notesUrl"));
+                return new UpdateState(Text("status") ?? "idle", Text("current"), Text("latest"), lastCheck, Text("notesUrl"),
+                                       Text("notes"));
             }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
@@ -68,4 +72,93 @@ internal static class UpdateClient
     public static bool CheckNow() => HostControl.Post(UpdateMessage, CheckNowCommand);
 
     public static bool Install() => HostControl.Post(UpdateMessage, InstallCommand);
+}
+
+/// <summary>
+/// A release's notes: its CHANGELOG.md section ("### Added" headings over "- " items, which
+/// may wrap over several lines and use **bold**, `code` and [links](...)).
+/// </summary>
+internal sealed record ReleaseNotes(IReadOnlyList<ReleaseNotes.Section> Sections)
+{
+    public sealed record Section(string Heading, IReadOnlyList<string> Items);
+
+    public int Count => Sections.Sum(s => s.Items.Count);
+
+    public IEnumerable<string> Items => Sections.SelectMany(s => s.Items);
+
+    public static ReleaseNotes Parse(string? markdown)
+    {
+        var sections = new List<Section>();
+        string heading = "";
+        var items = new List<string>();
+        StringBuilder? item = null;
+
+        void EndItem()
+        {
+            if (item is not null && item.Length > 0) items.Add(Clean(item.ToString()));
+            item = null;
+        }
+        void EndSection()
+        {
+            EndItem();
+            if (items.Count > 0) sections.Add(new Section(heading, items));
+            items = new List<string>();
+        }
+
+        foreach (string raw in (markdown ?? "").Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.StartsWith('#'))
+            {
+                EndSection();
+                heading = line.TrimStart('#').Trim();
+            }
+            else if (line.StartsWith("- ") || line.StartsWith("* "))
+            {
+                EndItem();
+                item = new StringBuilder(line[2..].Trim());
+            }
+            else if (line.Length == 0)
+            {
+                EndItem();
+            }
+            else
+            {
+                // The next line of an item, or a plain paragraph (kept as an item of its own).
+                item = item is null ? new StringBuilder(line) : item.Append(' ').Append(line);
+            }
+        }
+        EndSection();
+        return new ReleaseNotes(sections);
+    }
+
+    /// <summary>The start of an item, up to its first full stop or colon: one line for the summary.</summary>
+    public static string Gist(string item, int maxLength = 110)
+    {
+        string text = Plain(item);
+        int cut = Regex.Match(text, @"[.:;](\s|$)").Index;
+        if (cut > 0 && cut < text.Length) text = text[..cut];
+        text = text.TrimEnd('.', ':', ';', ' ');
+        return text.Length <= maxLength ? text : text[..(maxLength - 1)].TrimEnd() + "…";
+    }
+
+    /// <summary>The item without Markdown: what is shown when there is no room for bold.</summary>
+    public static string Plain(string item) => item.Replace("**", "");
+
+    /// <summary>The item split into plain and bold parts (bold ones between **).</summary>
+    public static IEnumerable<(string Text, bool Bold)> Spans(string item)
+    {
+        string[] parts = item.Split("**");
+        for (int i = 0; i < parts.Length; i++)
+        {
+            if (parts[i].Length > 0) yield return (parts[i], i % 2 == 1);
+        }
+    }
+
+    // Links keep their text, code its letters; bold stays (Spans draws it).
+    private static string Clean(string text)
+    {
+        text = Regex.Replace(text, @"\[([^\]]+)\]\([^)]*\)", "$1");
+        return text.Replace("`", "");
+    }
 }

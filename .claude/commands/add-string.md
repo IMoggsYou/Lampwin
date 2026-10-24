@@ -12,8 +12,8 @@ Add or change the UI string $ARGUMENTS in MacWin:
    pt-BR, ja) using the terms in `i18n/GLOSSARY.md` and the tone of the neighbouring
    strings in that file. Arabic: put `‎` before a number that follows a Latin name.
 4. Use it: XAML `{l:Tr key}`, C# `Loc.T("key")`/`Loc.F(...)`, C++ `i18n::T(L"key")`.
-5. Run `cmake -P tools/check_i18n.cmake`, build, and check the layout with
-   `MacWin.Settings.exe --snapshot <dir> --lang <code>` for a long language (fr, ru), a CJK
-   one, hi or bn, and ar.
+5. Run `cmake -P tools/check_i18n.cmake`, build, and check the layout once with
+   `MacWin.Settings.exe --snapshot <dir>` (English is enough when the text can wrap; see
+   AGENTS.md, "Every user-visible string is translated").
 6. Add a line to `CHANGELOG.md` under `[Unreleased]` if users will notice the change.
 7. Mention in the PR which translations should get a native speaker's review.

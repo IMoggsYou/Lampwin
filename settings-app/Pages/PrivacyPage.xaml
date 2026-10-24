@@ -1,0 +1,44 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin -->
+
+<UserControl x:Class="MacWin.Settings.Pages.PrivacyPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
+    <StackPanel>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow x:Name="SummaryRow" Title="{l:Tr settings.privacy.summary.title}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="DiscardButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Content="{l:Tr settings.privacy.discard}" Click="Discard_Click"/>
+                        <Button x:Name="ApplyButton" Style="{StaticResource MacPrimaryButton}"
+                                Content="{l:Tr settings.privacy.apply}" Click="Apply_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow x:Name="RestoreRow" Title="{l:Tr settings.privacy.restore.title}">
+                    <Button x:Name="RestoreButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.privacy.restore.button}" Click="Restore_Click"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.privacy.footnote}"/>
+
+        <!-- One group per PrivacyCatalog.Groups, built from the catalogue -->
+        <StackPanel x:Name="Groups"/>
+
+        <!-- The same buttons again at the end of the long list, while something waits -->
+        <Border x:Name="BottomBar" Style="{StaticResource Group}" Visibility="Collapsed">
+            <c:SettingRow x:Name="BottomRow" Title="{l:Tr settings.privacy.summary.title}">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BottomDiscardButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                            Content="{l:Tr settings.privacy.discard}" Click="Discard_Click"/>
+                    <Button x:Name="BottomApplyButton" Style="{StaticResource MacPrimaryButton}"
+                            Content="{l:Tr settings.privacy.apply}" Click="Apply_Click"/>
+                </StackPanel>
+            </c:SettingRow>
+        </Border>
+    </StackPanel>
+</UserControl>

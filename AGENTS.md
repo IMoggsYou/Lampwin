@@ -69,6 +69,17 @@ A crash or hang there takes down Explorer, a browser or a game. In `src/hook/`:
 - Changing `SharedSettings` or `AnimRequest`: update the `static_assert`s **and** bump the
   `_vN` suffixes in `src/common/names.h` (and `MW_IPC_VERSION`).
 
+### The Privacy page changes Windows itself
+
+- Its switches are data in `settings-app/Services/PrivacyCatalog.cs`: documented policies
+  and the values Windows Settings writes, never code copied from other tweak tools.
+- Nothing that keeps the PC safe goes in there (Windows Update, Defender, SmartScreen,
+  firewall, UAC, VBS …); `tests/settings` fails if it does.
+- Changes go through `PrivacyEngine`: original backed up first, half-done switch rolled
+  back. HKLM, HKCU policies and tasks run in a `--privacy` copy with administrator rights
+  that accepts only catalogue ids. While developing, never apply a switch on your own PC:
+  the tests use a fake PC, `--snapshot` only reads.
+
 ### Every user-visible string is translated
 
 - Add the key to **all 11** files in `i18n/` (en, pl, zh-Hans, hi, es, fr, ar, bn, ru,
@@ -82,8 +93,11 @@ A crash or hang there takes down Explorer, a browser or a game. In `src/hook/`:
 - Use the terms in [i18n/GLOSSARY.md](i18n/GLOSSARY.md). Arabic is right-to-left: a Latin
   name followed by a number needs `‎` before the number (`Windows ‎11`).
 - `ctest` runs `tools/check_i18n.cmake` (same keys, no empty text, same placeholders).
-  Check the result visually with `--snapshot` for at least one CJK language, Hindi or
-  Bengali, and Arabic. Details: [docs/TRANSLATING.md](docs/TRANSLATING.md).
+  Don't go through the languages one by one in `--snapshot`: when the layout is built to
+  wrap and stretch (no fixed widths for text, `TextWrapping`, the window's `FlowDirection`)
+  and `ctest` passes, one snapshot in English is enough. Snapshot another language only
+  when a layout has to fit a fixed size or the owner asks for it.
+  Details: [docs/TRANSLATING.md](docs/TRANSLATING.md).
 
 ### Changelog
 

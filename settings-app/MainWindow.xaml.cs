@@ -42,6 +42,8 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _statusPoll = new() { Interval = TimeSpan.FromSeconds(1.5) };
     private readonly string? _snapshotDir;
     private readonly WindowShadow _shadow;
+    private DateTime _updateStamp;
+    private bool _updateOffered;   // once per window: "Not now" means until it opens again
 
     public MainWindow(string? snapshotDir, string? startPage)
     {
@@ -77,6 +79,11 @@ public partial class MainWindow : Window
             {
                 Id = "exclusions", TitleKey = "settings.nav.exclusions",
                 Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Icon = BlockedIcon(), Create = () => new ExclusionsPage(),
+            },
+            new()
+            {
+                Id = "privacy", TitleKey = "settings.nav.privacy",
+                Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Icon = HandIcon(), Create = () => new PrivacyPage(),
             },
             new()
             {
@@ -124,9 +131,23 @@ public partial class MainWindow : Window
             if (_snapshotDir is null) _shadow.Attach(TimeSpan.FromMilliseconds(200));
         };
         Closed += (_, _) => _shadow.Close();
-        ContentRendered += (_, _) =>
+        ContentRendered += async (_, _) =>
         {
-            if (_snapshotDir is not null) _ = RunSnapshots(_snapshotDir);
+            if (_snapshotDir is not null)
+            {
+                _ = RunSnapshots(_snapshotDir);
+                return;
+            }
+            await Task.Delay(450);   // after the window's own opening animation
+            OfferUpdate();
+        };
+        UpdateSheet.Finished += install =>
+        {
+            if (UpdateSheet.DontShowAgain) _store.Model.UpdatePrompt = false;
+            if (!install || !UpdateClient.Install()) return;
+            // The General page shows the download and the installation.
+            Search.Clear();
+            Nav.SelectedIndex = PageIndex("general");
         };
         Closing += (_, _) => _store.Flush();
 
@@ -211,6 +232,39 @@ public partial class MainWindow : Window
         StatusDot.SetResourceReference(Shape.FillProperty, running ? "Brush.Good" : "Brush.Bad");
         StatusText.Text = Loc.T(running ? "settings.status.running" : "settings.status.stopped");
         StatusPill.Cursor = running ? null : System.Windows.Input.Cursors.Hand;
+        if (IsLoaded) OfferUpdate();
+    }
+
+    // Without automatic installs, a version MacWin found is offered here: when the window
+    // opens, or when it is found while the window is open.
+    private void OfferUpdate()
+    {
+        var m = _store.Model;
+        if (_updateOffered || _snapshotDir is not null || !m.UpdateCheck || m.UpdateAutoInstall || !m.UpdatePrompt ||
+            !HostControl.IsRunning)
+            return;
+        DateTime stamp;
+        try
+        {
+            stamp = File.GetLastWriteTimeUtc(UpdateClient.StatePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return;
+        }
+        if (stamp == _updateStamp) return;
+        _updateStamp = stamp;
+        var update = UpdateClient.Read();
+        if (update.Status != "available" || string.IsNullOrEmpty(update.Latest)) return;
+        _updateOffered = true;
+        UpdateSheet.Show(update);
+    }
+
+    /// <summary>The update sheet on request (General page, "What's new").</summary>
+    internal void ShowUpdate(UpdateState update)
+    {
+        _updateOffered = true;
+        if (!UpdateSheet.IsOpen) UpdateSheet.Show(update);
     }
 
     private void StatusPill_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -288,8 +342,37 @@ public partial class MainWindow : Window
             await Task.Delay(TimeSpan.FromMilliseconds(Math.Max(0, at[f] - clock.Elapsed.TotalMilliseconds)));
             await Capture(dir, $"genie{f}.png");
         }
+        // The update sheet, folded and unfolded, with sample notes.
+        UpdateSheet.Show(new UpdateState("available", Project.Version, "9.9.0", null, null, SampleNotes));
+        await Task.Delay(700);
+        await Capture(dir, "update.png");
+        UpdateSheet.ShowNotes();
+        await Task.Delay(700);
+        await Capture(dir, "update-notes.png");
         Close();
     }
+
+    // Release notes as GitHub has them (a CHANGELOG.md section), for --snapshot only.
+    private const string SampleNotes = """
+        ### Added
+
+        - A third animation style, **Scale**: the window shrinks into its taskbar icon in one
+          smooth glide and melts away, like the scale effect of macOS (Settings → Animations).
+
+        ### Changed
+
+        - The animations are smoother and more polished: the window starts and stops moving
+          more gently and keeps its shadow all the way.
+        - The settings feel smoother: a click on a slider's track glides the knob there.
+        - The live preview shows every style the way the desktop does.
+
+        ### Fixed
+
+        - The live preview in **Settings → Animations** has rounded corners again, instead of
+          square ones sticking out of its card.
+        - After **Show desktop** (Win+D), a window that opened, closed or minimized was animated
+          under the desktop widgets; the animation now covers them from the first frame.
+        """;
 
     private async Task Capture(string dir, string name)
     {
@@ -364,6 +447,17 @@ public partial class MainWindow : Window
         var g = new GeometryGroup { FillRule = FillRule.Nonzero };
         g.Children.Add(ring);
         g.Children.Add(Geometry.Parse("M3.7,4.9 L4.9,3.7 L12.3,11.1 L11.1,12.3 Z"));
+        return g;
+    }
+
+    // A raised hand, like the privacy icon of macOS: four fingers, the thumb, the palm.
+    private static Geometry HandIcon()
+    {
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        foreach (var (x, top) in new[] { (4.1, 3.6), (6.5, 1.6), (8.9, 1.2), (11.3, 2.6) })
+            g.Children.Add(new RectangleGeometry(new Rect(x, top, 2.1, 9 - top), 1.05, 1.05));
+        g.Children.Add(Geometry.Parse("M4.1,8 H13.4 V10.6 C13.4,13.2 11.6,15 9,15 H8.4 C6.6,15 5.4,14.2 4.5,12.8 " +
+                                      "L1.6,8.6 C1.1,7.9 1.6,7 2.4,7 C2.9,7 3.3,7.3 3.6,7.7 L4.1,8.4 Z"));
         return g;
     }
 

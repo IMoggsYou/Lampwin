@@ -217,11 +217,12 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
         // half), kept outside the window's own span so the row map stays monotonic.
         if (dockX < mon.left) dockX = mon.left;
         if (dockX > mon.right) dockX = mon.right;
-        // Into the middle of the icon when its button is known; else the screen edge
-        // on the taskbar's side, as in the mod.
+        // Always the screen edge on the taskbar's side, as in the mod, below the icon when
+        // its button is known: the funnel pours away under the taskbar. (Ending in the
+        // middle of the icon instead, only when the button was found, made the style look
+        // like two different animations.)
         float dockY = (float)mon.bottom;
         if (haveTray && (tr.top + tr.bottom) < (mon.top + mon.bottom)) dockY = (float)mon.top;
-        if (dock.hasRect) dockY = (float)dock.y;
         const float bottomF = (float)(r.top + h);
         const bool above = dockY < ((float)r.top + bottomF) * 0.5f;
         if (above) {

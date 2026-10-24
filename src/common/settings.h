@@ -43,8 +43,8 @@ struct SharedSettings {
     int32_t genieMeshQuality;      // tiles per side, 8..96
 
     // Window corners: radius in px at 100 % scaling and Figma-style smoothing in percent
-    // (0 = Windows 11's circular corner, 100 = macOS squircle). The genie always uses
-    // them; windowCorners also cuts every real window to that shape (window region).
+    // (0 = Windows 11's circular corner, 100 = macOS squircle). windowCorners cuts real
+    // windows to that shape (window region); the genie keeps each window's own corner.
     int32_t cornerRadius;          // 0..40
     int32_t cornerSmoothing;       // 0..100
     int32_t windowCorners;

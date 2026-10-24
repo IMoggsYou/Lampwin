@@ -18,3 +18,7 @@ DotNetInstalling=جارٍ تثبيت .NET 10 Desktop Runtime…
 DotNetFailed=تعذّر تثبيت .NET 10 Desktop Runtime (%1). تعمل الحركات من دونه، لكن نافذة الإعدادات تحتاج إليه. يمكنك الحصول عليه لاحقًا من:%n%n%2
 Arm64NotSupported=يحتاج MacWin إلى معالج Intel أو AMD بنظام 64 بت (x64). نظام Windows على ARM غير مدعوم بعد.
 RemoveSettings=هل تريد أيضًا إزالة إعدادات MacWin وسجلاته؟
+UpdatesTitle=التحديثات التلقائية
+UpdatesSubtitle=كيف يبقى MacWin محدّثًا؟
+UpdatesText=يسأل MacWin موقع GitHub مرة واحدة يوميًا عن وجود إصدار جديد. يمكنه تنزيله وتثبيته بنفسه في الخلفية، أو عرضه عليك أولًا في نافذة الإعدادات.%n%nيمكنك تغيير ذلك لاحقًا في الإعدادات، ضمن عام.
+UpdatesAuto=تثبيت التحديثات تلقائيًا (مستحسن)

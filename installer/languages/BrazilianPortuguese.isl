@@ -18,3 +18,7 @@ DotNetInstalling=Instalando o .NET 10 Desktop Runtime…
 DotNetFailed=Não foi possível instalar o .NET 10 Desktop Runtime (%1). As animações funcionam sem ele, mas a janela de configurações precisa dele. Você pode baixá-lo depois em:%n%n%2
 Arm64NotSupported=O MacWin precisa de um processador Intel ou AMD de 64 bits (x64). O Windows em ARM ainda não é compatível.
 RemoveSettings=Remover também as configurações e os logs do MacWin?
+UpdatesTitle=Atualizações automáticas
+UpdatesSubtitle=Como o MacWin deve se manter atualizado?
+UpdatesText=Uma vez por dia o MacWin pergunta ao GitHub se há uma nova versão. Ele pode baixá-la e instalá-la sozinho em segundo plano, ou mostrá-la primeiro na janela de configurações.%n%nVocê pode mudar isso depois nas configurações, em Geral.
+UpdatesAuto=Instalar atualizações automaticamente (recomendado)

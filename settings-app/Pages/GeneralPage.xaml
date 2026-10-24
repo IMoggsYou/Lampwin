@@ -5,7 +5,11 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:p="clr-namespace:MacWin.Settings.Pages"
              xmlns:l="clr-namespace:MacWin.Settings">
+    <UserControl.Resources>
+        <p:VisibleWhenFalse x:Key="Hidden"/>
+    </UserControl.Resources>
     <StackPanel>
         <Border Style="{StaticResource Group}">
             <StackPanel>
@@ -53,6 +57,13 @@
                               Description="{l:Tr settings.general.updates.auto.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UpdateAutoInstall}"/>
                 </c:SettingRow>
+                <StackPanel Visibility="{Binding UpdateAutoInstall, Converter={StaticResource Hidden}}">
+                    <Rectangle Style="{StaticResource RowSeparator}"/>
+                    <c:SettingRow Title="{l:Tr settings.general.updates.prompt.title}" IsEnabled="{Binding UpdateCheck}"
+                                  Description="{l:Tr settings.general.updates.prompt.description}">
+                        <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding UpdatePrompt}"/>
+                    </c:SettingRow>
+                </StackPanel>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow x:Name="UpdateRow">
                     <StackPanel Orientation="Horizontal">

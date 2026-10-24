@@ -22,6 +22,10 @@
                 <TextBlock Style="{StaticResource Text.Secondary}" Margin="14,12,14,6"
                            Text="{l:Tr settings.exclusions.noInject.description}"/>
                 <c:ProgramList Items="{Binding NoInject}"/>
+                <!-- Puts back the games MacWin protects by default (kept: everything else) -->
+                <Button x:Name="RestoreDefaults" Style="{StaticResource MacButton}" HorizontalAlignment="Right"
+                        Margin="14,-4,14,14" Padding="12,3" Content="{l:Tr settings.exclusions.noInject.restore}"
+                        Click="RestoreDefaults_Click"/>
             </StackPanel>
         </Border>
     </StackPanel>

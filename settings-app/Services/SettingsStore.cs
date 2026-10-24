@@ -91,7 +91,8 @@ public sealed class SettingsStore
             m.Language = Str(_root, "language", "auto");
             var updates = _root["updates"] as JsonObject ?? new JsonObject();
             m.UpdateCheck = Bool(updates, "check", true);
-            m.UpdateAutoInstall = Bool(updates, "autoInstall", false);
+            m.UpdateAutoInstall = Bool(updates, "autoInstall", true);
+            m.UpdatePrompt = Bool(updates, "prompt", true);
             var genie = _root["genie"] as JsonObject ?? new JsonObject();
             m.Style = Math.Max(0, System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "modern")));
             m.DurationMs = Num(genie, "durationMs", 450);
@@ -146,6 +147,7 @@ public sealed class SettingsStore
         var updates = _root["updates"] as JsonObject ?? new JsonObject();
         updates["check"] = m.UpdateCheck;
         updates["autoInstall"] = m.UpdateAutoInstall;
+        updates["prompt"] = m.UpdatePrompt;
         _root["updates"] = updates;
         var genie = _root["genie"] as JsonObject ?? new JsonObject();
         genie["style"] = SettingsModel.StyleNames[m.Style];
@@ -188,7 +190,7 @@ public sealed class SettingsStore
 
     // The same defaults as the host (src/host/settings_store.h).
     private static readonly string[] DefaultDevAllowlist = ["notepad.exe", "macwintestwindow.exe"];
-    private static readonly string[] DefaultNoInject =
+    public static readonly string[] DefaultNoInject =
     [
         "robloxplayerbeta.exe", "valorant-win64-shipping.exe", "fortniteclient-win64-shipping.exe",
         "r5apex.exe", "r5apex_dx12.exe", "cs2.exe", "overwatch.exe", "cod.exe", "wow.exe",

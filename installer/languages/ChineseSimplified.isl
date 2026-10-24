@@ -18,3 +18,7 @@ DotNetInstalling=正在安装 .NET 10 桌面运行时…
 DotNetFailed=无法安装 .NET 10 桌面运行时（%1）。动画无需它也能正常工作，但设置窗口需要它。你可以稍后从以下网址获取：%n%n%2
 Arm64NotSupported=MacWin 需要 64 位 Intel 或 AMD (x64) 处理器。暂不支持 ARM 版 Windows。
 RemoveSettings=是否同时删除 MacWin 的设置和日志？
+UpdatesTitle=自动更新
+UpdatesSubtitle=MacWin 应如何保持最新？
+UpdatesText=MacWin 每天会询问一次 GitHub 是否有新版本。它可以在后台自动下载并安装新版本，也可以先在设置窗口中向你显示。%n%n你之后可以在设置的“通用”中更改此项。
+UpdatesAuto=自动安装更新（推荐）

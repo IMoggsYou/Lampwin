@@ -35,6 +35,13 @@ public partial class App : Application
             args.SetObserved();
         };
 
+        // --privacy apply|restore: the Privacy page's helper with administrator rights, no window.
+        if (ArgValue(e.Args, "--privacy") is not null)
+        {
+            Shutdown(PrivacyRunner.RunHelper(e.Args));
+            return;
+        }
+
         if (ArgValue(e.Args, "--export-icon") is string iconPath)
         {
             Theme.Apply(false);
@@ -112,14 +119,17 @@ public partial class App : Application
         }
     }
 
-    private static void Log(Exception ex)
+    private static void Log(Exception ex) => Log(ex.ToString());
+
+    /// <summary>A line in settings.log (English, like every log).</summary>
+    internal static void Log(string message)
     {
         try
         {
             Directory.CreateDirectory(Path.GetDirectoryName(LogPath)!);
             var info = new FileInfo(LogPath);
             if (info.Exists && info.Length > 512 * 1024) info.Delete();   // keep it small
-            File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} MacWin.Settings {Project.Version}\n{ex}\n\n");
+            File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} MacWin.Settings {Project.Version}\n{message}\n\n");
         }
         catch (Exception logError) when (logError is IOException or UnauthorizedAccessException)
         {
@@ -128,7 +138,7 @@ public partial class App : Application
 
     // --page for the window that is already open: the same ids as MainWindow.PageIndex.
     private static int PageIndexOf(string? page) =>
-        page is null ? -1 : Array.IndexOf(new[] { "animations", "corners", "widgets", "general", "exclusions", "about" }, page.ToLowerInvariant());
+        page is null ? -1 : Array.IndexOf(new[] { "animations", "corners", "widgets", "general", "exclusions", "privacy", "about" }, page.ToLowerInvariant());
 
     private static string? ArgValue(string[] args, string name)
     {
