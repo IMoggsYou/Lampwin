@@ -9,11 +9,20 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>MacWin.Settings.Tests</RootNamespace>
     <IsPackable>false</IsPackable>
+    <!-- The icon conversion uses WPF's imaging -->
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- WPF projects leave System.IO out of the implicit usings -->
+    <Using Include="System.IO" />
     <Compile Include="..\..\settings-app\Services\PrivacyEngine.cs" Link="App\PrivacyEngine.cs" />
     <Compile Include="..\..\settings-app\Services\PrivacyCatalog.cs" Link="App\PrivacyCatalog.cs" />
+    <Compile Include="..\..\settings-app\Services\IconImport.cs" Link="App\IconImport.cs" />
+    <Compile Include="..\..\settings-app\Services\IconNames.cs" Link="App\IconNames.cs" />
+    <Compile Include="..\..\settings-app\Services\AppIconStore.cs" Link="App\AppIconStore.cs" />
+    <Compile Include="..\..\settings-app\Services\ShellLink.cs" Link="App\ShellLink.cs" />
+    <Compile Include="..\..\settings-app\Services\Native.cs" Link="App\Native.cs" />
   </ItemGroup>
 
 </Project>

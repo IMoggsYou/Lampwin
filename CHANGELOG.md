@@ -9,6 +9,19 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- **App icons** (a new page in the settings): give programs icons of your own, for example
+  macOS ones. Add .icns, PNG, JPEG, WebP, HEIC, ICO and other images, or take a program's
+  icon from its .exe; whole folders of large files are added in the background without
+  slowing the window down. MacWin cuts away the empty margin and shadow so the icons are
+  as big as other icons, and gives each one to the program its file name names; an icon
+  that fits no program waits until you pick one. The icon shows on the program's windows,
+  in Alt+Tab, on the taskbar and on its Start menu, desktop and taskbar shortcuts.
+  "No program", removing the icon or turning the option off gives everything its own icon
+  back. A set of macOS-style icons comes with MacWin and is given to your programs the
+  first time the settings open.
+
 ## [1.3.1] - 2026-10-24
 
 ### Fixed

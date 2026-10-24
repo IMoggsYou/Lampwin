@@ -42,6 +42,7 @@ internal static class Program
             Run(nameof(TaskXmlIsRead), TaskXmlIsRead);
             Run(nameof(HelperArgumentsAreStrict), HelperArgumentsAreStrict);
             Run(nameof(AdminIsNeededWhereWindowsRequiresIt), AdminIsNeededWhereWindowsRequiresIt);
+            AppIconTests.RunAll(Run, Check, _temp);
         }
         finally
         {

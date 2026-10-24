@@ -85,6 +85,8 @@ Source: "{#Bin}\MacWin.Settings.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWin.Settings.runtimeconfig.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWin.Settings.deps.json"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Bin}\MacWinTestWindow.exe"; DestDir: "{app}"; Flags: ignoreversion
+; App icons that come with MacWin; the settings app imports them on its first start.
+Source: "{#Bin}\app-icons\*"; DestDir: "{app}\app-icons"; Flags: ignoreversion recursesubdirs skipifsourcedoesntexist
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\NOTICE"; DestDir: "{app}"; DestName: "NOTICE.txt"; Flags: ignoreversion
 Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion

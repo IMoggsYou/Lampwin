@@ -29,6 +29,10 @@
   <ItemGroup>
     <!-- UI translations, the same files the host and the docs use. -->
     <EmbeddedResource Include="..\i18n\*.json" LogicalName="i18n.%(Filename).json" WithCulture="false" Link="i18n\%(Filename)%(Extension)" />
+    <!-- App icons that come with MacWin (imported and given to their programs at start).
+         The folder is optional: a build without it simply ships none. -->
+    <None Include="..\assets\app-icons\**\*" Link="app-icons\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

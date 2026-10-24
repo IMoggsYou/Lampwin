@@ -233,6 +233,7 @@ State Activate() {
     }
     CloseHandle(hWatcher);
     CornersOnActivate();
+    IconsOnActivate();
 #ifdef _WIN64
     // The global WH_CBT hook reaches every thread here, so HCBT_MINMAX animates any of our
     // windows whoever minimizes it (see PeerAnimatesItself). The 32-bit helper hooks one
@@ -247,6 +248,7 @@ State Activate() {
 // Returns true when everything was removed and the module may be released. Otherwise
 // the DLL stays loaded for good (kDead) with every hook passing straight through.
 bool Shutdown() {
+    IconsOnShutdown();
     // Needs the hooks: each window's thread undoes its own region and destroys its grip.
     const bool cornersGone = CornersOnShutdown();
     if (!DisableAndDrain()) {

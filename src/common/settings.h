@@ -54,7 +54,10 @@ struct SharedSettings {
     int32_t closeEffect;
     int32_t openDurationMs;        // 100..1500
     int32_t closeDurationMs;       // 100..1500
-    int32_t reserved[8];
+    // Programs show the icon in %LOCALAPPDATA%\MacWin\icons\apps\<program>.ico, when there
+    // is one (the settings app puts it there). Was reserved: older DLLs see 0 and ignore it.
+    int32_t appIcons;
+    int32_t reserved[7];
 
     // Lowercase entries separated by L'\0' and ended by an empty entry. An entry
     // matches a full image path, a file name or a file name without ".exe".
