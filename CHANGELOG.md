@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-24
+
 ### Added
 
 - **App icons** (a new page in the settings): give programs icons of your own, for example
@@ -21,6 +23,10 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
   "No program", removing the icon or turning the option off gives everything its own icon
   back. A set of macOS-style icons comes with MacWin and is given to your programs the
   first time the settings open.
+
+### Changed
+
+- MacWin keeps finding updates when its GitHub repository moves to its new name, Lampwin.
 
 ## [1.3.1] - 2026-10-24
 
@@ -182,7 +188,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.3.1...HEAD
+[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/IMoggsYou/MacWin/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/IMoggsYou/MacWin/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/IMoggsYou/MacWin/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/IMoggsYou/MacWin/compare/v1.1.0...v1.2.0
