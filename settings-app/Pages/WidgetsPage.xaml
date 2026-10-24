@@ -27,12 +27,16 @@
                                         <ScaleTransform x:Name="Lift"/>
                                     </Grid.RenderTransform>
                                     <ContentPresenter/>
-                                    <Border x:Name="Plus" Width="22" Height="22" CornerRadius="11" Margin="0,-7,-7,0"
-                                            HorizontalAlignment="Right" VerticalAlignment="Top" Opacity="0"
-                                            Background="{DynamicResource Brush.Accent}">
-                                        <Path Data="M5.5,11 H16.5 M11,5.5 V16.5" Stroke="White" StrokeThickness="2"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
-                                    </Border>
+                                    <!-- On a Canvas: it sticks out over the corner, and a negative
+                                         margin would let the layout clip it in half -->
+                                    <Canvas>
+                                        <Border x:Name="Plus" Width="22" Height="22" CornerRadius="11"
+                                                Canvas.Left="61" Canvas.Top="-7" Opacity="0"
+                                                Background="{DynamicResource Brush.Accent}">
+                                            <Path Data="M5.5,11 H16.5 M11,5.5 V16.5" Stroke="White" StrokeThickness="2"
+                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                                        </Border>
+                                    </Canvas>
                                 </Grid>
                                 <TextBlock Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}" HorizontalAlignment="Center" Margin="0,9,0,0"
                                            FontSize="12" TextTrimming="CharacterEllipsis" MaxWidth="88"/>
@@ -88,7 +92,7 @@
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Button Style="{StaticResource GalleryTile}" Width="90" Tag="{Binding Name}"
-                                ToolTip="{l:Tr settings.widgets.add.tooltip}" Click="Add_Click" CommandParameter="{Binding Kind}">
+                                Click="Add_Click" CommandParameter="{Binding Kind}">
                             <c:WidgetPreview Kind="{Binding Kind}" FlowDirection="LeftToRight">
                                 <c:WidgetPreview.Effect>
                                     <DropShadowEffect BlurRadius="12" ShadowDepth="2" Direction="270" Opacity="0.22"/>

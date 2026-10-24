@@ -17,6 +17,7 @@
 struct Release {
     std::wstring version;       // "1.2.0" (tag without the "v")
     std::wstring notesUrl;      // the release page
+    std::wstring notes;         // that version's CHANGELOG.md section (Markdown)
     std::wstring installerName; // MacWinSetup-1.2.0.exe
     std::wstring installerUrl;
     std::wstring sumsUrl;       // SHA256SUMS.txt

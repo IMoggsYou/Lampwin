@@ -153,6 +153,126 @@
         </Setter>
     </Style>
 
+    <!-- Checkbox: a small rounded box that fills with the accent color as the check pops in -->
+    <Style x:Key="MacCheckBox" TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Grid Width="15" Height="15" VerticalAlignment="Center">
+                            <Border CornerRadius="4" Background="{DynamicResource Brush.Control}"
+                                    BorderBrush="{DynamicResource Brush.ControlBorder}" BorderThickness="1"/>
+                            <Border x:Name="Fill" CornerRadius="4" Background="{DynamicResource Brush.Accent}" Opacity="0"/>
+                            <Path x:Name="Check" Data="M3.8,7.9 L6.4,10.4 L11.3,4.9" Stroke="White" StrokeThickness="1.8"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  FlowDirection="LeftToRight" Opacity="0" RenderTransformOrigin="0.5,0.5">
+                                <Path.RenderTransform>
+                                    <ScaleTransform x:Name="CheckScale" ScaleX="0.5" ScaleY="0.5"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </Grid>
+                        <ContentPresenter Margin="7,0,0,0" VerticalAlignment="Center" RecognizesAccessKey="True"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Fill" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.14"/>
+                                        <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.14"/>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale" Storyboard.TargetProperty="ScaleX"
+                                                         To="1" Duration="0:0:0.26">
+                                            <DoubleAnimation.EasingFunction>
+                                                <BackEase EasingMode="EaseOut" Amplitude="0.5"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale" Storyboard.TargetProperty="ScaleY"
+                                                         To="1" Duration="0:0:0.26">
+                                            <DoubleAnimation.EasingFunction>
+                                                <BackEase EasingMode="EaseOut" Amplitude="0.5"/>
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Fill" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.16"/>
+                                        <DoubleAnimation Storyboard.TargetName="Check" Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.1"/>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale" Storyboard.TargetProperty="ScaleX"
+                                                         To="0.5" Duration="0:0:0.16" EasingFunction="{StaticResource EaseOut}"/>
+                                        <DoubleAnimation Storyboard.TargetName="CheckScale" Storyboard.TargetProperty="ScaleY"
+                                                         To="0.5" Duration="0:0:0.16" EasingFunction="{StaticResource EaseOut}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Link-like button with a chevron that turns as its part opens ("Show full changelog") -->
+    <Style x:Key="DisclosureButton" TargetType="ToggleButton">
+        <Setter Property="Foreground" Value="{DynamicResource Brush.Accent}"/>
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToggleButton">
+                    <StackPanel Orientation="Horizontal" Background="Transparent">
+                        <Path Data="M0,0 L4,4 L0,8" Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              Width="5" Height="9" VerticalAlignment="Center" Margin="1,1,7,0" RenderTransformOrigin="0.4,0.5">
+                            <Path.RenderTransform>
+                                <RotateTransform x:Name="Turn"/>
+                            </Path.RenderTransform>
+                        </Path>
+                        <TextBlock x:Name="Label" VerticalAlignment="Center"
+                                   Text="{Binding Content, RelativeSource={RelativeSource TemplatedParent}}"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Turn" Storyboard.TargetProperty="Angle"
+                                                         To="90" Duration="0:0:0.26" EasingFunction="{StaticResource EaseOutStrong}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Turn" Storyboard.TargetProperty="Angle"
+                                                         To="0" Duration="0:0:0.26" EasingFunction="{StaticResource EaseOutStrong}"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Label" Property="TextDecorations" Value="Underline"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
     <!-- Slider: thin track, accent fill, round white knob -->
     <Style x:Key="SliderFill" TargetType="RepeatButton">
         <Setter Property="Focusable" Value="False"/>
@@ -771,7 +891,9 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- The menu unfolds item by item and follows the page while it scrolls (ComboBoxMotion) -->
     <Style x:Key="MacComboBox" TargetType="ComboBox">
+        <Setter Property="c:ComboBoxMotion.IsEnabled" Value="True"/>
         <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
         <Setter Property="FontSize" Value="13"/>
         <Setter Property="MinWidth" Value="160"/>
@@ -849,7 +971,7 @@
                             </Border>
                         </Grid>
                         <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom"
-                               AllowsTransparency="True" Focusable="False" PopupAnimation="Fade" HorizontalOffset="-10">
+                               AllowsTransparency="True" Focusable="False" PopupAnimation="None" HorizontalOffset="-10">
                             <Border Margin="10,2,10,14" CornerRadius="8" Padding="0,5"
                                     MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
                                     Background="{DynamicResource Brush.Group}" BorderBrush="{DynamicResource Brush.GroupBorder}"

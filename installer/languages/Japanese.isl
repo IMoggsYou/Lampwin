@@ -18,3 +18,7 @@ DotNetInstalling=.NET 10 Desktop Runtime をインストールしています…
 DotNetFailed=.NET 10 Desktop Runtime をインストールできませんでした (%1)。アニメーションはなくても動作しますが、設定ウィンドウには必要です。後で次の場所から入手できます:%n%n%2
 Arm64NotSupported=MacWin には 64 ビットの Intel または AMD (x64) プロセッサが必要です。ARM 版 Windows にはまだ対応していません。
 RemoveSettings=MacWin の設定とログも削除しますか?
+UpdatesTitle=自動アップデート
+UpdatesSubtitle=MacWin を最新の状態に保つ方法を選んでください。
+UpdatesText=MacWin は 1 日に 1 回、新しいバージョンがあるかを GitHub に問い合わせます。バックグラウンドで自動的にダウンロードしてインストールするか、先に設定ウィンドウで知らせるかを選べます。%n%nこれは後で設定の [一般] で変更できます。
+UpdatesAuto=アップデートを自動的にインストールする (推奨)

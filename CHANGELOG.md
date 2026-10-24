@@ -9,6 +9,41 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- The installer has an **Automatic updates** page: leave it on and new versions download
+  and install by themselves in the background.
+- With automatic installs off, the settings window shows a new version when it opens: what
+  changed in a few lines, the full changelog one click away, and **Update now** or
+  **Not now**. **Don't show this again** stops it (Settings → General still shows the
+  update, and **What's new** opens the same window).
+- **Settings → Exclusions** has a **Restore default games** button that puts the games
+  with anti-cheat (and the game folders) back on the "never load" list; your own entries
+  stay.
+- A new **Privacy** page turns off Windows telemetry and similar features: optional
+  diagnostic data, the advertising ID, tips and ads in Start, Settings and on the lock
+  screen, web results in search, activity history, Copilot, Recall and more. Its switches
+  show what your PC does right now; **Apply** asks for administrator rights once, MacWin
+  backs up every value first, and **Restore** puts back everything it changed. Windows
+  Update, Microsoft Defender, SmartScreen and the firewall are never touched.
+
+### Changed
+
+- **Install updates automatically** is now on by default.
+- Pop-up menus in the settings unfold item by item, and stay with their button while the
+  page scrolls (or close once it scrolls out of sight) instead of floating where they
+  opened.
+
+### Fixed
+
+- Windows keep their own corners while they open, close, minimize or restore: a window with
+  Windows 11's corners no longer gets the bigger macOS corners for the length of the
+  animation.
+- The widget gallery: the "+" over a widget is no longer cut in half, and no tooltip pops
+  up over it.
+- The classic genie always pours the window away under the taskbar; it no longer sometimes
+  ends in the middle of the program's icon instead.
+
 ## [1.2.0] - 2026-10-24
 
 ### Added

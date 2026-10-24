@@ -136,17 +136,23 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     if (!IsZoomed(hwnd)) {
         UINT dpiX = 96, dpiY = 96;
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
-        job->cornerRadiusPx = (float)s.genie.cornerRadius * (float)dpiY / 96.0f;
-        job->cornerSmoothing = (float)s.genie.cornerSmoothing / 100.0f;
         // A maximized window has no shadow; any other one takes its shadow along.
         job->params.shadowScale = (float)dpiY / 96.0f;
-        // Square corners asked of DWM. Not for a window MacWin cut to its corners (it has
-        // a region): MacWin itself sets that preference there (see corners.cpp).
-        DWORD pref = 0;
+        // The corner the window really has, so the genie doesn't change it on the way.
+        // A window MacWin cut (it has a region, see corners.cpp) has the one from the
+        // settings; every other window has DWM's: Windows 11's circular 8 px, 4 px when
+        // asked for small corners, none when asked for square ones (also how MacWin
+        // squares a window when the settings say 0 px).
         RECT rgnBox;
-        if (SUCCEEDED(DwmGetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref))) &&
-            pref == DWMWCP_DONOTROUND && GetWindowRgnBox(hwnd, &rgnBox) == ERROR) {
-            job->cornerRadiusPx = 0;
+        if (GetWindowRgnBox(hwnd, &rgnBox) != ERROR) {
+            job->cornerRadiusPx = (float)s.genie.cornerRadius * (float)dpiY / 96.0f;
+            job->cornerSmoothing = (float)s.genie.cornerSmoothing / 100.0f;
+        } else {
+            DWORD pref = DWMWCP_DEFAULT;
+            DwmGetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref));
+            const float dwmRadius = pref == DWMWCP_DONOTROUND ? 0.0f : pref == DWMWCP_ROUNDSMALL ? 4.0f : 8.0f;
+            job->cornerRadiusPx = dwmRadius * (float)dpiY / 96.0f;
+            job->cornerSmoothing = 0.0f;
         }
     }
 

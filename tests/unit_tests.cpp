@@ -43,7 +43,8 @@ void TestVersions() {
 
 const wchar_t* kRelease = LR"({
   "tag_name": "v1.2.0", "html_url": "https://github.com/IMoggsYou/MacWin/releases/tag/v1.2.0",
-  "draft": false, "prerelease": false, "body": "notes",
+  "draft": false, "prerelease": false,
+  "body": "### Added\r\n\r\n- Scale\r\n\r\n\r\n---\r\n**Download:** `MacWinSetup-1.2.0.exe`",
   "assets": [
     {"name": "MacWinSetup-1.2.0.exe",
      "browser_download_url": "https://github.com/IMoggsYou/MacWin/releases/download/v1.2.0/MacWinSetup-1.2.0.exe"},
@@ -59,6 +60,7 @@ void TestRelease() {
     CHECK(r.installerName == L"MacWinSetup-1.2.0.exe");
     CHECK(r.notesUrl == L"https://github.com/IMoggsYou/MacWin/releases/tag/v1.2.0");
     CHECK(r.sumsUrl.find(L"SHA256SUMS.txt") != std::wstring::npos);
+    CHECK(r.notes == L"### Added\r\n\r\n- Scale");   // without the download footer
 
     std::wstring draft = kRelease;
     draft.replace(draft.find(L"\"draft\": false"), 14, L"\"draft\": true ");

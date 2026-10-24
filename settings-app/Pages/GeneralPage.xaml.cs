@@ -148,6 +148,10 @@ public partial class GeneralPage : UserControl
 
     private void Install_Click(object sender, RoutedEventArgs e) => UpdateClient.Install();
 
-    private void WhatsNew_Click(object sender, RoutedEventArgs e) =>
-        HostControl.OpenUrl(_update.NotesUrl ?? Project.ReleasesUrl);
+    // The release notes in the update sheet; the release page when MacWin has none.
+    private void WhatsNew_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_update.Notes) && Window.GetWindow(this) is MainWindow window) window.ShowUpdate(_update);
+        else HostControl.OpenUrl(_update.NotesUrl ?? Project.ReleasesUrl);
+    }
 }

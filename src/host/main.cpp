@@ -467,6 +467,8 @@ void App::ReloadSettings() {
     ApplySettings(false);
     ApplyWidgets();
     if (after.updateCheck && !before.updateCheck) updater_.Check(false);
+    // Switched to automatic installs while a found version waits: get it now.
+    if (after.updateAutoInstall && !before.updateAutoInstall) OnUpdateEvent(Updater::kStateChanged);
     if (before.devMode != after.devMode || before.devAllowlist != after.devAllowlist ||
         before.noInject != after.noInject) {
         injector_.BeginPreload();
@@ -675,6 +677,8 @@ int Configure(const std::vector<std::wstring>& args) {
         bool on = a.substr(eq + 1) == L"1" || a.substr(eq + 1) == L"true";
         if (key == L"devMode") s.devMode = on;
         else if (key == L"enabled") s.enabled = on;
+        else if (key == L"updateCheck") s.updateCheck = on;
+        else if (key == L"updateAutoInstall") s.updateAutoInstall = on;
     }
     if (!store.Save()) return 1;
     if (HWND running = FindWindowW(MACWIN_HOST_WNDCLASS, nullptr)) {

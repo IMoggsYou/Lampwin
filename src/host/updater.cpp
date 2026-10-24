@@ -18,6 +18,9 @@ const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/IMoggsYou/Mac
 const wchar_t kDownloadPrefix[] = L"https://github.com/IMoggsYou/MacWin/releases/download/";
 const size_t kMaxApiBytes = 1u << 20;
 const size_t kMaxInstallerBytes = 256u << 20;
+// Release notes are a few kilobytes; anything longer is cut (the settings window
+// links to the release page anyway).
+const size_t kMaxNotesChars = 32 * 1024;
 // Scheduled checks: once a day (a little less, so the timer never just misses it).
 const ULONGLONG kCheckIntervalMs = 20ull * 60 * 60 * 1000;
 
@@ -274,6 +277,25 @@ bool ParseLatestRelease(const std::wstring& text, Release* out) {
     if (page && page->type == json::Value::String && page->str.rfind(L"https://github.com/", 0) == 0) {
         r.notesUrl = page->str;
     }
+    if (const json::Value* body = root.Get(L"body"); body && body->type == json::Value::String) {
+        // The changelog section, without the download footer the release workflow adds
+        // after a "---" line.
+        std::wstring notes = body->str;
+        for (size_t at = 0; at < notes.size();) {
+            size_t end = notes.find(L'\n', at);
+            if (end == std::wstring::npos) end = notes.size();
+            std::wstring line = notes.substr(at, end - at);
+            while (!line.empty() && (line.back() == L'\r' || line.back() == L' ')) line.pop_back();
+            if (line == L"---") {
+                notes.resize(at);
+                break;
+            }
+            at = end + 1;
+        }
+        while (!notes.empty() && iswspace(notes.back())) notes.pop_back();
+        if (notes.size() > kMaxNotesChars) notes.resize(kMaxNotesChars);
+        r.notes = notes;
+    }
     for (const json::Value& asset : assets->items) {
         const json::Value* name = asset.Get(L"name");
         const json::Value* url = asset.Get(L"browser_download_url");
@@ -510,9 +532,10 @@ void Updater::LoadState() {
     HANDLE f = CreateFileW(StatePath().c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
                            OPEN_EXISTING, 0, nullptr);
     if (f != INVALID_HANDLE_VALUE) {
-        char buf[16384];
+        // Room for the release notes (kMaxNotesChars, escaped) and the rest.
+        std::string buf(256 * 1024, '\0');
         DWORD read = 0;
-        if (ReadFile(f, buf, sizeof(buf), &read, nullptr)) text = Widen(std::string(buf, read));
+        if (ReadFile(f, &buf[0], (DWORD)buf.size(), &read, nullptr)) text = Widen(buf.substr(0, read));
         CloseHandle(f);
     }
     json::Value root;
@@ -540,6 +563,7 @@ void Updater::SaveState() {
     t += L"  \"current\": " + json::Quote(MACWIN_VERSION_W) + L",\n";
     t += L"  \"latest\": " + json::Quote(available_.version) + L",\n";
     t += L"  \"notesUrl\": " + json::Quote(available_.notesUrl) + L",\n";
+    t += L"  \"notes\": " + json::Quote(available_.notes) + L",\n";
     t += L"  \"lastCheck\": " + json::Quote(lastCheck_) + L",\n";
     t += L"  \"notifiedVersion\": " + json::Quote(notifiedVersion_);
     if (status_ == L"installing") {

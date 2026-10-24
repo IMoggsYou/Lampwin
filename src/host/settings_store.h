@@ -23,8 +23,8 @@ struct GenieSettings {
     int unhideDurationMs = 450;
     int meshQuality = 48;
     // Window corners: radius at 100 % scaling and Figma-style smoothing in percent
-    // (0 = Windows 11's circular corner, 100 = macOS squircle). The genie always uses
-    // them; windowCorners also gives every real window that shape.
+    // (0 = Windows 11's circular corner, 100 = macOS squircle). windowCorners gives real
+    // windows that shape; the genie keeps each window's own corner (see IpcServer).
     int cornerRadius = 15;
     int cornerSmoothing = 100;
     bool windowCorners = true;
@@ -46,7 +46,7 @@ struct HostSettings {
     std::wstring language = L"auto";
     // GitHub Releases: check once a day; install without asking.
     bool updateCheck = true;
-    bool updateAutoInstall = false;
+    bool updateAutoInstall = true;
     GenieSettings genie;
     widgets::Config widgets;
 };

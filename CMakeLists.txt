@@ -188,4 +188,14 @@ if(MACWIN_BITS EQUAL 64)
   set_target_properties(MacWinTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
   add_test(NAME unit COMMAND MacWinTests)
   add_test(NAME i18n COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tools/check_i18n.cmake)
+
+  # The settings app's logic that needs no window (C#, tests/settings).
+  if(MACWIN_DOTNET)
+    add_custom_target(MacWinSettingsTests ALL
+      COMMAND ${MACWIN_DOTNET} build ${CMAKE_SOURCE_DIR}/tests/settings/MacWin.Settings.Tests.csproj
+              -c Release -o ${CMAKE_BINARY_DIR}/tests/settings --nologo -v q
+      COMMENT "Building the settings app tests"
+      VERBATIM)
+    add_test(NAME settings COMMAND ${CMAKE_BINARY_DIR}/tests/settings/MacWin.Settings.Tests.exe ${CMAKE_SOURCE_DIR})
+  endif()
 endif()

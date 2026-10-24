@@ -246,9 +246,13 @@ public sealed class SettingsModel : INotifyPropertyChanged
     /// <summary>MacWin asks GitHub once a day whether a new version is out.</summary>
     public bool UpdateCheck { get => _updateCheck; set => Set(ref _updateCheck, value); }
 
-    private bool _updateAutoInstall;
+    private bool _updateAutoInstall = true;
     /// <summary>New versions are installed without asking.</summary>
     public bool UpdateAutoInstall { get => _updateAutoInstall; set => Set(ref _updateAutoInstall, value); }
+
+    private bool _updatePrompt = true;
+    /// <summary>Without automatic installs: the settings window offers a new version when it opens.</summary>
+    public bool UpdatePrompt { get => _updatePrompt; set => Set(ref _updatePrompt, value); }
 
     private async Task ApplyAutostartAsync(bool value)
     {

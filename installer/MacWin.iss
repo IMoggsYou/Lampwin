@@ -98,6 +98,9 @@ Name: "{autoprograms}\MacWin"; Filename: "{app}\MacWin.Settings.exe"; Comment: "
 ; programs started as administrator are animated too); its logon trigger is the autostart.
 Filename: "{app}\MacWin.exe"; Parameters: "--install-task"; Flags: runhidden waituntilterminated; Tasks: autostart; StatusMsg: "{cm:RegisteringTask}"
 Filename: "{app}\MacWin.exe"; Parameters: "--install-task --no-logon"; Flags: runhidden waituntilterminated; Tasks: not autostart; StatusMsg: "{cm:RegisteringTask}"
+; The choice on the "Automatic updates" page, into the settings of the user who installs
+; (not the administrator's). A silent install is an update: the user's choice stays.
+Filename: "{app}\MacWin.exe"; Parameters: "--configure {code:UpdateSettings}"; Flags: runhidden waituntilterminated runasoriginaluser; Check: not WizardSilent
 ; An update (installed silently by MacWin itself) starts the new version right away.
 Filename: "{app}\MacWin.exe"; Flags: nowait runasoriginaluser; Check: WizardSilent
 Filename: "{app}\MacWin.exe"; Description: "{cm:LaunchMacWin}"; Flags: postinstall nowait runasoriginaluser skipifsilent
@@ -119,6 +122,7 @@ const
 
 var
   DownloadPage: TDownloadWizardPage;
+  UpdatesPage: TInputOptionWizardPage;
   RuntimeReady: Boolean;
 
 function MoveFileExDelete(lpExistingFileName: String; lpNewFileName: Cardinal; dwFlags: Cardinal): Boolean;
@@ -155,9 +159,40 @@ begin
   RuntimeReady := HasDesktopRuntime10;
 end;
 
+// Automatic installs were switched off in an earlier install (settings.json is written
+// by MacWin and the settings app, always as "autoInstall": true/false).
+function AutoInstallWasOff: Boolean;
+var
+  Json: AnsiString;
+  Text: String;
+begin
+  Result := False;
+  if LoadStringFromFile(ExpandConstant('{userappdata}\MacWin\settings.json'), Json) then
+  begin
+    Text := String(Json);
+    StringChangeEx(Text, ' ', '', True);
+    Result := Pos('"autoInstall":false', Text) > 0;
+  end;
+end;
+
 procedure InitializeWizard;
 begin
   DownloadPage := CreateDownloadPage(SetupMessage(msgWizardPreparing), CustomMessage('DotNetDownloading'), nil);
+  // After the tasks: one check box, on unless this user turned it off before.
+  UpdatesPage := CreateInputOptionPage(wpSelectTasks, CustomMessage('UpdatesTitle'), CustomMessage('UpdatesSubtitle'),
+                                       CustomMessage('UpdatesText'), False, False);
+  UpdatesPage.Add(CustomMessage('UpdatesAuto'));
+  UpdatesPage.Values[0] := not AutoInstallWasOff;
+end;
+
+// --configure arguments for the "Automatic updates" page. Off keeps the daily check: the
+// settings window then offers each new version.
+function UpdateSettings(Param: String): String;
+begin
+  if UpdatesPage.Values[0] then
+    Result := 'updateCheck=1 updateAutoInstall=1'
+  else
+    Result := 'updateAutoInstall=0';
 end;
 
 // Runs the Microsoft runtime installer quietly. 3010 = done, restart pending; 1638 =

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Tests of the settings app's logic that needs no window (ctest runs it as "settings").
+       It compiles the app's own files, so no NuGet package is needed. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MacWin.Settings.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\..\settings-app\Services\PrivacyEngine.cs" Link="App\PrivacyEngine.cs" />
+    <Compile Include="..\..\settings-app\Services\PrivacyCatalog.cs" Link="App\PrivacyCatalog.cs" />
+  </ItemGroup>
+
+</Project>
