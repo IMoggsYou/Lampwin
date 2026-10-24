@@ -72,6 +72,11 @@ public partial class MainWindow : Window
             },
             new()
             {
+                Id = "icons", TitleKey = "settings.nav.icons",
+                Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Icon = AppGridIcon(), Create = () => new AppIconsPage(),
+            },
+            new()
+            {
                 Id = "general", TitleKey = "settings.nav.general",
                 Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Icon = SlidersIcon(), Create = () => new GeneralPage(),
             },
@@ -140,6 +145,8 @@ public partial class MainWindow : Window
             }
             await Task.Delay(450);   // after the window's own opening animation
             OfferUpdate();
+            // Icons that came with MacWin (or with an update of it) go to their programs.
+            _ = AppIconActions.EnsureBundledAsync(_store.Model);
         };
         UpdateSheet.Finished += install =>
         {
@@ -426,6 +433,15 @@ public partial class MainWindow : Window
         g.Children.Add(new RectangleGeometry(new Rect(1.5, 1.5, 5.8, 5.8), 1.7, 1.7));
         g.Children.Add(new RectangleGeometry(new Rect(8.7, 1.5, 5.8, 5.8), 1.7, 1.7));
         g.Children.Add(new RectangleGeometry(new Rect(1.5, 8.7, 13, 5.8), 1.7, 1.7));
+        return g;
+    }
+
+    // Four app icons in a grid.
+    private static Geometry AppGridIcon()
+    {
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        foreach (var (x, y) in new[] { (1.5, 1.5), (8.7, 1.5), (1.5, 8.7), (8.7, 8.7) })
+            g.Children.Add(new RectangleGeometry(new Rect(x, y, 5.8, 5.8), 1.9, 1.9));
         return g;
     }
 

@@ -1,0 +1,101 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin -->
+
+<UserControl x:Class="MacWin.Settings.Pages.AppIconsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
+    <StackPanel>
+        <Border Style="{StaticResource Group}">
+            <c:SettingRow Title="{l:Tr settings.icons.enabled.title}" Description="{l:Tr settings.icons.enabled.description}">
+                <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding AppIcons}"/>
+            </c:SettingRow>
+        </Border>
+
+        <!-- Explorer keeps a pinned program's old icon until it restarts: offered after a change -->
+        <Border x:Name="TaskbarBar" Style="{StaticResource Group}" Visibility="Collapsed">
+            <c:SettingRow Title="{l:Tr settings.icons.taskbar.title}" Description="{l:Tr settings.icons.taskbar.description}">
+                <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.icons.taskbar.button}" Click="Refresh_Click"/>
+            </c:SettingRow>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.icons.manage.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow x:Name="SetsRow" Title="{l:Tr settings.icons.sets.title}"
+                              Description="{l:Tr settings.icons.sets.description}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="SaveSetButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Content="{l:Tr settings.icons.sets.save}" Click="SaveSet_Click"/>
+                        <Button x:Name="LoadSetButton" Style="{StaticResource MacButton}"
+                                Content="{l:Tr settings.icons.sets.load}" Click="LoadSet_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow x:Name="MatchRow" Title="{l:Tr settings.icons.match.title}"
+                              Description="{l:Tr settings.icons.match.description}">
+                    <Button x:Name="MatchButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.icons.match.button}" Click="Match_Click"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow x:Name="WindowsRow" Title="{l:Tr settings.icons.windows.title}"
+                              Description="{l:Tr settings.icons.windows.description}">
+                    <Button x:Name="WindowsButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.icons.windows.button}" Click="WindowsIcons_Click"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.icons.removeAll.title}"
+                              Description="{l:Tr settings.icons.removeAll.description}">
+                    <Button x:Name="RemoveAllButton" Style="{StaticResource MacButton}"
+                            Content="{l:Tr settings.icons.removeAll.button}" Click="RemoveAll_Click"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.icons.library.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow x:Name="ImportRow" Title="{l:Tr settings.icons.import.title}"
+                              Description="{l:Tr settings.icons.import.description}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button x:Name="ImportFilesButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Content="{l:Tr settings.icons.import.files}" Click="ImportFiles_Click"/>
+                        <Button x:Name="ImportFolderButton" Style="{StaticResource MacButton}"
+                                Content="{l:Tr settings.icons.import.folder}" Click="ImportFolder_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <TextBlock x:Name="EmptyText" Style="{StaticResource Text.Secondary}" Margin="14,14,14,16"
+                           Text="{l:Tr settings.icons.empty}"/>
+                <ItemsControl x:Name="Rows" Focusable="False">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="14,7,14,7">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Image Width="40" Height="40" Source="{Binding Preview}" RenderOptions.BitmapScalingMode="HighQuality"/>
+                                <StackPanel Grid.Column="1" Margin="12,0,12,0" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Name}" FontSize="13" Foreground="{DynamicResource Brush.Text}"
+                                               TextTrimming="CharacterEllipsis"/>
+                                    <TextBlock Text="{Binding Status}" Style="{StaticResource Text.Secondary}" Margin="0,2,0,0"
+                                               TextTrimming="CharacterEllipsis"/>
+                                </StackPanel>
+                                <ComboBox Grid.Column="2" Style="{StaticResource MacComboBox}" Width="230"
+                                          ItemsSource="{Binding Options}" DisplayMemberPath="Label"
+                                          SelectedItem="{Binding Selected, Mode=TwoWay}" VerticalAlignment="Center"/>
+                                <Button Grid.Column="3" Style="{StaticResource ListToolButton}" Content="−" Margin="8,0,0,0"
+                                        VerticalAlignment="Center" Click="Remove_Click"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+        <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.icons.footnote}"/>
+    </StackPanel>
+</UserControl>

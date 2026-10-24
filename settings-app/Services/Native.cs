@@ -20,6 +20,16 @@ internal static class Native
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern IntPtr FindWindow(string? className, string? windowName);
 
+    // The shell redraws a changed shortcut's icon (App icons).
+    internal const int SHCNE_UPDATEITEM = 0x00002000, SHCNE_ASSOCCHANGED = 0x08000000;
+    internal const uint SHCNF_IDLIST = 0x0000, SHCNF_PATHW = 0x0005;
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    internal static extern void SHChangeNotify(int eventId, uint flags, string item1, IntPtr item2);
+
+    [DllImport("shell32.dll")]
+    internal static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern uint RegisterWindowMessage(string name);
 

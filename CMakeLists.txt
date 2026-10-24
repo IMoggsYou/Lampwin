@@ -70,7 +70,8 @@ add_library(MacWinHook SHARED
   src/hook/capture.cpp
   src/hook/ipc_client.cpp
   src/hook/effects/genie_hooks.cpp
-  src/hook/effects/corners.cpp)
+  src/hook/effects/corners.cpp
+  src/hook/effects/icons.cpp)
 set_target_properties(MacWinHook PROPERTIES OUTPUT_NAME MacWinHook${MACWIN_BITS} PREFIX "")
 target_include_directories(MacWinHook PRIVATE src)
 target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)

@@ -8,6 +8,9 @@ using System.Runtime.CompilerServices;
 
 namespace MacWin.Settings;
 
+/// <summary>A program (lowercase file name) and the library icon it shows.</summary>
+public sealed record AppIconChoice(string Program, string IconId);
+
 /// <summary>Everything the pages bind to. Mirrors settings.json (see SettingsStore).</summary>
 public sealed class SettingsModel : INotifyPropertyChanged
 {
@@ -19,6 +22,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
     {
         foreach (var list in new[] { DevAllowlist, NoInject, Excluded })
             list.CollectionChanged += (_, _) => Changed?.Invoke();
+        AppIconChoices.CollectionChanged += (_, _) => Changed?.Invoke();
         Widgets.CollectionChanged += (_, e) =>
         {
             foreach (WidgetEntry w in e.OldItems ?? Array.Empty<WidgetEntry>()) w.Changed -= OnWidgetChanged;
@@ -29,6 +33,14 @@ public sealed class SettingsModel : INotifyPropertyChanged
     }
 
     private void OnWidgetChanged() => Changed?.Invoke();
+
+    private bool _appIcons = true;
+    /// <summary>Programs show the icons chosen on the App icons page.</summary>
+    public bool AppIcons { get => _appIcons; set => Set(ref _appIcons, value); }
+
+    /// <summary>Which library icon each program shows ("appIcons.apps" in settings.json).
+    /// The files themselves are in AppIconStore's folders.</summary>
+    public ObservableCollection<AppIconChoice> AppIconChoices { get; } = new();
 
     /// <summary>The widgets on the desktop, in the order they were added.</summary>
     public ObservableCollection<WidgetEntry> Widgets { get; } = new();

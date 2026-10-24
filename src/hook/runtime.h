@@ -77,6 +77,15 @@ inline bool CornersInteresting(UINT msg) {
 }
 // DefWindowProc for the messages CornersInteresting picks out.
 LRESULT CornersDefWindowProc(DefWindowProcFn original, HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+// effects/icons.cpp: app icons the user chose (see there). Runs before DefWindowProc and
+// returns the lParam to pass on: the chosen icon for WM_SETICON, else lParam unchanged.
+inline bool IconsInteresting(UINT msg) {
+    return msg == WM_SETICON || msg == WM_SHOWWINDOW || msg == WM_NCDESTROY || (g_cornersMsg && msg == g_cornersMsg);
+}
+LPARAM IconsBeforeDefWindowProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+void IconsOnActivate();   // windows that were open before MacWin came get theirs too
+void IconsOnShutdown();   // every window gets the program's own icons back
 bool CornersInstallHooks();  // DwmSetWindowAttribute (created, enabled with the rest)
 void CornersOnActivate();   // after the hooks are on
 // Before they go. False if a window of ours (a grip, which runs DLL code) is left over:

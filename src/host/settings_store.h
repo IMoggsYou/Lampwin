@@ -47,6 +47,8 @@ struct HostSettings {
     // GitHub Releases: check once a day; install without asking.
     bool updateCheck = true;
     bool updateAutoInstall = true;
+    // Own icons for programs (the settings app's App icons page manages the files).
+    bool appIcons = true;
     GenieSettings genie;
     widgets::Config widgets;
 };

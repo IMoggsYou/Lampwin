@@ -109,6 +109,16 @@ public sealed class SettingsStore
             m.CornerSmoothing = Num(genie, "cornerSmoothing", 100);
             m.WindowCorners = Bool(genie, "windowCorners", true);
             SettingsModel.Replace(m.Excluded, Strings(genie, "excludedPrograms", []));
+            var icons = _root["appIcons"] as JsonObject ?? new JsonObject();
+            m.AppIcons = Bool(icons, "enabled", true);
+            var apps = icons["apps"] as JsonObject ?? new JsonObject();
+            var choices = apps.Where(kv => kv.Value is JsonValue v && v.TryGetValue(out string? _))
+                .Select(kv => new AppIconChoice(kv.Key.ToLowerInvariant(), (string)kv.Value!)).ToList();
+            if (!choices.SequenceEqual(m.AppIconChoices))
+            {
+                m.AppIconChoices.Clear();
+                foreach (var c in choices) m.AppIconChoices.Add(c);
+            }
             var widgets = _root["widgets"] as JsonObject ?? new JsonObject();
             m.WidgetsShow = Bool(widgets, "show", true);
             m.WidgetScale = Num(widgets, "scale", 100);
@@ -167,6 +177,12 @@ public sealed class SettingsStore
         genie["windowCorners"] = m.WindowCorners;
         genie["excludedPrograms"] = Array(m.Excluded);
         _root["genie"] = genie;
+        var icons = _root["appIcons"] as JsonObject ?? new JsonObject();
+        icons["enabled"] = m.AppIcons;
+        var apps = new JsonObject();
+        foreach (var c in m.AppIconChoices) apps[c.Program] = c.IconId;
+        icons["apps"] = apps;
+        _root["appIcons"] = icons;
         _root["widgets"] = SaveWidgets(m, _root["widgets"] as JsonObject ?? new JsonObject());
 
         try

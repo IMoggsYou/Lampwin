@@ -4,10 +4,11 @@
 
 # MacWin
 
-**Efekt dżina z macOS i zaokrąglone rogi okien (squircle) — dla Windows 11.**
+**Wygląd macOS dla Windows 11: efekt dżina, rogi squircle, widżety na pulpicie i ikony aplikacji.**
 
-Okna wpadają do paska zadań jak dżin i wylatują z niego z powrotem, tak samo się otwierają
-i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open source.
+Okna wpadają do paska zadań jak dżin i wylatują z niego z powrotem, a do tego dostają miękkie
+rogi jak w macOS. Pulpit dostaje widżety z macOS, programy — wybrane przez Ciebie ikony, a
+Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 
 [![Najnowsza wersja](https://img.shields.io/github/v/release/IMoggsYou/MacWin?style=for-the-badge&logo=github&label=wersja&color=0A84FF)](https://github.com/IMoggsYou/MacWin/releases/latest)
 [![Pobrania](https://img.shields.io/github/downloads/IMoggsYou/MacWin/total?style=for-the-badge&label=pobrania&color=34C759)](https://github.com/IMoggsYou/MacWin/releases)
@@ -30,7 +31,8 @@ i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open
 
 - 🧞 **Efekt dżina** — minimalizowane okno wlewa się do swojej ikony na pasku zadań i wypływa
   z niej przy przywracaniu; rysowane na karcie graficznej płynną krzywą „lampy” (albo
-  klasycznym lejkiem).
+  klasycznym lejkiem), a cień okna leci razem z nim. Wolisz coś spokojniejszego? Efekt
+  **Skalowanie** zmniejsza okno do ikony jednym miękkim ruchem.
 - 🪟 **Otwieranie i zamykanie** okien efektem dżina, z ikony programu i do niej.
 - ↩️ **Odwracanie w locie** — kliknij jeszcze raz w trakcie, a dżin zawróci dokładnie z tego
   miejsca. Win+D animuje wszystkie okna naraz.
@@ -41,11 +43,21 @@ i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open
   zdjęcie, w trzech rozmiarach, jasne albo ciemne. Leżą na pulpicie pod oknami i układają
   się w siatce jak w macOS; przeciągnij je w dowolne miejsce, prawy przycisk zmienia rozmiar
   i wygląd.
+- 🎨 **Ikony aplikacji** — daj dowolnemu programowi własną ikonę: na jego oknach, w Alt+Tab,
+  na pasku zadań i w menu Start. Dodaj ikony z macOS (`.icns`), PNG, JPEG, WebP, HEIC, ICO
+  albo weź ikonę z innego programu; MacWin przycina ją do wielkości ikon Windows i sam
+  znajduje program po nazwie pliku. Zestaw ikon w stylu macOS jest w komplecie. Zapisz
+  swoje ustawienie jako **zestaw ikon**, wróć do **ikon Windows** jednym kliknięciem albo
+  usuń wszystko.
+- 🔒 **Przełączniki prywatności** — wyłącz telemetrię Windows, identyfikator reklamowy,
+  reklamy i porady w menu Start i na ekranie blokady, wyniki z internetu w wyszukiwaniu,
+  Copilota, Recall i więcej. Każda wartość jest najpierw zapisywana, a **Przywróć** cofa
+  wszystko; Windows Update, Defender, SmartScreen i zapora nie są nigdy ruszane.
 - ⚙️ **Okno ustawień jak Ustawienia systemowe macOS** — podgląd na żywo, wyszukiwarka, jasny
   i ciemny motyw, wykluczenia programów.
 - 🌍 **11 języków**, wybieranych automatycznie z Windows (zobacz [Języki](#języki)).
-- 🔄 **Automatyczne aktualizacje** z GitHuba, sprawdzane sumą SHA-256 — jednym kliknięciem
-  albo w pełni automatycznie.
+- 🔄 **Automatyczne aktualizacje** z GitHuba, sprawdzane sumą SHA-256 — instalowane w tle
+  albo proponowane z krótkim „co nowego” przy otwarciu ustawień.
 - 🚀 **Startuje razem z Windows**, siedzi w obszarze powiadomień, w spoczynku nie używa
   procesora.
 - 🛡️ **Bezpieczny z założenia** — nie wchodzi do procesów systemowych ani gier z anty-cheatem,
@@ -57,8 +69,17 @@ i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open
 ## Zrzuty ekranu
 
 <p align="center">
-  <img src="docs/media/settings-light.png" width="49%" alt="Ustawienia MacWin, jasny motyw">
-  <img src="docs/media/settings-dark.png" width="49%" alt="Ustawienia MacWin, ciemny motyw">
+  <img src="docs/media/settings-light.png" width="49%" alt="Animacje okien: podgląd dżina na żywo i trzy style">
+  <img src="docs/media/settings-dark.png" width="49%" alt="Rogi okien w ciemnym motywie: squircle z macOS albo rogi Windows 11">
+</p>
+
+<p align="center">
+  <img src="docs/media/app-icons.png" width="49%" alt="Ikony aplikacji: ikony z macOS dla Signala, Spotify, Steama, Telegrama i VS Code">
+  <img src="docs/media/privacy.png" width="49%" alt="Prywatność: przełączniki danych diagnostycznych Windows, z kopią i przywracaniem">
+</p>
+
+<p align="center">
+  <img src="docs/media/widgets.png" width="860" alt="Widżety na pulpicie: zegary, kalendarze, pogoda, wskaźniki systemu i notatka">
 </p>
 
 ## Instalacja
@@ -82,7 +103,7 @@ i zamykają, a do tego dostają miękkie rogi jak w macOS. Lekki, darmowy i open
 | --- | --- |
 | Windows | Windows 11 (zalecany 22H2 lub nowszy), 64-bitowy **x64** |
 | Grafika | Dowolna: AMD, Intel, NVIDIA albo żadna (Direct3D 11 / WARP) |
-| Dysk | ok. 5 MB (+ .NET 10 Desktop Runtime dla okna ustawień) |
+| Dysk | ok. 20 MB, głównie dołączone ikony (+ .NET 10 Desktop Runtime dla okna ustawień) |
 | Jeszcze nieobsługiwane | Windows na ARM (komputery ze Snapdragonem) |
 
 ### Odinstalowanie
@@ -143,6 +164,8 @@ MacWin niczego nie zbiera. Łączy się z internetem tylko w dwóch sprawach:
   nie jest wysyłane i nie trzeba żadnego konta ani klucza. Część z lokalizacją wyłącza
   przełącznik w Windows (**Ustawienia → Prywatność i zabezpieczenia → Lokalizacja**).
 
+Ikony aplikacji i strona Prywatność działają w całości na Twoim komputerze.
+
 ## Pytania i odpowiedzi
 
 <details>
@@ -175,6 +198,30 @@ przy każdym logowaniu.
 
 Okna z systemowym paskiem tytułu psują się po zmianie kształtu. MacWin daje squircle
 dżinowi, swojemu oknu i programom, które same rysują pasek tytułu.
+</details>
+
+<details>
+<summary><b>Jak przywrócić programowi jego własną ikonę?</b></summary>
+
+W **Ustawienia → Ikony aplikacji** wybierz **Brak programu** obok ikony albo naciśnij
+**Użyj ikon Windows**, żeby wszystkie programy dostały z powrotem swoje ikony (Twoje ikony
+zostają na liście). Przypięte ikony na pasku zadań odświeżają się po **Uruchom ponownie
+Eksplorator**.
+</details>
+
+<details>
+<summary><b>Czy strona Prywatność zepsuje Windows Update albo antywirusa?</b></summary>
+
+Nie. Ma tylko przełączniki telemetrii, reklam i podobnych funkcji, nigdy Windows Update,
+Microsoft Defendera, SmartScreena, zapory ani UAC. Każda wartość jest zapisywana przed
+zmianą, a **Przywróć** odtwarza dokładnie to, co było.
+</details>
+
+<details>
+<summary><b>Czy działa z kilkoma monitorami i automatycznie ukrywanym paskiem zadań?</b></summary>
+
+Tak. Ukryty pasek zadań wysuwa się, gdy okno się minimalizuje; przy kilku monitorach dżin
+może celować w pasek zadań na monitorze okna (Ustawienia → Animacje okien).
 </details>
 
 ## Budowanie ze źródeł

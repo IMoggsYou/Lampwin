@@ -2,7 +2,11 @@
 
     MacWin.Settings.exe --snapshot <shots>\\en-light --lang en --theme light --transparent
     (also en-dark --theme dark, and ja, ar, hi, pl light), --export-icon <shots>\\icon.png
+    MacWin.exe --widget-snapshot <shots>\\widgets-dark --lang en --theme dark
     python tools/media/compose.py <shots>
+
+Take the snapshots while MacWin is running (the sidebar shows its state), with a few
+icons given to programs on the App Icons page.
 """
 import os
 import sys
@@ -73,6 +77,19 @@ for theme, stops, blobs, page, name in (("en-light", LIGHT, LIGHT_BLOBS, 0, "set
     with_shadow(canvas, win, (1300 - win.width) // 2, (980 - win.height) // 2 - 14)
     save(canvas, name)
 
+# Pages of their own: App Icons (dark, its list of icons) and Privacy (light).
+for theme, stops, blobs, file, name in (("en-dark", DARK, DARK_BLOBS, "page3-end.png", "app-icons.png"),
+                                        ("en-light", LIGHT, LIGHT_BLOBS, "page6.png", "privacy.png")):
+    win = Image.open(os.path.join(SHOTS, theme, file)).convert("RGBA")
+    canvas = gradient(1300, 980, stops, blobs).convert("RGBA")
+    with_shadow(canvas, win, (1300 - win.width) // 2, (980 - win.height) // 2 - 14)
+    save(canvas, name)
+
+# Desktop widgets: the first rows of the widget sheet (clock, calendar, weather, gauges, note).
+sheet = Image.open(os.path.join(SHOTS, "widgets-dark", "widgets.png")).convert("RGBA")
+k = sheet.width / 1526   # the sheet's rows, measured at 1526 px wide
+save(sheet.crop((0, 0, sheet.width, int(1010 * k))), "widgets.png")
+
 # Four languages at once (Japanese, Arabic, Hindi, Polish).
 # English labels: Pillow without libraqm cannot shape Arabic or Devanagari.
 langs = [("ja", "Japanese"), ("ar", "Arabic (right-to-left)"), ("hi", "Hindi"), ("pl", "Polish")]
@@ -103,7 +120,7 @@ big_icon = icon.resize((150, 150), Image.LANCZOS)
 canvas.alpha_composite(big_icon, (70, 120))
 d = ImageDraw.Draw(canvas)
 d.text((66, 290), "MacWin", font=font("segoeuib.ttf", 92), fill=(255, 255, 255, 255))
-d.text((72, 410), "macOS-style genie animations", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
-d.text((72, 452), "and window corners for Windows 11", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
+d.text((72, 410), "The macOS look for Windows 11:", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
+d.text((72, 452), "genie, corners, widgets, app icons", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
 d.text((72, 530), "Free & open source  ·  11 languages", font=font("segoeuib.ttf", 26), fill=(170, 190, 255, 255))
 save(canvas, "social-preview.png")

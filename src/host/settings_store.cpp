@@ -268,6 +268,8 @@ void SettingsStore::Load() {
     s_.genie.cornerRadius = Clamp(g->GetInt(L"cornerRadius", d.genie.cornerRadius), 0, 40);
     s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
     s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
+    const json::Value* icons = Typed(&root, L"appIcons", json::Value::Object);
+    s_.appIcons = icons ? icons->GetBool(L"enabled", d.appIcons) : d.appIcons;
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
     s_.widgets = LoadWidgets(root.Get(L"widgets"));
     Log(L"settings: loaded %ls", path_.c_str());
@@ -316,6 +318,10 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"windowCorners", json::Bool(s.genie.windowCorners));
     json::Set(&g, L"excludedPrograms", json::Strings(s.genie.excluded));
     json::Set(&root, L"genie", g);
+    const json::Value* oldIcons = root.Get(L"appIcons");
+    json::Value icons = oldIcons && oldIcons->type == json::Value::Object ? *oldIcons : json::Object();
+    json::Set(&icons, L"enabled", json::Bool(s.appIcons));
+    json::Set(&root, L"appIcons", icons);
     json::Set(&root, L"widgets", SaveWidgets(s.widgets, root.Get(L"widgets")));
     std::wstring t = json::Serialize(root) + L"\n";
 
@@ -361,6 +367,7 @@ void SettingsStore::Write(bool enabled) {
     v->cornerRadius = s_.genie.cornerRadius;
     v->cornerSmoothing = s_.genie.cornerSmoothing;
     v->windowCorners = s_.genie.windowCorners ? 1 : 0;
+    v->appIcons = s_.appIcons ? 1 : 0;
     WriteList(v->genieExcluded, s_.genie.excluded);
     WriteList(v->noInject, s_.noInject);
     WriteList(v->devAllowlist, s_.devAllowlist);

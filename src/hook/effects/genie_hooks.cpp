@@ -861,6 +861,7 @@ inline bool DefWindowProcInteresting(UINT Msg, WPARAM wParam) {
 
 // Called for every message of every window: the fast path is a few compares and a jump.
 LRESULT WINAPI DefWindowProcW_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+    if (IconsInteresting(Msg)) lParam = IconsBeforeDefWindowProc(hWnd, Msg, wParam, lParam);
     if (!DefWindowProcInteresting(Msg, wParam)) {
         if (!CornersInteresting(Msg)) MW_MUSTTAIL return DefWindowProcW_Original(hWnd, Msg, wParam, lParam);
         return CornersDefWindowProc(DefWindowProcW_Original, hWnd, Msg, wParam, lParam);
@@ -869,6 +870,7 @@ LRESULT WINAPI DefWindowProcW_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lP
 }
 
 LRESULT WINAPI DefWindowProcA_Hook(HWND hWnd, UINT Msg, WPARAM wParam, LPARAM lParam) {
+    if (IconsInteresting(Msg)) lParam = IconsBeforeDefWindowProc(hWnd, Msg, wParam, lParam);
     if (!DefWindowProcInteresting(Msg, wParam)) {
         if (!CornersInteresting(Msg)) MW_MUSTTAIL return DefWindowProcA_Original(hWnd, Msg, wParam, lParam);
         return CornersDefWindowProc(DefWindowProcA_Original, hWnd, Msg, wParam, lParam);
