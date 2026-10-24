@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-24
+
 ### Added
 
 - The installer has an **Automatic updates** page: leave it on and new versions download
@@ -155,7 +157,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/IMoggsYou/MacWin/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/IMoggsYou/MacWin/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/IMoggsYou/MacWin/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/IMoggsYou/MacWin/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/IMoggsYou/MacWin/compare/v1.0.1...v1.0.2
