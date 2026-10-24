@@ -582,6 +582,11 @@ bool Renderer::CreateSlotTargets(Slot* s) {
 // Ghost windows are reused; buffers only ever grow (in 128 px steps), so a typical
 // animation reuses everything and starts without any allocation.
 Renderer::Slot* Renderer::AcquireSlot(int w, int h) {
+    // Beyond what a texture can be: a bogus geometry, never worth a resize attempt.
+    if (w <= 0 || h <= 0 || w > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION || h > D3D11_REQ_TEXTURE2D_U_OR_V_DIMENSION) {
+        Log(L"render: canvas %d x %d refused", w, h);
+        return nullptr;
+    }
     Slot* s = nullptr;
     for (auto& candidate : slots_) {
         if (!candidate->busy) {
@@ -608,14 +613,31 @@ Renderer::Slot* Renderer::AcquireSlot(int w, int h) {
         HRESULT hr = s->swap->ResizeBuffers(2, (UINT)nw, (UINT)nh, DXGI_FORMAT_B8G8R8A8_UNORM, 0);
         if (FAILED(hr)) {
             Log(L"render: ResizeBuffers(%d x %d) failed: 0x%08lX", nw, nh, (unsigned long)hr);
+            // The buffers keep their old size: give the slot its targets back, or every
+            // later animation drawn in it would fail too.
+            if (!CreateSlotTargets(s)) DropSlot(s);
             return nullptr;
         }
         s->allocW = nw;
         s->allocH = nh;
-        if (!CreateSlotTargets(s)) return nullptr;
+        if (!CreateSlotTargets(s)) {
+            DropSlot(s);
+            return nullptr;
+        }
     }
     s->busy = true;
     return s;
+}
+
+// A slot that can no longer be drawn in goes away; the next animation makes a new one.
+void Renderer::DropSlot(Slot* s) {
+    for (size_t i = 0; i < slots_.size(); ++i) {
+        if (slots_[i].get() == s) {
+            if (s->hwnd) DestroyWindow(s->hwnd);
+            slots_.erase(slots_.begin() + i);
+            return;
+        }
+    }
 }
 
 Renderer::Anim* Renderer::FindAnim(HWND hwnd) {
@@ -863,6 +885,7 @@ bool Renderer::Draw(Anim* a, float t) {
     HRESULT hr = s->swap->Present(0, 0);
     if (FAILED(hr)) {
         Log(L"render: Present failed: 0x%08lX", (unsigned long)hr);
+        s->broken = true;
         return false;
     }
     QueryPerformanceCounter(&t1);
@@ -873,8 +896,12 @@ bool Renderer::Draw(Anim* a, float t) {
 
 void Renderer::RetireAnim(Anim* a) {
     if (a->slot) {
-        ShowWindow(a->slot->hwnd, SW_HIDE);
-        a->slot->busy = false;
+        if (a->slot->broken) {
+            DropSlot(a->slot);
+        } else {
+            ShowWindow(a->slot->hwnd, SW_HIDE);
+            a->slot->busy = false;
+        }
         a->slot = nullptr;
     }
     Log(L"anim %p %ls (%ls): %d frames, %d reversal(s), %.3f ms CPU/frame, first frame %.1f ms after request",

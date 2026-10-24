@@ -9,6 +9,16 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Fixed
+
+- Animations stopped altogether after a maximized window was minimized at an unlucky
+  moment (every window then got the plain Windows animation until MacWin restarted).
+  MacWin now uses the window's real place, and an animation that can't be drawn no longer
+  breaks the next ones.
+- **Check now** works while MacWin is stopped: it starts MacWin and checks right away.
+- The mouse wheel no longer scrolls the page away from an open pop-up menu: it scrolls the
+  menu's own list, and anywhere else it closes the menu.
+
 ## [1.3.0] - 2026-10-24
 
 ### Added

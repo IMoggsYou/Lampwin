@@ -105,7 +105,7 @@ public partial class GeneralPage : UserControl
             : null;
         InstallButton.Content = Loc.F("settings.general.updates.install", latest);
         InstallButton.Visibility = WhatsNewButton.Visibility = available ? Visibility.Visible : Visibility.Collapsed;
-        CheckButton.IsEnabled = running && !working;
+        CheckButton.IsEnabled = !working && !_busy;   // with MacWin stopped, the check starts it
         InstallButton.IsEnabled = !working;
     }
 
@@ -139,8 +139,18 @@ public partial class GeneralPage : UserControl
 
     private async void Stop_Click(object sender, RoutedEventArgs e) => await Run(HostControl.StopAsync);
 
-    private void Check_Click(object sender, RoutedEventArgs e)
+    // MacWin is the one that asks GitHub: when it isn't running, the button starts it first.
+    private async void Check_Click(object sender, RoutedEventArgs e)
     {
+        if (!HostControl.IsRunning)
+        {
+            await Run(async () =>
+            {
+                HostControl.Start();
+                for (int i = 0; i < 50 && !HostControl.IsRunning; i++) await Task.Delay(200);
+            });
+            if (!HostControl.IsRunning) return;
+        }
         if (!UpdateClient.CheckNow()) return;
         _update = _update with { Status = "checking" };
         UpdateStatus();

@@ -71,6 +71,7 @@ private:
         ComPtr<ID3D11RenderTargetView> rtv;
         int allocW = 0, allocH = 0;
         bool busy = false;
+        bool broken = false;   // a frame failed in it: replaced, never used again
     };
     // One genie per window. Its direction can flip any number of times; the jobs of
     // the current direction are its waiters and are finished when it ends.
@@ -121,6 +122,7 @@ private:
     ID3D11Buffer* GridIndices(int tiles, UINT* count);
     bool PrepareSnapshot(GenieJob* job, SnapshotCache::Entry* out);
     Slot* AcquireSlot(int w, int h);
+    void DropSlot(Slot* s);
     bool SetupSlot(Slot* s);
     bool CreateSlotTargets(Slot* s);
     Anim* FindAnim(HWND hwnd);
