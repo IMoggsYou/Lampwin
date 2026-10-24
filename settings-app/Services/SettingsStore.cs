@@ -93,7 +93,7 @@ public sealed class SettingsStore
             m.UpdateCheck = Bool(updates, "check", true);
             m.UpdateAutoInstall = Bool(updates, "autoInstall", false);
             var genie = _root["genie"] as JsonObject ?? new JsonObject();
-            m.Style = Str(genie, "style", "modern") == "classic" ? 1 : 0;
+            m.Style = Math.Max(0, System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "modern")));
             m.DurationMs = Num(genie, "durationMs", 450);
             m.Restore = Bool(genie, "restoreAnimation", true);
             m.OpenEffect = Effect(genie, "openAnimation", 1);
@@ -148,7 +148,7 @@ public sealed class SettingsStore
         updates["autoInstall"] = m.UpdateAutoInstall;
         _root["updates"] = updates;
         var genie = _root["genie"] as JsonObject ?? new JsonObject();
-        genie["style"] = m.Style == 1 ? "classic" : "modern";
+        genie["style"] = SettingsModel.StyleNames[m.Style];
         genie["durationMs"] = (int)m.DurationMs;
         genie["restoreAnimation"] = m.Restore;
         genie.Remove("launchAnimation");

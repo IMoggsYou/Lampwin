@@ -37,6 +37,7 @@
 #include <MinHook.h>
 #include "common/corner_shape.h"
 #include "common/names.h"
+#include "common/shadow_look.h"
 #include "common/strutil.h"
 #include "hook/runtime.h"
 
@@ -270,28 +271,12 @@ HRGN MakeRegion(const RECT& frame, int radius, int smoothing) {
 
 const wchar_t kShadeClass[] = L"MacWinCornerShade";
 
-// A macOS-like window shadow: a broad soft layer a little below the window and a tight
-// contact layer along its edge; plus a dark 1 px edge and a faint light hairline inside
-// it (visible on dark windows), both anti-aliased.
-struct ShadeLook {
-    float sigma1, dy1, op1;   // broad shadow
-    float sigma2, dy2, op2;   // contact shadow
-    float edge, highlight;
-    int margin;               // px around the window the shade reaches
-};
+// The macOS-like window shadow, edge and hairline (common/shadow_look.h), both
+// anti-aliased. The genie draws the same shadow.
+using ShadeLook = mw::ShadowLook;
 
 ShadeLook Look(float scale) {
-    ShadeLook l;
-    l.sigma1 = 15.0f * scale;
-    l.dy1 = 7.0f * scale;
-    l.op1 = 0.32f;
-    l.sigma2 = 1.8f * scale;
-    l.dy2 = 1.0f * scale;
-    l.op2 = 0.22f;
-    l.edge = 0.30f;
-    l.highlight = 0.10f;
-    l.margin = (int)ceilf(3.0f * l.sigma1 + l.dy1) + 2;
-    return l;
+    return mw::WindowShadow(scale);
 }
 
 float Clamp01(float v) {

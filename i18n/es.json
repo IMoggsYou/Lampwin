@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "Genio clásico",
   "settings.animations.style.modern.description": "Una curva de “lámpara” fluida del motor de Potassiumuncher, dibujada en la tarjeta gráfica.",
   "settings.animations.style.classic.description": "El efecto de embudo original de la primera versión del mod, con un desvanecimiento al final.",
+  "settings.animations.style.scale": "Escala",
+  "settings.animations.style.scale.description": "La ventana se encoge hacia su icono de la barra de tareas en un solo movimiento suave y se desvanece, como el efecto escala de macOS.",
   "settings.animations.duration.title": "Duración",
   "settings.animations.duration.description": "Cuánto tarda una ventana en caer a la barra de tareas y en volver.",
   "settings.animations.mesh.title": "Calidad de la malla",

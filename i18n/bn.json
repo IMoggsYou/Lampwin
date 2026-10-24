@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "ক্লাসিক জিনি",
   "settings.animations.style.modern.description": "Potassiumuncher-এর ইঞ্জিনের মসৃণ “প্রদীপ” বক্ররেখা, যা গ্রাফিক্স কার্ডে আঁকা হয়।",
   "settings.animations.style.classic.description": "মডের প্রথম সংস্করণের মূল ফানেল ইফেক্ট, শেষে ধীরে ধীরে মিলিয়ে যায়।",
+  "settings.animations.style.scale": "স্কেল",
+  "settings.animations.style.scale.description": "উইন্ডোটি এক মসৃণ গতিতে ছোট হয়ে টাস্কবারে তার আইকনে চলে যায় এবং মিলিয়ে যায়, macOS-এর স্কেল ইফেক্টের মতো।",
   "settings.animations.duration.title": "সময়কাল",
   "settings.animations.duration.description": "একটি উইন্ডো টাস্কবারে ঢুকতে এবং সেখান থেকে ফিরে আসতে কত সময় নেয়।",
   "settings.animations.mesh.title": "মেশের মান",

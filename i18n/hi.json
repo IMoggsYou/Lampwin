@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "क्लासिक जिनी",
   "settings.animations.style.modern.description": "Potassiumuncher के इंजन से बना एक सहज “लैंप” वक्र, जो ग्राफ़िक्स कार्ड पर बनाया जाता है।",
   "settings.animations.style.classic.description": "मॉड के पहले संस्करण का मूल फ़नल प्रभाव, जो अंत में धीरे-धीरे ओझल हो जाता है।",
+  "settings.animations.style.scale": "स्केल",
+  "settings.animations.style.scale.description": "विंडो एक सहज गति में सिकुड़कर टास्कबार पर अपने आइकन में चली जाती है और धीरे-धीरे ओझल हो जाती है, macOS के स्केल प्रभाव की तरह।",
   "settings.animations.duration.title": "अवधि",
   "settings.animations.duration.description": "किसी विंडो को टास्कबार में जाने और वापस आने में कितना समय लगता है।",
   "settings.animations.mesh.title": "मेश गुणवत्ता",

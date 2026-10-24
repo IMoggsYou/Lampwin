@@ -9,6 +9,31 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- A third animation style, **Scale**: the window shrinks into its taskbar icon in one
+  smooth glide and melts away, like the scale effect of macOS (Settings → Animations).
+
+### Changed
+
+- The animations are smoother and more polished: the window starts and stops moving
+  more gently, melts into its taskbar icon instead of vanishing at the last moment, and
+  keeps its shadow all the way, so the shadow no longer disappears when the animation
+  starts or pops in when it ends.
+- The settings feel smoother: a click on a slider's track glides the knob there, the knob
+  grows evenly with a soft spring under the pointer and while you hold it, and buttons,
+  lists and pop-up buttons fade between their states.
+- The live preview shows every style the way the desktop does: the window slips under the
+  taskbar into its icon (the classic one used to fall off the bottom of the picture).
+
+### Fixed
+
+- The live preview in **Settings → Animations** has rounded corners again, instead of
+  square ones sticking out of its card.
+- After **Show desktop** (Win+D), a window that opened, closed or minimized was animated
+  under the desktop widgets; the animation now covers them from the first frame, like the
+  window itself.
+
 ## [1.1.0] - 2026-10-24
 
 ### Added

@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "クラシックなジニー",
   "settings.animations.style.modern.description": "Potassiumuncher のエンジンによる滑らかな「ランプ」カーブで、グラフィックス カードで描画されます。",
   "settings.animations.style.classic.description": "Mod の最初のバージョンのオリジナルの漏斗効果で、最後にフェードアウトします。",
+  "settings.animations.style.scale": "スケール",
+  "settings.animations.style.scale.description": "ウィンドウがひと続きの滑らかな動きでタスク バーのアイコンへ縮小し、溶けるように消えます。macOS のスケールエフェクトと同じです。",
   "settings.animations.duration.title": "時間",
   "settings.animations.duration.description": "ウィンドウがタスク バーに吸い込まれ、そこから戻るまでの時間です。",
   "settings.animations.mesh.title": "メッシュの品質",

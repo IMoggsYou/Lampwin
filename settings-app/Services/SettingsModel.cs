@@ -101,23 +101,23 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public ObservableCollection<string> Excluded { get; } = new();
 
     private int _style;
-    /// <summary>0 = modern (Potassiumuncher), 1 = classic (original).</summary>
+    /// <summary>0 = modern (Potassiumuncher), 1 = classic (original), 2 = scale.</summary>
     public int Style
     {
         get => _style;
         set
         {
-            if (Set(ref _style, Math.Clamp(value, 0, 1)))
+            if (Set(ref _style, Math.Clamp(value, 0, StyleNames.Length - 1)))
             {
                 Raise(nameof(IsModern));
                 Raise(nameof(StyleDescription));
             }
         }
     }
+    /// <summary>settings.json names of the styles, by index.</summary>
+    public static readonly string[] StyleNames = { "modern", "classic", "scale" };
     public bool IsModern => _style == 0;
-    public string StyleDescription => Loc.T(_style == 0
-        ? "settings.animations.style.modern.description"
-        : "settings.animations.style.classic.description");
+    public string StyleDescription => Loc.T($"settings.animations.style.{StyleNames[_style]}.description");
 
     private double _durationMs = 450;
     public double DurationMs { get => _durationMs; set => Set(ref _durationMs, Math.Round(Math.Clamp(value, 50, 2000))); }

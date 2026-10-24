@@ -6,6 +6,7 @@
 #include "host/render/genie_effect.h"
 #include <shellscalingapi.h>
 #include <math.h>
+#include "common/shadow_look.h"
 
 #define COMPAT_TASKBAR_HEIGHT 70
 #define COMPAT_ICON_SIZE 33
@@ -50,6 +51,16 @@ void ClampGenieCanvas(int& left, int& top, int& right, int& bottom, const RECT& 
     if (bottom < winRect.bottom) bottom = winRect.bottom;
     if (left > dockX - 16) left = dockX - 16;   // icon rect is dockX +- 11
     if (right < dockX + 16) right = dockX + 16;
+}
+
+// Room for the window's shadow around the canvas.
+void PadForShadow(const GenieParams& g, int& left, int& top, int& right, int& bottom) {
+    if (g.shadowScale <= 0.0f) return;
+    const int m = mw::WindowShadow(g.shadowScale).margin;
+    left -= m;
+    top -= m;
+    right += m;
+    bottom += m;
 }
 
 void SetCanvas(GenieParams* out, int left, int top, int right, int bottom) {
@@ -108,6 +119,26 @@ void ClassicVertex(float tx, float ty, float tt, const Geometry& w, const Geomet
     *outY = y;
 }
 
+float Smoothstep(float a, float b, float x) {
+    float s = (x - a) / (b - a);
+    s = s < 0.0f ? 0.0f : (s > 1.0f ? 1.0f : s);
+    return s * s * (3.0f - 2.0f * s);
+}
+
+// The scale effect: the window shrinks to the end rect `e` (its shape fitted into the
+// icon). The size leads - the window first draws back, then glides - and both settle
+// together, so the motion feels like one gesture rather than a slide.
+void ScaleVertex(float tx, float ty, float t, const Geometry& w, const Geometry& e, float* outX, float* outY) {
+    const float size = 1.0f - (1.0f - t) * (1.0f - t);
+    const float pos = t * t * (3.0f - 2.0f * t);
+    const float cx = w.x + w.width * 0.5f + (e.x + e.width * 0.5f - w.x - w.width * 0.5f) * pos;
+    const float cy = w.y + w.height * 0.5f + (e.y + e.height * 0.5f - w.y - w.height * 0.5f) * pos;
+    const float width = w.width + (e.width - w.width) * size;
+    const float height = w.height + (e.height - w.height) * size;
+    *outX = cx + (tx - 0.5f) * width;
+    *outY = cy + (ty - 0.5f) * height;
+}
+
 }  // namespace
 
 HWND FindTaskbarForMonitor(HMONITOR hMon) {
@@ -151,6 +182,35 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
     RECT monUnion = GetGenieMonitorUnion(r, hMon);
     out->style = style;
     out->win = wGeom;
+    UINT dpiX = 96, dpiY = 96;
+    if (FAILED(GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) dpiY = 96;
+    const float dpiScale = dpiY / 96.0f;
+
+    if (style == kGenieScale) {
+        // Into the middle of the icon, or of the taskbar above the guessed x.
+        float cx = (float)dockX, cy;
+        if (dock.hasRect) {
+            cy = (float)dock.y;
+        } else if (haveTray) {
+            cy = (tr.top + tr.bottom) * 0.5f;
+        } else {
+            cy = (float)mon.bottom - COMPAT_TASKBAR_HEIGHT * 0.5f * dpiScale;
+        }
+        // The window's own shape, as large as the icon.
+        const float icon = dock.hasRect && dock.size > 0 ? (float)dock.size : 24.0f * dpiScale;
+        const float ew = w >= h ? icon : icon * w / h;
+        const float eh = w >= h ? icon * h / w : icon;
+        out->icon = {cx - ew * 0.5f, cy - eh * 0.5f, ew, eh};
+
+        int left = (int)fminf(wGeom.x, out->icon.x);
+        int top = (int)fminf(wGeom.y, out->icon.y);
+        int right = (int)ceilf(fmaxf(wGeom.x + wGeom.width, out->icon.x + ew));
+        int bottom = (int)ceilf(fmaxf(wGeom.y + wGeom.height, out->icon.y + eh));
+        PadForShadow(*out, left, top, right, bottom);
+        ClampGenieCanvas(left, top, right, bottom, r, (int)cx, monUnion);
+        SetCanvas(out, left, top, right, bottom);
+        return true;
+    }
 
     if (style == kGenieClassic) {
         // Funnel to the taskbar edge of the monitor (top if the taskbar is in the upper
@@ -178,14 +238,12 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
         int right = ((r.left + w) > dockX ? (r.left + w) : dockX) + w / 2;
         int top = r.top < (int)dockY ? r.top : (int)dockY;
         int bottom = (r.top + h) > (int)dockY ? (r.top + h) : (int)dockY;
+        PadForShadow(*out, left, top, right, bottom);
         ClampGenieCanvas(left, top, right, bottom, r, dockX, monUnion);
         SetCanvas(out, left, top, right, bottom);
         return true;
     }
 
-    UINT dpiX = 96, dpiY = 96;
-    if (FAILED(GetDpiForMonitor(hMon, MDT_EFFECTIVE_DPI, &dpiX, &dpiY))) dpiY = 96;
-    float dpiScale = dpiY / 96.0f;
     float taskbarTop = haveTray ? (float)tr.top : (float)mon.bottom - COMPAT_TASKBAR_HEIGHT * dpiScale;
     // The lamp curve pours the window into the line y = icon.y, icon.width wide: with the
     // button known, that is the middle of its icon (the genie visibly goes into the icon,
@@ -204,6 +262,7 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
     int right = ((r.left + w) > dockX ? (r.left + w) : dockX) + padX;
     int top = (int)fminf(wGeom.y, iGeom.y);
     int bottom = (int)fmaxf(wGeom.y + wGeom.height, iGeom.y + iGeom.height);
+    PadForShadow(*out, left, top, right, bottom);
     ClampGenieCanvas(left, top, right, bottom, r, dockX, monUnion);
     SetCanvas(out, left, top, right, bottom);
     return true;
@@ -213,18 +272,22 @@ float GenieEase(const GenieParams& g, float raw) {
     if (raw < 0.0f) raw = 0.0f;
     if (raw > 1.0f) raw = 1.0f;
     if (g.style == kGenieClassic) return raw;
-    return raw * raw * (3.0f - 2.0f * raw);
+    return raw * raw * raw * (raw * (raw * 6.0f - 15.0f) + 10.0f);
 }
 
 float GenieFade(const GenieParams& g, float t) {
-    if (g.style != kGenieClassic || t <= 0.8f) return 1.0f;
-    float f = (1.0f - t) / 0.2f;
-    return f < 0.0f ? 0.0f : (f > 1.0f ? 1.0f : f);
+    switch (g.style) {
+        case kGenieClassic: return 1.0f - Smoothstep(0.8f, 1.0f, t);
+        case kGenieScale: return 1.0f - Smoothstep(0.6f, 1.0f, t);
+        default: return 1.0f - Smoothstep(0.92f, 1.0f, t);
+    }
 }
 
 void GenieVertex(const GenieParams& g, float tx, float ty, float t, float* outX, float* outY) {
     if (g.style == kGenieClassic) {
         ClassicVertex(tx, ty, t, g.win, g.icon, outX, outY);
+    } else if (g.style == kGenieScale) {
+        ScaleVertex(tx, ty, t, g.win, g.icon, outX, outY);
     } else {
         LampVertexMacOS(tx, ty, t, g.win, g.icon, outX, outY);
     }

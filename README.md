@@ -29,7 +29,9 @@ and get soft macOS-style corners. Light, free and open source.
 ## Features
 
 - 🧞 **Genie effect** — minimized windows pour into their own taskbar icon and flow back out
-  on restore, drawn on the GPU with a smooth "lamp" curve (or the classic funnel).
+  on restore, drawn on the GPU with a smooth "lamp" curve (or the classic funnel), the
+  window's shadow travelling along. Prefer something calmer? The **scale** effect shrinks
+  the window into its icon in one soft glide.
 - 🪟 **Opening and closing** with the genie, from and into the program's taskbar icon.
 - ↩️ **Reversible mid-flight** — click again while it is still moving and the genie turns
   around from exactly where it is. Win+D animates every window at once.

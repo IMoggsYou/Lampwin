@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "经典神奇效果",
   "settings.animations.style.modern.description": "来自 Potassiumuncher 引擎的流畅“神灯”曲线，由显卡绘制。",
   "settings.animations.style.classic.description": "该模组最初版本的原始漏斗效果，结尾会淡出。",
+  "settings.animations.style.scale": "缩放效果",
+  "settings.animations.style.scale.description": "窗口以一次流畅的滑动缩小到任务栏上的图标并渐渐消失，就像 macOS 的缩放效果。",
   "settings.animations.duration.title": "时长",
   "settings.animations.duration.description": "窗口落入任务栏以及从中返回所需的时间。",
   "settings.animations.mesh.title": "网格质量",

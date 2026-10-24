@@ -181,29 +181,28 @@
     <Style x:Key="SliderThumb" TargetType="Thumb">
         <Setter Property="Template">
             <Setter.Value>
+                <!-- Grows as a whole under the pointer and while held: see SmoothSlider -->
                 <ControlTemplate TargetType="Thumb">
-                    <Grid Width="20" Height="20" RenderTransformOrigin="0.5,0.5">
-                        <Grid.RenderTransform>
-                            <ScaleTransform x:Name="Scale"/>
-                        </Grid.RenderTransform>
-                        <Ellipse Fill="#2E000000" Margin="0,1,0,-1"/>
+                    <Grid Width="20" Height="20" Background="Transparent">
+                        <Ellipse x:Name="Shade" Fill="#2E000000" Margin="0,1,0,-1"/>
                         <Ellipse Fill="{DynamicResource Brush.Knob}" Stroke="{DynamicResource Brush.ControlBorder}" StrokeThickness="0.5"/>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <!-- Held up a little: its shadow drops and softens -->
                         <Trigger Property="IsDragging" Value="True">
                             <Trigger.EnterActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1.12" Duration="0:0:0.12"/>
-                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1.12" Duration="0:0:0.12"/>
+                                        <DoubleAnimation Storyboard.TargetName="Shade" Storyboard.TargetProperty="Opacity" To="0.6"
+                                                         Duration="0:0:0.2" EasingFunction="{StaticResource EaseOut}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.EnterActions>
                             <Trigger.ExitActions>
                                 <BeginStoryboard>
                                     <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleX" To="1" Duration="0:0:0.18"/>
-                                        <DoubleAnimation Storyboard.TargetName="Scale" Storyboard.TargetProperty="ScaleY" To="1" Duration="0:0:0.18"/>
+                                        <DoubleAnimation Storyboard.TargetName="Shade" Storyboard.TargetProperty="Opacity" To="1"
+                                                         Duration="0:0:0.25" EasingFunction="{StaticResource EaseOut}"/>
                                     </Storyboard>
                                 </BeginStoryboard>
                             </Trigger.ExitActions>
@@ -213,8 +212,9 @@
             </Setter.Value>
         </Setter>
     </Style>
+    <!-- A click on the track glides the knob there (SmoothSlider) -->
     <Style x:Key="MacSlider" TargetType="Slider">
-        <Setter Property="IsMoveToPointEnabled" Value="True"/>
+        <Setter Property="c:SmoothSlider.IsEnabled" Value="True"/>
         <Setter Property="IsSnapToTickEnabled" Value="True"/>
         <Setter Property="Cursor" Value="Hand"/>
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
@@ -257,21 +257,50 @@
         <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
         <Setter Property="Template">
             <Setter.Value>
+                <!-- Hover and press fade in as layers over the face -->
                 <ControlTemplate TargetType="Button">
                     <Grid>
                         <Border CornerRadius="6" Background="#1A000000" Margin="0,0.5,0,-0.5"/>
-                        <Border x:Name="Face" CornerRadius="6" Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0.5"
+                        <Border CornerRadius="6" Background="{TemplateBinding Background}"/>
+                        <Border x:Name="Hover" CornerRadius="6" Background="{DynamicResource Brush.ControlHover}" Opacity="0"/>
+                        <Border x:Name="Press" CornerRadius="6" Background="{DynamicResource Brush.ControlPressed}" Opacity="0"/>
+                        <Border CornerRadius="6" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="0.5"
                                 Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.ControlHover}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.ControlPressed}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Press" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.06"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Press" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -290,17 +319,45 @@
                 <ControlTemplate TargetType="Button">
                     <Grid>
                         <Border CornerRadius="6" Background="#26000000" Margin="0,0.5,0,-0.5"/>
-                        <Border x:Name="Face" CornerRadius="6" Background="{TemplateBinding Background}"
-                                Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
+                        <Border CornerRadius="6" Background="{TemplateBinding Background}"/>
+                        <Border x:Name="Hover" CornerRadius="6" Background="{DynamicResource Brush.AccentHover}" Opacity="0"/>
+                        <Border x:Name="Press" CornerRadius="6" Background="{DynamicResource Brush.AccentPressed}" Opacity="0"/>
+                        <Border Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True"/>
                         </Border>
                     </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.AccentHover}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
-                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.AccentPressed}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Press" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.06"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Press" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.45"/>
@@ -321,13 +378,27 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="Button">
-                    <Border x:Name="Face" Background="Transparent" CornerRadius="4">
+                    <Grid Background="Transparent">
+                        <Border x:Name="Hover" Background="{DynamicResource Brush.ListHover}" CornerRadius="4" Opacity="0"/>
                         <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-2,0,0"/>
-                    </Border>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.ListHover}"/>
                             <Setter Property="Foreground" Value="{DynamicResource Brush.Text}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter Property="Opacity" Value="0.35"/>
@@ -634,15 +705,43 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="ListBoxItem">
-                    <Border x:Name="Bg" CornerRadius="5" Background="Transparent" Padding="{TemplateBinding Padding}">
-                        <ContentPresenter/>
-                    </Border>
+                    <Grid Background="Transparent">
+                        <Border x:Name="Hover" CornerRadius="5" Background="{DynamicResource Brush.ListHover}" Opacity="0"/>
+                        <Border x:Name="Selected" CornerRadius="5" Background="{DynamicResource Brush.ListSelected}" Opacity="0"/>
+                        <ContentPresenter Margin="{TemplateBinding Padding}"/>
+                    </Grid>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.ListHover}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                         <Trigger Property="IsSelected" Value="True">
-                            <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Brush.ListSelected}"/>
+                            <Trigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Selected" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.EnterActions>
+                            <Trigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetName="Selected" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18"/>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </Trigger.ExitActions>
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -691,16 +790,44 @@
                                 <ControlTemplate TargetType="ToggleButton">
                                     <Grid>
                                         <Border CornerRadius="6" Background="#1A000000" Margin="0,0.5,0,-0.5"/>
-                                        <Border x:Name="Face" CornerRadius="6" Background="{DynamicResource Brush.Control}"
-                                                BorderBrush="{DynamicResource Brush.ControlBorder}" BorderThickness="0.5"
+                                        <Border CornerRadius="6" Background="{DynamicResource Brush.Control}"/>
+                                        <Border x:Name="Hover" CornerRadius="6" Background="{DynamicResource Brush.ControlHover}" Opacity="0"/>
+                                        <Border x:Name="Open" CornerRadius="6" Background="{DynamicResource Brush.ControlPressed}" Opacity="0"/>
+                                        <Border CornerRadius="6" BorderBrush="{DynamicResource Brush.ControlBorder}" BorderThickness="0.5"
                                                 SnapsToDevicePixels="True"/>
                                     </Grid>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.ControlHover}"/>
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.14"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                            <Trigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="Hover" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.25"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.ExitActions>
                                         </Trigger>
                                         <Trigger Property="IsChecked" Value="True">
-                                            <Setter TargetName="Face" Property="Background" Value="{DynamicResource Brush.ControlPressed}"/>
+                                            <Trigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="Open" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.08"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.EnterActions>
+                                            <Trigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="Open" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.22"/>
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </Trigger.ExitActions>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>

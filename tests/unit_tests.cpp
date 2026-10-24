@@ -5,11 +5,13 @@
 // non-zero exit code is a failure). Build: cmake --build --preset x64; run: ctest --test-dir build/x64
 
 #include <windows.h>
+#include <math.h>
 #include <stdio.h>
 #include <string>
 #include <vector>
 #include "common/strutil.h"
 #include "host/i18n.h"
+#include "host/render/genie_effect.h"
 #include "host/json.h"
 #include "host/updater.h"
 #include "host/widgets/location.h"
@@ -268,6 +270,35 @@ void TestLocation() {
     CHECK(!ParsePlaceName(L"<html>", &name));
 }
 
+// Every style's time curve must stay symmetric (a running genie turns around without a
+// jump), and every style must start on the window and end faded out.
+void TestGenieCurves() {
+    for (int style : {kGenieModern, kGenieClassic, kGenieScale}) {
+        GenieParams g = {};
+        g.style = style;
+        for (int i = 0; i <= 20; ++i) {
+            float x = i / 20.0f;
+            CHECK(fabsf(GenieEase(g, 1.0f - x) - (1.0f - GenieEase(g, x))) < 1e-5f);
+        }
+        CHECK(GenieEase(g, 0.0f) == 0.0f && GenieEase(g, 1.0f) == 1.0f);
+        CHECK(GenieFade(g, 0.0f) == 1.0f && GenieFade(g, 1.0f) == 0.0f);
+    }
+    GenieParams g = {};
+    g.style = kGenieScale;
+    g.win = {100, 200, 800, 600};
+    g.icon = {1000, 1400, 32, 24};
+    float x, y;
+    GenieVertex(g, 0.0f, 0.0f, 0.0f, &x, &y);
+    CHECK(fabsf(x - 100) < 0.01f && fabsf(y - 200) < 0.01f);
+    GenieVertex(g, 1.0f, 1.0f, 0.0f, &x, &y);
+    CHECK(fabsf(x - 900) < 0.01f && fabsf(y - 800) < 0.01f);
+    GenieVertex(g, 0.0f, 0.0f, 1.0f, &x, &y);
+    CHECK(fabsf(x - 1000) < 0.01f && fabsf(y - 1400) < 0.01f);
+    GenieVertex(g, 1.0f, 1.0f, 1.0f, &x, &y);
+    CHECK(fabsf(x - 1032) < 0.01f && fabsf(y - 1424) < 0.01f);
+    CHECK(!GenieFrameDegenerate(g, 0.5f));
+}
+
 }  // namespace
 
 int wmain() {
@@ -282,6 +313,7 @@ int wmain() {
     TestWidgetNames();
     TestForecast();
     TestLocation();
+    TestGenieCurves();
     if (g_failures) {
         fprintf(stderr, "%d check(s) failed\n", g_failures);
         return 1;

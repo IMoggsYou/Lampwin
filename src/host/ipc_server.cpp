@@ -138,6 +138,8 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
         job->cornerRadiusPx = (float)s.genie.cornerRadius * (float)dpiY / 96.0f;
         job->cornerSmoothing = (float)s.genie.cornerSmoothing / 100.0f;
+        // A maximized window has no shadow; any other one takes its shadow along.
+        job->params.shadowScale = (float)dpiY / 96.0f;
         // Square corners asked of DWM. Not for a window MacWin cut to its corners (it has
         // a region): MacWin itself sets that preference there (see corners.cpp).
         DWORD pref = 0;
