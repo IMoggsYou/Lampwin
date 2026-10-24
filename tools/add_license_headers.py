@@ -8,7 +8,7 @@ import subprocess
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 SPDX = "SPDX-License-Identifier: GPL-3.0-or-later"
-CREDIT = "MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin"
+CREDIT = "MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin"
 PORTED = ('Portions ported from the Windhawk mod "MacOS Minimize Animation" (MIT, Abdullah Masood',
           "and Potassiumuncher); see THIRD_PARTY_NOTICES.md.")
 # Files with logic ported from the Windhawk mod (see THIRD_PARTY_NOTICES.md).

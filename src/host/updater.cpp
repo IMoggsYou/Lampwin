@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #include "host/updater.h"
 #include <bcrypt.h>
@@ -13,10 +13,10 @@
 
 namespace {
 
-const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/MacWin)";
-// After the repository is renamed to Lampwin, GitHub answers this address with a redirect
-// (followed below) and names the new repository in the download links: both are accepted.
-const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/IMoggsYou/MacWin/releases/latest";
+const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/Lampwin)";
+// The repository was called MacWin before it became Lampwin. Versions up to 1.4.0 still
+// ask the old address (GitHub redirects it) and may be handed links under either name.
+const wchar_t kLatestReleaseUrl[] = L"https://api.github.com/repos/IMoggsYou/Lampwin/releases/latest";
 const wchar_t* const kDownloadPrefixes[] = {
     L"https://github.com/IMoggsYou/MacWin/releases/download/",
     L"https://github.com/IMoggsYou/Lampwin/releases/download/",

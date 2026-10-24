@@ -1,9 +1,9 @@
 ﻿; SPDX-License-Identifier: GPL-3.0-or-later
-; MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+; MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 ; MacWin installer (Inno Setup 6.5+). Build: cmake --build --preset x64 --target MacWinSetup
 ; Output: build\installer\MacWinSetup-<version>.exe
-; Copyright (C) 2026 IMoggsYou - GPL-3.0-or-later - https://github.com/IMoggsYou/MacWin
+; Copyright (C) 2026 IMoggsYou - GPL-3.0-or-later - https://github.com/IMoggsYou/Lampwin
 
 ; The version comes from the repository's VERSION file (CMake also passes /DAppVersion).
 #ifndef AppVersion
@@ -12,7 +12,7 @@
   #expr FileClose(VersionFile)
 #endif
 #define Bin "..\build\x64\bin"
-#define RepoUrl "https://github.com/IMoggsYou/MacWin"
+#define RepoUrl "https://github.com/IMoggsYou/Lampwin"
 
 [Setup]
 AppId={{6F0B3E9A-2C47-4E7B-9C1D-5A8E2B7F4D10}

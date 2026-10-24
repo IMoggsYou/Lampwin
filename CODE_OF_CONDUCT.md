@@ -39,7 +39,7 @@ This Code of Conduct applies within all community spaces, and also applies when 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be reported to the community leaders responsible for enforcement, who for this project is the maintainer, [@IMoggsYou](https://github.com/IMoggsYou), through a private report on GitHub (please do not report in a public issue, pull request or discussion):
 
 * **About a specific comment, issue or pull request:** use the "Report content" menu on it and choose "Report to repository admins".
-* **About anything else, or if that option is not available:** use the private form at <https://github.com/IMoggsYou/MacWin/security/advisories/new> and start the title with "Code of Conduct report". Only the maintainer can see it.
+* **About anything else, or if that option is not available:** use the private form at <https://github.com/IMoggsYou/Lampwin/security/advisories/new> and start the title with "Code of Conduct report". Only the maintainer can see it.
 
 If the report is about the maintainer, report it to [GitHub Support](https://support.github.com/contact/report-abuse) instead.
 

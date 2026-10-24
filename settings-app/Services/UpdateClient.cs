@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 using System.IO;
 using System.Text;
@@ -13,7 +13,7 @@ internal static class Project
 {
     public const string Author = "IMoggsYou";
     public const string AuthorUrl = "https://github.com/IMoggsYou";
-    public const string RepoUrl = "https://github.com/IMoggsYou/MacWin";
+    public const string RepoUrl = "https://github.com/IMoggsYou/Lampwin";
     public const string ReleasesUrl = RepoUrl + "/releases";
     public const string ChangelogUrl = RepoUrl + "/blob/main/CHANGELOG.md";
     public const string IssuesUrl = RepoUrl + "/issues/new/choose";

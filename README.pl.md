@@ -10,18 +10,20 @@ Okna wpadają do paska zadań jak dżin i wylatują z niego z powrotem, a do teg
 rogi jak w macOS. Pulpit dostaje widżety z macOS, programy — wybrane przez Ciebie ikony, a
 Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 
-[![Najnowsza wersja](https://img.shields.io/github/v/release/IMoggsYou/MacWin?style=for-the-badge&logo=github&label=wersja&color=0A84FF)](https://github.com/IMoggsYou/MacWin/releases/latest)
-[![Pobrania](https://img.shields.io/github/downloads/IMoggsYou/MacWin/total?style=for-the-badge&label=pobrania&color=34C759)](https://github.com/IMoggsYou/MacWin/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/IMoggsYou/MacWin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/IMoggsYou/MacWin/actions/workflows/build.yml)
+[![Najnowsza wersja](https://img.shields.io/github/v/release/IMoggsYou/Lampwin?style=for-the-badge&logo=github&label=wersja&color=0A84FF)](https://github.com/IMoggsYou/Lampwin/releases/latest)
+[![Pobrania](https://img.shields.io/github/downloads/IMoggsYou/Lampwin/total?style=for-the-badge&label=pobrania&color=34C759)](https://github.com/IMoggsYou/Lampwin/releases)
+[![Build](https://img.shields.io/github/actions/workflow/status/IMoggsYou/Lampwin/build.yml?branch=main&style=for-the-badge&label=build)](https://github.com/IMoggsYou/Lampwin/actions/workflows/build.yml)
 [![Windows 11](https://img.shields.io/badge/Windows-11-0078D4?style=for-the-badge&logo=windows11&logoColor=white)](#wymagania)
 [![Języki](https://img.shields.io/badge/j%C4%99zyki-11-AF52DE?style=for-the-badge)](#języki)
 [![Licencja](https://img.shields.io/badge/licencja-GPL--3.0-orange?style=for-the-badge)](LICENSE)
 
-### [⬇&nbsp; Pobierz MacWin dla Windows 11](https://github.com/IMoggsYou/MacWin/releases/latest)
+### [⬇&nbsp; Pobierz MacWin dla Windows 11](https://github.com/IMoggsYou/Lampwin/releases/latest)
 
 <img src="docs/media/demo.gif" width="860" alt="Okno wpada do swojej ikony na pasku zadań efektem dżina i wylatuje z powrotem">
 
 [English](README.md) · **Polski**
+
+<sub>To repozytorium nazywało się MacWin do wersji 1.4.0; stare linki prowadzą tutaj.</sub>
 
 </div>
 
@@ -85,7 +87,7 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 ## Instalacja
 
 1. Pobierz **`MacWinSetup-x.y.z.exe`** z
-   [najnowszego wydania](https://github.com/IMoggsYou/MacWin/releases/latest).
+   [najnowszego wydania](https://github.com/IMoggsYou/Lampwin/releases/latest).
 2. Uruchom. Jeśli brakuje .NET 10 Desktop Runtime (potrzebnego oknu ustawień), instalator
    sam pobierze go od Microsoftu.
 3. Gotowe — zminimalizuj dowolne okno. MacWin startuje razem z Windows, jego ikona jest
@@ -95,7 +97,7 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 > MacWin nie ma jeszcze podpisu cyfrowego, więc Windows SmartScreen może pokazać
 > *„System Windows ochronił ten komputer”*. Kliknij **Więcej informacji → Uruchom mimo to**.
 > Każde wydanie buduje GitHub Actions z tego repozytorium, z opublikowaną sumą SHA-256
-> (`SHA256SUMS.txt`) i [poświadczeniem pochodzenia](https://github.com/IMoggsYou/MacWin/attestations).
+> (`SHA256SUMS.txt`) i [poświadczeniem pochodzenia](https://github.com/IMoggsYou/Lampwin/attestations).
 
 ### Wymagania
 
@@ -181,7 +183,7 @@ Nigdy nie wczytuj MacWin**.
 <summary><b>Coś wygląda źle. Jak to natychmiast wyłączyć?</b></summary>
 
 Naciśnij **Ctrl+Alt+Shift+F12**. MacWin się zamyka, a okna działają jak zwykle. Potem
-[zgłoś problem](https://github.com/IMoggsYou/MacWin/issues/new/choose) i dołącz dziennik
+[zgłoś problem](https://github.com/IMoggsYou/Lampwin/issues/new/choose) i dołącz dziennik
 (`%LOCALAPPDATA%\MacWin\host.log`).
 </details>
 

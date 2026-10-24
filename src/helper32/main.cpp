@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 // MacWinHelper32.exe - gets MacWinHook32.dll into 32-bit programs. Started by MacWin.exe
 // ("--instance XXXXXXXX") and gone together with it.

@@ -3,7 +3,7 @@
 ## Supported versions
 
 Only the latest release of MacWin receives security fixes. Please update to the latest
-release (see [Releases](https://github.com/IMoggsYou/MacWin/releases)) before reporting,
+release (see [Releases](https://github.com/IMoggsYou/Lampwin/releases)) before reporting,
 and say in the report which version you tested.
 
 | Version        | Supported |
@@ -15,7 +15,7 @@ and say in the report which version you tested.
 
 Please report it **privately**. Do not open a public issue, pull request or discussion.
 
-1. Go to <https://github.com/IMoggsYou/MacWin/security/advisories/new>
+1. Go to <https://github.com/IMoggsYou/Lampwin/security/advisories/new>
    ("Report a vulnerability" on the repository's Security tab).
 2. Describe the problem, the affected version, your Windows version and build, the
    steps to reproduce it, and what an attacker could achieve. A proof of concept helps.

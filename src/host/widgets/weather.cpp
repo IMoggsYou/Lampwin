@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #include "host/widgets/weather.h"
 #include <winhttp.h>
@@ -11,7 +11,7 @@ namespace widgets {
 
 namespace {
 
-const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/MacWin)";
+const wchar_t kUserAgent[] = L"MacWin/" MACWIN_VERSION_W L" (+https://github.com/IMoggsYou/Lampwin)";
 const size_t kMaxBytes = 512 * 1024;
 
 const wchar_t* const kSkyKeys[] = {

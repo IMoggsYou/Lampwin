@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #pragma once
 #include <windows.h>
 #include <string>
 #include <thread>
 
-// Updates from GitHub Releases (IMoggsYou/MacWin), in MacWin.exe so they also work
+// Updates from GitHub Releases (IMoggsYou/Lampwin), in MacWin.exe so they also work
 // without the settings app. A background thread asks the GitHub API for the latest
 // release (at most once a day, or when asked), downloads MacWinSetup-X.Y.Z.exe and
 // SHA256SUMS.txt from that release only (github.com / *.githubusercontent.com over

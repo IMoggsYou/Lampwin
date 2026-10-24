@@ -8,7 +8,7 @@ body:
       value: |
         Thanks for taking the time to report this. The more exact the details, the faster it can be fixed.
 
-        If this is a **security problem**, do not report it here. Use the [private security report](https://github.com/IMoggsYou/MacWin/security/advisories/new) instead.
+        If this is a **security problem**, do not report it here. Use the [private security report](https://github.com/IMoggsYou/Lampwin/security/advisories/new) instead.
   - type: checkboxes
     id: checks
     attributes:

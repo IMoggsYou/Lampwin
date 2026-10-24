@@ -116,7 +116,7 @@ Removed, Security). Write it for users, not for developers.
 
 ## Working with GitHub
 
-- Repository: <https://github.com/IMoggsYou/MacWin>, owned by **IMoggsYou**, who is also
+- Repository: <https://github.com/IMoggsYou/Lampwin>, owned by **IMoggsYou**, who is also
   the author named in the app, the license and the file headers. Use the
   `gh` CLI for issues, pull requests, runs and releases.
 - Commit e-mail: the GitHub noreply address that is already in `git config user.email`;

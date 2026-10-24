@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/MacWin
+// MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #include "host/elevation.h"
 #include <sddl.h>
@@ -221,7 +221,7 @@ int InstallTask(bool atLogon) {
         L"<?xml version=\"1.0\" encoding=\"UTF-16\"?>\r\n"
         L"<Task version=\"1.2\" xmlns=\"http://schemas.microsoft.com/windows/2004/02/mit/task\">\r\n"
         L"  <RegistrationInfo><Author>IMoggsYou</Author><Description>MacWin: macOS-style window animations "
-        L"(https://github.com/IMoggsYou/MacWin)</Description></RegistrationInfo>\r\n"
+        L"(https://github.com/IMoggsYou/Lampwin)</Description></RegistrationInfo>\r\n"
         L"  <Triggers>";
     if (atLogon) xml += L"<LogonTrigger><Enabled>true</Enabled><UserId>" + sid + L"</UserId></LogonTrigger>";
     xml += L"</Triggers>\r\n"
