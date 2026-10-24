@@ -8,6 +8,7 @@ this table.
 | English | pl | zh-Hans | hi | es | fr | ar | bn | ru | pt-BR | ja |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | genie (effect) | dżin (efekt dżina) | 神奇效果 | जिनी | genio (efecto genio) | Génie (effet Génie) | المارد (تأثير المارد) | জিনি | джинн (эффект джинна) | gênio (efeito gênio) | ジニー (ジニーエフェクト) |
+| scale (effect) | skalowanie (efekt skalowania) | 缩放效果 | स्केल (स्केल प्रभाव) | escala (efecto escala) | Échelle (effet Échelle) | التحجيم (تأثير التحجيم) | স্কেল (স্কেল ইফেক্ট) | уменьшение (эффект «Уменьшение») | escala (efeito Escala) | スケール (スケールエフェクト) |
 | taskbar | pasek zadań | 任务栏 | टास्कबार | barra de tareas | barre des tâches | شريط المهام | টাস্কবার | панель задач | barra de tarefas | タスク バー |
 | notification area | obszar powiadomień | 通知区域 | सूचना क्षेत्र | área de notificación | zone de notification | منطقة الإعلامات | নোটিফিকেশন এলাকা | область уведомлений | área de notificação | 通知領域 |
 | minimize | minimalizować | 最小化 | छोटा करें | minimizar | réduire | تصغير | ছোট করা | свернуть | minimizar | 最小化 |

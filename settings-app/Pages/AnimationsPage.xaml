@@ -10,7 +10,7 @@
         <!-- Live preview (a picture of a desktop: never mirrored for right-to-left languages) -->
         <Border Style="{StaticResource Group}" Padding="0" ClipToBounds="True" FlowDirection="LeftToRight">
             <Grid>
-                <Border CornerRadius="9" ClipToBounds="True">
+                <Border c:RoundClip.Radius="9">
                     <c:GeniePreview Height="240" GenieStyle="{Binding Style}" DurationMs="{Binding DurationMs}"
                                     Tiles="{Binding MeshQuality}" CornerRadiusPx="{Binding CornerRadius}"
                                     CornerSmoothing="{Binding CornerSmoothing}"/>
@@ -26,11 +26,11 @@
         <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.animations.appearance}"/>
         <Border Style="{StaticResource Group}">
             <StackPanel>
-                <c:SettingRow Title="{l:Tr settings.animations.style.title}" Description="{Binding StyleDescription}">
-                    <c:SegmentedControl MinWidth="230"
-                                        ItemKeys="settings.animations.style.modern|settings.animations.style.classic"
-                                        SelectedIndex="{Binding Style, Mode=TwoWay}"/>
-                </c:SettingRow>
+                <!-- Three styles: the choice gets the row's full width, under its description -->
+                <c:SettingRow Title="{l:Tr settings.animations.style.title}" Description="{Binding StyleDescription}"/>
+                <c:SegmentedControl Margin="14,0,14,12"
+                                    ItemKeys="settings.animations.style.modern|settings.animations.style.classic|settings.animations.style.scale"
+                                    SelectedIndex="{Binding Style, Mode=TwoWay}"/>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="{l:Tr settings.animations.duration.title}"
                               Description="{l:Tr settings.animations.duration.description}">

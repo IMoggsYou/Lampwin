@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Effects;
 using System.Windows.Media.Imaging;
 using System.Windows.Media.Media3D;
 using System.Windows.Shapes;
@@ -108,14 +109,18 @@ public sealed class GeniePreview : Grid
         Canvas.SetTop(_indicator, TaskbarHeight - 4);
         _icons.Children.Add(_indicator);
         _taskbar.Child = _icons;
-        _scene.Children.Add(_taskbar);
 
         _view.Camera = _camera;
         RenderOptions.SetBitmapScalingMode(_texture, BitmapScalingMode.HighQuality);
         var material = new DiffuseMaterial(_texture);
         _view.Children.Add(new ModelVisual3D { Content = new AmbientLight(Colors.White) });
         _view.Children.Add(new ModelVisual3D { Content = new GeometryModel3D(_mesh, material) { BackMaterial = material } });
+        // The window keeps its shadow all the way, as in the real animation.
+        _view.Effect = new DropShadowEffect { Color = Colors.Black, Direction = 270, ShadowDepth = 2.5, BlurRadius = 16, Opacity = 0.32 };
         _scene.Children.Add(_view);
+        // The taskbar over the window, as on the real desktop: the window slips under it
+        // into its icon.
+        _scene.Children.Add(_taskbar);
 
         Children.Add(new Viewbox { Stretch = Stretch.Uniform, Child = _scene });
         Layout(460);
@@ -272,9 +277,14 @@ public sealed class GeniePreview : Grid
 
     private void UpdateMesh(int style, double t)
     {
-        var dock = style == 1
-            ? new GenieMath.Rect(_dockX, H, 6, 0)
-            : new GenieMath.Rect(_dockX - 9, TaskbarTop, 18, 24);
+        // Into the middle of the icon, like the renderer when it knows the window's button.
+        double iconY = TaskbarTop + (TaskbarHeight - IconSize) / 2 - 1 + IconSize / 2;
+        var dock = style switch
+        {
+            GenieMath.Classic => new GenieMath.Rect(_dockX, iconY, 6, 0),
+            GenieMath.Scale => GenieMath.ScaleEnd(_winRect, _dockX, iconY, IconSize),
+            _ => new GenieMath.Rect(_dockX - IconSize / 2, iconY, IconSize, IconSize / 2),
+        };
         int n = _meshTiles;
         var pts = new Point3DCollection((n + 1) * (n + 1));
         for (int y = 0; y <= n; y++)

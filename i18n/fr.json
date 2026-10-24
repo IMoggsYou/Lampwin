@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "Génie classique",
   "settings.animations.style.modern.description": "Une courbe de « lampe » fluide issue du moteur de Potassiumuncher, dessinée par la carte graphique.",
   "settings.animations.style.classic.description": "L’effet d’entonnoir d’origine de la première version du mod, avec un fondu à la fin.",
+  "settings.animations.style.scale": "Échelle",
+  "settings.animations.style.scale.description": "La fenêtre se réduit vers son icône de la barre des tâches en un seul mouvement fluide et s’estompe, comme l’effet Échelle de macOS.",
   "settings.animations.duration.title": "Durée",
   "settings.animations.duration.description": "Le temps que met une fenêtre pour tomber dans la barre des tâches et pour en revenir.",
   "settings.animations.mesh.title": "Qualité du maillage",

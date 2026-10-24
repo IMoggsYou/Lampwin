@@ -84,8 +84,9 @@ private:
         GenieParams params = {};
         SnapshotCache::Entry snap;
         Slot* slot = nullptr;
-        // Z-order: right below the taskbar the genie goes to, so the taskbar and its
-        // icons stay on top and the window seems to slip into its icon.
+        // Z-order: at the bottom of the always-on-top windows, so the taskbar and its
+        // icons stay on top (the window seems to slip into its icon) and every program
+        // and desktop widget stays below.
         HWND insertAfter = HWND_TOPMOST;
         std::vector<GenieJob*> waiters;
         LARGE_INTEGER start = {};
@@ -152,8 +153,8 @@ private:
     ComPtr<ID3D11DeviceContext> ctx_;
     ComPtr<IDXGIFactory2> factory_;
     ComPtr<IDCompositionDevice> dcomp_;
-    ComPtr<ID3D11VertexShader> genieVS_, classicVS_, fullscreenVS_;
-    ComPtr<ID3D11PixelShader> geniePS_, prepPS_;
+    ComPtr<ID3D11VertexShader> genieVS_, classicVS_, scaleVS_, fullscreenVS_;
+    ComPtr<ID3D11PixelShader> geniePS_, shadowPS_, prepPS_;
     ComPtr<ID3D11Buffer> genieCB_, prepCB_;
     ComPtr<ID3D11SamplerState> sampler_;
     ComPtr<ID3D11BlendState> blend_;

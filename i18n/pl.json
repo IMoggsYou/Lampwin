@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "Klasyczny dżin",
   "settings.animations.style.modern.description": "Płynna krzywa „lampy” z silnika Potassiumunchera, liczona na karcie graficznej.",
   "settings.animations.style.classic.description": "Oryginalny efekt lejka z pierwszej wersji moda, z wygaszaniem na końcu.",
+  "settings.animations.style.scale": "Skalowanie",
+  "settings.animations.style.scale.description": "Okno jednym płynnym ruchem zmniejsza się do swojej ikony na pasku zadań i rozpływa się, jak efekt skalowania w macOS.",
   "settings.animations.duration.title": "Czas trwania",
   "settings.animations.duration.description": "Jak długo okno wpada do paska zadań i z niego wraca.",
   "settings.animations.mesh.title": "Jakość siatki",

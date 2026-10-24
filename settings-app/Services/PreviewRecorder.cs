@@ -10,9 +10,10 @@ using MacWin.Settings.Controls;
 namespace MacWin.Settings;
 
 /// <summary>
-/// --record-preview &lt;dir&gt;: renders the settings window's live preview, frame by frame
-/// on its own clock, to frame0000.png, frame0001.png, ... (30 per second, two genie
-/// loops). tools/media/make-gif.ps1 turns them into docs/media/demo.gif.
+/// --record-preview &lt;dir&gt; [--style modern|classic|scale]: renders the settings window's
+/// live preview, frame by frame on its own clock, to frame0000.png, frame0001.png, ...
+/// (30 per second, two genie loops). tools/media/make-gif.ps1 turns them into
+/// docs/media/demo.gif.
 /// </summary>
 internal static class PreviewRecorder
 {
@@ -21,7 +22,7 @@ internal static class PreviewRecorder
     // One loop: shown 1.2 s, minimize, hidden 0.75 s, restore. Two loops and a little rest.
     private const double LengthMs = 2 * (1200 + DurationMs + 750 + DurationMs) + 600;
 
-    public static void Run(string dir)
+    public static void Run(string dir, int style)
     {
         Directory.CreateDirectory(dir);
         var preview = new GeniePreview
@@ -30,7 +31,7 @@ internal static class PreviewRecorder
             Height = Height,
             ManualClock = true,
             DurationMs = DurationMs,
-            GenieStyle = 0,
+            GenieStyle = style,
             Tiles = 32,
             CornerRadiusPx = 15,
             CornerSmoothing = 100,

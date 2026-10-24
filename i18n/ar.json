@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "المارد الكلاسيكي",
   "settings.animations.style.modern.description": "منحنى «مصباح» سلس من محرك Potassiumuncher، تتم معالجته على بطاقة الرسومات.",
   "settings.animations.style.classic.description": "تأثير القمع الأصلي من الإصدار الأول من التعديل، مع تلاشٍ في النهاية.",
+  "settings.animations.style.scale": "التحجيم",
+  "settings.animations.style.scale.description": "تتقلص النافذة نحو أيقونتها في شريط المهام في حركة واحدة سلسة ثم تتلاشى، مثل تأثير التحجيم في macOS.",
   "settings.animations.duration.title": "المدة",
   "settings.animations.duration.description": "المدة التي تستغرقها النافذة لتسقط في شريط المهام ولتعود منه.",
   "settings.animations.mesh.title": "جودة الشبكة",

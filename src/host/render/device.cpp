@@ -8,6 +8,7 @@
 #include <math.h>
 #include "common/corner_shape.h"
 #include "common/names.h"
+#include "common/shadow_look.h"
 #include "genie_hlsl.h"
 #include "host/log.h"
 
@@ -19,6 +20,8 @@ struct alignas(16) GenieConstants {
     float canvas[4];
     float params[4];
     float tex[4];
+    float shadow[4];
+    float shadow2[4];
 };
 
 struct alignas(16) PrepConstants {
@@ -31,6 +34,19 @@ LRESULT CALLBACK GhostWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         case WM_MOUSEACTIVATE: return MA_NOACTIVATE;
     }
     return DefWindowProcW(hwnd, msg, wp, lp);
+}
+
+// The lowest always-on-top window (other than the ghost itself): a ghost placed right after
+// it is under the taskbar and every other always-on-top window, and above all programs.
+// Not right after the taskbar: while the desktop is shown (Win+D), Windows draws the
+// desktop's own windows (the widgets) over a window placed there.
+HWND LowestTopmostWindow(HWND ghost) {
+    HWND lowest = nullptr;
+    for (HWND h = GetTopWindow(nullptr); h && (GetWindowLongW(h, GWL_EXSTYLE) & WS_EX_TOPMOST);
+         h = GetWindow(h, GW_HWNDNEXT)) {
+        if (h != ghost) lowest = h;
+    }
+    return lowest;
 }
 
 int RoundUp(int v, int step) {
@@ -347,8 +363,10 @@ void Renderer::DestroyDevice() {
     grids_.clear();
     genieVS_.reset();
     classicVS_.reset();
+    scaleVS_.reset();
     fullscreenVS_.reset();
     geniePS_.reset();
+    shadowPS_.reset();
     prepPS_.reset();
     genieCB_.reset();
     prepCB_.reset();
@@ -385,17 +403,22 @@ bool Renderer::CompileShaders() {
     bool ok;
     {
         // The blobs are objects of d3dcompiler_47.dll: release them before unloading it.
-        ComPtr<ID3DBlob> vs, cvs, ps, fvs, pps;
+        ComPtr<ID3DBlob> vs, cvs, svs, ps, sps, fvs, pps;
         ok = build("GenieVS", "vs_4_0", vs.put()) && build("ClassicVS", "vs_4_0", cvs.put()) &&
-             build("GeniePS", "ps_4_0", ps.put()) && build("FullscreenVS", "vs_4_0", fvs.put()) &&
+             build("ScaleVS", "vs_4_0", svs.put()) && build("GeniePS", "ps_4_0", ps.put()) &&
+             build("ShadowPS", "ps_4_0", sps.put()) && build("FullscreenVS", "vs_4_0", fvs.put()) &&
              build("PrepPS", "ps_4_0", pps.put());
         if (ok) {
             ok = SUCCEEDED(device_->CreateVertexShader(vs->GetBufferPointer(), vs->GetBufferSize(), nullptr,
                                                        genieVS_.put())) &&
                  SUCCEEDED(device_->CreateVertexShader(cvs->GetBufferPointer(), cvs->GetBufferSize(), nullptr,
                                                        classicVS_.put())) &&
+                 SUCCEEDED(device_->CreateVertexShader(svs->GetBufferPointer(), svs->GetBufferSize(), nullptr,
+                                                       scaleVS_.put())) &&
                  SUCCEEDED(device_->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr,
                                                       geniePS_.put())) &&
+                 SUCCEEDED(device_->CreatePixelShader(sps->GetBufferPointer(), sps->GetBufferSize(), nullptr,
+                                                      shadowPS_.put())) &&
                  SUCCEEDED(device_->CreateVertexShader(fvs->GetBufferPointer(), fvs->GetBufferSize(), nullptr,
                                                        fullscreenVS_.put())) &&
                  SUCCEEDED(device_->CreatePixelShader(pps->GetBufferPointer(), pps->GetBufferSize(), nullptr,
@@ -641,7 +664,7 @@ void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     }
     Slot* s = a->slot;
     s->visual->SetClip(D2D_RECT_F{0, 0, (float)g.canvasWidth, (float)g.canvasHeight});
-    if (HWND tray = FindTaskbarForMonitor(job->hMon)) a->insertAfter = tray;
+    if (HWND lowest = LowestTopmostWindow(s->hwnd)) a->insertAfter = lowest;
     SetWindowPos(s->hwnd, a->insertAfter, g.canvasLeft, g.canvasTop, g.canvasWidth, g.canvasHeight,
                  SWP_NOACTIVATE | SWP_NOOWNERZORDER);
     a->start = now;
@@ -763,8 +786,6 @@ bool Renderer::Draw(Anim* a, float t) {
     ID3D11Buffer* ib = GridIndices(a->tiles, &indexCount);
     if (!ib) return false;
 
-    D3D11_MAPPED_SUBRESOURCE m;
-    if (FAILED(ctx_->Map(genieCB_.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &m))) return false;
     GenieConstants c = {};
     c.win[0] = g.win.x;
     c.win[1] = g.win.y;
@@ -786,8 +807,13 @@ bool Renderer::Draw(Anim* a, float t) {
     c.tex[0] = (float)a->snap.w;
     c.tex[1] = (float)a->snap.h;
     mw::CornerShape(c.params[1], a->cornerSmoothing, c.tex[0], c.tex[1], &c.tex[2], &c.tex[3]);
-    memcpy(m.pData, &c, sizeof(c));
-    ctx_->Unmap(genieCB_.get(), 0);
+    auto upload = [&]() {
+        D3D11_MAPPED_SUBRESOURCE m;
+        if (FAILED(ctx_->Map(genieCB_.get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &m))) return false;
+        memcpy(m.pData, &c, sizeof(c));
+        ctx_->Unmap(genieCB_.get(), 0);
+        return true;
+    };
 
     const float clear[4] = {0, 0, 0, 0};
     ctx_->OMSetRenderTargets(1, s->rtv.addr(), nullptr);
@@ -799,12 +825,34 @@ bool Renderer::Draw(Anim* a, float t) {
     ctx_->IASetInputLayout(nullptr);
     ctx_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ctx_->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
-    ctx_->VSSetShader(g.style == kGenieClassic ? classicVS_.get() : genieVS_.get(), nullptr, 0);
+    ID3D11VertexShader* vs = g.style == kGenieClassic ? classicVS_.get()
+                             : g.style == kGenieScale ? scaleVS_.get()
+                                                      : genieVS_.get();
+    ctx_->VSSetShader(vs, nullptr, 0);
     ctx_->VSSetConstantBuffers(0, 1, genieCB_.addr());
-    ctx_->PSSetShader(geniePS_.get(), nullptr, 0);
     ctx_->PSSetConstantBuffers(0, 1, genieCB_.addr());
     ctx_->PSSetShaderResources(0, 1, a->snap.srv.addr());
     ctx_->PSSetSamplers(0, 1, sampler_.addr());
+
+    // The shadow first, under the window: the same look the real window has, so neither
+    // end of the animation shows it appear or vanish. In snapshot px, like the corners.
+    if (g.shadowScale > 0.0f) {
+        const mw::ShadowLook l = mw::WindowShadow(g.shadowScale);
+        const float px = g.win.width > 0 ? (float)a->snap.w / g.win.width : 1.0f;
+        c.shadow[0] = l.margin * px;
+        c.shadow[1] = l.sigma1 * px;
+        c.shadow[2] = l.dy1 * px;
+        c.shadow2[0] = l.sigma2 * px;
+        c.shadow2[1] = l.dy2 * px;
+        c.shadow2[2] = l.op1;
+        c.shadow2[3] = l.op2;
+        if (!upload()) return false;
+        ctx_->PSSetShader(shadowPS_.get(), nullptr, 0);
+        ctx_->DrawIndexed(indexCount, 0, 0);
+        c.shadow[0] = 0.0f;   // the window itself: the grid ends at its edges
+    }
+    if (!upload()) return false;
+    ctx_->PSSetShader(geniePS_.get(), nullptr, 0);
     ctx_->DrawIndexed(indexCount, 0, 0);
 
     if (s->msaa) {
@@ -831,7 +879,8 @@ void Renderer::RetireAnim(Anim* a) {
     }
     Log(L"anim %p %ls (%ls): %d frames, %d reversal(s), %.3f ms CPU/frame, first frame %.1f ms after request",
         (void*)a->hwnd, a->params.closing ? L"close" : (a->rising ? L"restore/open" : L"minimize"),
-        a->params.style == kGenieClassic ? L"classic" : L"modern", a->frames, a->reversals,
+        a->params.style == kGenieClassic ? L"classic" : a->params.style == kGenieScale ? L"scale" : L"modern",
+        a->frames, a->reversals,
         a->frames ? a->cpuMs / a->frames : 0.0, a->firstFrameMs);
     // Ended minimized: keep the snapshot for the matching restore.
     if (!a->rising && !a->params.closing && a->snap.srv && IsWindow(a->hwnd)) {

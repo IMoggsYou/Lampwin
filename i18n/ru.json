@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "Классический джинн",
   "settings.animations.style.modern.description": "Плавная кривая «лампы» из движка Potassiumuncher, рассчитываемая на видеокарте.",
   "settings.animations.style.classic.description": "Исходный эффект воронки из первой версии мода с затуханием в конце.",
+  "settings.animations.style.scale": "Уменьшение",
+  "settings.animations.style.scale.description": "Окно одним плавным движением уменьшается до своего значка на панели задач и растворяется, как эффект «Уменьшение» в macOS.",
   "settings.animations.duration.title": "Длительность",
   "settings.animations.duration.description": "Сколько времени окно втягивается в панель задач и возвращается обратно.",
   "settings.animations.mesh.title": "Качество сетки",

@@ -65,6 +65,17 @@ int EffectFromJson(const json::Value* v, int fallback) {
     return fallback;
 }
 
+// settings.json names of the genie styles (GenieStyle).
+const wchar_t* const kStyleNames[] = {L"modern", L"classic", L"scale"};
+
+int StyleFromJson(const json::Value* v) {
+    if (!v || v->type != json::Value::String) return 0;
+    for (int i = 0; i < (int)(sizeof(kStyleNames) / sizeof(kStyleNames[0])); ++i) {
+        if (v->str == kStyleNames[i]) return i;
+    }
+    return 0;
+}
+
 // settings.json layout version: 2 added the game folders to noInject.
 const int kSettingsVersion = 2;
 
@@ -243,8 +254,7 @@ void SettingsStore::Load() {
     json::Value empty;
     empty.type = json::Value::Object;
     if (!g || g->type != json::Value::Object) g = &empty;
-    const json::Value* style = g->Get(L"style");
-    s_.genie.style = (style && style->type == json::Value::String && style->str == L"classic") ? 1 : 0;
+    s_.genie.style = StyleFromJson(g->Get(L"style"));
     s_.genie.durationMs = Clamp(g->GetInt(L"durationMs", d.genie.durationMs), 50, 2000);
     s_.genie.restore = g->GetBool(L"restoreAnimation", d.genie.restore);
     s_.genie.openEffect = EffectFromJson(g->Get(L"openAnimation"), d.genie.openEffect);
@@ -290,7 +300,7 @@ bool SettingsStore::Save() const {
     json::Set(&root, L"updates", updates);
     const json::Value* oldGenie = root.Get(L"genie");
     json::Value g = oldGenie && oldGenie->type == json::Value::Object ? *oldGenie : json::Object();
-    json::Set(&g, L"style", json::String(s.genie.style == 1 ? L"classic" : L"modern"));
+    json::Set(&g, L"style", json::String(kStyleNames[s.genie.style]));
     json::Set(&g, L"durationMs", json::Number(s.genie.durationMs));
     json::Set(&g, L"restoreAnimation", json::Bool(s.genie.restore));
     json::Set(&g, L"openAnimation", json::String(kEffectNames[s.genie.openEffect]));

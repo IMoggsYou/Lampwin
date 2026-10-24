@@ -35,6 +35,8 @@
   "settings.animations.style.classic": "Classic genie",
   "settings.animations.style.modern.description": "A smooth “lamp” curve from Potassiumuncher's engine, drawn on the graphics card.",
   "settings.animations.style.classic.description": "The original funnel effect from the first version of the mod, fading out at the end.",
+  "settings.animations.style.scale": "Scale",
+  "settings.animations.style.scale.description": "The window shrinks into its taskbar icon in one smooth glide and melts away, like the scale effect of macOS.",
   "settings.animations.duration.title": "Duration",
   "settings.animations.duration.description": "How long a window takes to fall into the taskbar and to come back.",
   "settings.animations.mesh.title": "Mesh quality",
