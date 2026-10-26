@@ -155,8 +155,8 @@ private:
     ComPtr<ID3D11DeviceContext> ctx_;
     ComPtr<IDXGIFactory2> factory_;
     ComPtr<IDCompositionDevice> dcomp_;
-    ComPtr<ID3D11VertexShader> genieVS_, classicVS_, scaleVS_, fullscreenVS_;
-    ComPtr<ID3D11PixelShader> geniePS_, shadowPS_, prepPS_;
+    ComPtr<ID3D11VertexShader> genieVS_, classicVS_, scaleVS_, shatterVS_, fullscreenVS_;
+    ComPtr<ID3D11PixelShader> geniePS_, shatterPS_, shadowPS_, prepPS_;
     ComPtr<ID3D11Buffer> genieCB_, prepCB_;
     ComPtr<ID3D11SamplerState> sampler_;
     ComPtr<ID3D11BlendState> blend_;

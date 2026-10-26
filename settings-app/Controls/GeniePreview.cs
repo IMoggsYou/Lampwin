@@ -31,6 +31,16 @@ public sealed class GeniePreview : Grid
         nameof(CornerRadiusPx), typeof(double), typeof(GeniePreview), new PropertyMetadata(15.0, OnCornersChanged));
     public static readonly DependencyProperty CornerSmoothingProperty = DependencyProperty.Register(
         nameof(CornerSmoothing), typeof(double), typeof(GeniePreview), new PropertyMetadata(100.0, OnCornersChanged));
+    public static readonly DependencyProperty CloseDurationMsProperty = DependencyProperty.Register(
+        nameof(CloseDurationMs), typeof(double), typeof(GeniePreview), new PropertyMetadata(400.0));
+
+    public static readonly DependencyProperty OpenDurationMsProperty = DependencyProperty.Register(
+        nameof(OpenDurationMs), typeof(double), typeof(GeniePreview), new PropertyMetadata(450.0));
+
+    /// <summary>How long the pieces shown by <see cref="PlayShatter"/> take to fly apart.</summary>
+    public double CloseDurationMs { get => (double)GetValue(CloseDurationMsProperty); set => SetValue(CloseDurationMsProperty, value); }
+    /// <summary>How long they take to fly together.</summary>
+    public double OpenDurationMs { get => (double)GetValue(OpenDurationMsProperty); set => SetValue(OpenDurationMsProperty, value); }
 
     public int GenieStyle { get => (int)GetValue(GenieStyleProperty); set => SetValue(GenieStyleProperty, value); }
     public double DurationMs { get => (double)GetValue(DurationMsProperty); set => SetValue(DurationMsProperty, value); }
@@ -54,7 +64,9 @@ public sealed class GeniePreview : Grid
     private GenieMath.Rect _winRect;
     private double _dockX;
 
-    private enum Phase { Shown, Minimizing, Hidden, Restoring }
+    // Shattering (closing) is played on demand; the window then fades back in (Returning)
+    // and the genie loop goes on.
+    private enum Phase { Shown, Minimizing, Hidden, Restoring, Shattering, Returning }
 
     private readonly Grid _scene = new() { Height = H };
     private readonly Viewport3D _view = new() { Height = H, IsHitTestVisible = false };
@@ -66,6 +78,11 @@ public sealed class GeniePreview : Grid
     private readonly Rectangle _indicator = new() { Width = 14, Height = 3, RadiusX = 1.5, RadiusY = 1.5 };
     private readonly MeshGeometry3D _mesh = new();
     private readonly ImageBrush _texture = new();
+    private readonly MeshGeometry3D _shards = new();
+    private readonly ImageBrush _shardTexture = new();
+    private int _shardCols, _shardRows;
+    private uint _shardSeed;
+    private bool _afterShatter, _shardsBig, _shardsJoin;
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private Phase _phase = Phase.Shown;
     private double _phaseStart;
@@ -115,6 +132,9 @@ public sealed class GeniePreview : Grid
         var material = new DiffuseMaterial(_texture);
         _view.Children.Add(new ModelVisual3D { Content = new AmbientLight(Colors.White) });
         _view.Children.Add(new ModelVisual3D { Content = new GeometryModel3D(_mesh, material) { BackMaterial = material } });
+        RenderOptions.SetBitmapScalingMode(_shardTexture, BitmapScalingMode.HighQuality);
+        var shardMaterial = new DiffuseMaterial(_shardTexture);
+        _view.Children.Add(new ModelVisual3D { Content = new GeometryModel3D(_shards, shardMaterial) { BackMaterial = shardMaterial } });
         // The window keeps its shadow all the way, as in the real animation.
         _view.Effect = new DropShadowEffect { Color = Colors.Black, Direction = 270, ShadowDepth = 2.5, BlurRadius = 16, Opacity = 0.32 };
         _scene.Children.Add(_view);
@@ -161,10 +181,62 @@ public sealed class GeniePreview : Grid
         else CompositionTarget.Rendering -= OnFrame;
     }
 
+    /// <summary>Shows the Shatter (or, `fragments`, the Fragments) effect: closing breaks the
+    /// window apart and then brings it back; opening (`join`) hides it and lets its pieces
+    /// fly together.</summary>
+    public void PlayShatter(bool fragments, bool join)
+    {
+        if (!_running) return;
+        _shardsBig = fragments;
+        _shardsJoin = join;
+        (_shardCols, _shardRows) = GenieMath.ShatterGrid(WinW, WinH, fragments);
+        _shardSeed = (uint)Environment.TickCount & 0xFFFF;   // other cracks every time, as on the desktop
+        int count = _shardCols * _shardRows * 2;
+        var uv = new PointCollection(count * 3);
+        var idx = new Int32Collection(count * 3);
+        Span<(double X, double Y)> pos = stackalloc (double, double)[3];
+        Span<(double U, double V)> tex = stackalloc (double, double)[3];
+        for (int i = 0; i < count; i++)
+        {
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, 0, _winRect, _shardsBig, pos, tex);
+            for (int c = 0; c < 3; c++)
+            {
+                uv.Add(new Point(tex[c].U, tex[c].V));
+                idx.Add(i * 3 + c);
+            }
+        }
+        uv.Freeze();
+        idx.Freeze();
+        _shards.TextureCoordinates = uv;
+        _shards.TriangleIndices = idx;
+        _shardTexture.ImageSource = _texture.ImageSource;
+        _afterShatter = false;
+        Enter(Phase.Shattering, _clock.Elapsed.TotalMilliseconds, 0);
+        _shownT = double.NaN;
+    }
+
+    private void UpdateShards(double t)
+    {
+        int count = _shardCols * _shardRows * 2;
+        var pts = new Point3DCollection(count * 3);
+        Span<(double X, double Y)> pos = stackalloc (double, double)[3];
+        Span<(double U, double V)> tex = stackalloc (double, double)[3];
+        for (int i = 0; i < count; i++)
+        {
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, t, _winRect, _shardsBig, pos, tex);
+            for (int c = 0; c < 3; c++) pts.Add(new Point3D(pos[c].X, H - pos[c].Y, 0));
+        }
+        pts.Freeze();
+        _shards.Positions = pts;
+        // One material for every shard: the whole set fades (on the desktop each shard does).
+        _shardTexture.Opacity = 1 - Math.Clamp((t - 0.45) / 0.55, 0, 1);
+    }
+
     /// <summary>Turns the genie around from where it is (or starts it when at rest).</summary>
     private void Reverse()
     {
         double now = _clock.Elapsed.TotalMilliseconds;
+        if (_phase is Phase.Shattering or Phase.Returning || _afterShatter) return;
         switch (_phase)
         {
             case Phase.Shown: Enter(Phase.Minimizing, now, 0); break;
@@ -219,8 +291,57 @@ public sealed class GeniePreview : Grid
                 break;
             case Phase.Hidden:
                 t = 1;
-                if (elapsed > 750 && loop) Enter(Phase.Restoring, now, 0);
+                if (_afterShatter && elapsed > 450)
+                {
+                    Enter(Phase.Returning, now, 0);
+                }
+                else if (!_afterShatter && elapsed > 750 && loop)
+                {
+                    Enter(Phase.Restoring, now, 0);
+                }
                 break;
+            case Phase.Shattering:
+            {
+                double piecesMs = Math.Max(100, _shardsJoin ? OpenDurationMs : CloseDurationMs);
+                double p = Math.Min(1, elapsed / piecesMs);
+                // Opening plays the break backwards, slowing down as the pieces settle (as
+                // GenieEase does in the host).
+                UpdateShards(_shardsJoin ? (1 - p) * (1 - p) : p);
+                _texture.Opacity = 0;
+                _shownT = double.NaN;
+                if (p >= 1)
+                {
+                    _shards.Positions = null;
+                    if (_shardsJoin)
+                    {
+                        UpdateMesh(style, 0);
+                        _texture.Opacity = 1;
+                        Enter(Phase.Shown, now, 0);
+                    }
+                    else
+                    {
+                        _afterShatter = true;
+                        Enter(Phase.Hidden, now, 0);
+                    }
+                }
+                SetIndicator(_shardsJoin ? 0 : 1);
+                return;
+            }
+            case Phase.Returning:
+            {
+                // Back where it was, fading in: the loop goes on from a window at rest.
+                double p = Math.Min(1, elapsed / 350);
+                UpdateMesh(style, 0);
+                _shownT = double.NaN;
+                _texture.Opacity = p * p * (3 - 2 * p);
+                if (p >= 1)
+                {
+                    _afterShatter = false;
+                    Enter(Phase.Shown, now, 0);
+                }
+                SetIndicator(0);
+                return;
+            }
             default:
                 _progress = Math.Min(1, elapsed / duration);
                 t = 1 - GenieMath.Ease(style, _progress);
@@ -241,7 +362,11 @@ public sealed class GeniePreview : Grid
             UpdateMesh(style, t);
             _texture.Opacity = _phase == Phase.Hidden ? 0 : GenieMath.Fade(style, t);
         }
+        SetIndicator(t);
+    }
 
+    private void SetIndicator(double t)
+    {
         // The running-app dash under the icon is wide while the window is on screen.
         double target = t < 0.5 ? 14 : 6;
         if (_indicator.Width != target)

@@ -9,6 +9,15 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- Two new ways to open and close windows (Settings → Animations):
+  - **Shatter**: closing breaks the window into shards that fly off to the left, right,
+    up and down, spinning as they fade away; opening flies them together into the window.
+  - **Fragments**: the same with a few big pieces, each flying its own way.
+
+  The live preview shows each one as soon as you pick it.
+
 ## [1.4.0] - 2026-10-24
 
 ### Added

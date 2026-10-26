@@ -172,10 +172,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public bool Restore { get => _restore; set => Set(ref _restore, value); }
 
     /// <summary>settings.json names of the open / close effects, in segment order.</summary>
-    public static readonly string[] EffectNames = ["system", "genie"];
+    public static readonly string[] EffectNames = ["system", "genie", "shatter", "fragments"];
 
     private int _openEffect = 1;
-    /// <summary>0 = Windows, 1 = genie.</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments (the pieces fly together).</summary>
     public int OpenEffect
     {
         get => _openEffect;
@@ -189,12 +189,16 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
     public bool HasOpenEffect => _openEffect != 0;
-    public string OpenDescription => Loc.T(_openEffect == 1
-        ? "settings.animations.open.genie.description"
-        : "settings.animations.effect.windows.description");
+    public string OpenDescription => Loc.T(_openEffect switch
+    {
+        1 => "settings.animations.open.genie.description",
+        2 => "settings.animations.open.shatter.description",
+        3 => "settings.animations.open.fragments.description",
+        _ => "settings.animations.effect.windows.description",
+    });
 
     private int _closeEffect = 1;
-    /// <summary>0 = Windows, 1 = genie.</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments.</summary>
     public int CloseEffect
     {
         get => _closeEffect;
@@ -208,9 +212,13 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
     public bool HasCloseEffect => _closeEffect != 0;
-    public string CloseDescription => Loc.T(_closeEffect == 1
-        ? "settings.animations.close.genie.description"
-        : "settings.animations.effect.windows.description");
+    public string CloseDescription => Loc.T(_closeEffect switch
+    {
+        1 => "settings.animations.close.genie.description",
+        2 => "settings.animations.close.shatter.description",
+        3 => "settings.animations.close.fragments.description",
+        _ => "settings.animations.effect.windows.description",
+    });
 
     private double _openDurationMs = 450;
     public double OpenDurationMs { get => _openDurationMs; set => Set(ref _openDurationMs, Math.Round(Math.Clamp(value, 100, 1500))); }

@@ -164,12 +164,36 @@ int DefaultDockX(HMONITOR hMon) {
     return alignVal == 0 ? mi.rcMonitor.left + 160 : mi.rcMonitor.left + monWidth / 2;
 }
 
+void ShatterGrid(int w, int h, int cells, int* cols, int* rows) {
+    const float aspect = h > 0 ? (float)w / (float)h : 1.0f;
+    *cols = aspect >= 1.0f ? cells : (int)lroundf(cells * aspect);
+    *rows = aspect >= 1.0f ? (int)lroundf(cells / aspect) : cells;
+    if (*cols < 3) *cols = 3;
+    if (*rows < 3) *rows = 3;
+}
+
 bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, int style, GenieParams* out) {
     int dockX = dock.x;
     const int w = r.right - r.left;
     const int h = r.bottom - r.top;
     if (w <= 0 || h <= 0) return false;
     Geometry wGeom = {(float)r.left, (float)r.top, (float)w, (float)h};
+
+    if (IsShatterStyle(style)) {
+        // No dock: the pieces fly up to ~0.6 of the window's diagonal away from it.
+        const bool fragments = style == kGenieFragments;
+        out->style = style;
+        out->win = wGeom;
+        int cols, rows;
+        ShatterGrid(w, h, fragments ? kFragmentCells : kShatterCells, &cols, &rows);
+        out->icon = {(float)cols, (float)rows, (float)(GetTickCount() & 0xFFFF), fragments ? 1.0f : 0.0f};
+        const int reach = (int)(sqrtf((float)w * w + (float)h * h) * 0.75f);
+        int left = r.left - reach, top = r.top - reach, right = r.right + reach, bottom = r.bottom + reach;
+        PadForShadow(*out, left, top, right, bottom);
+        ClampGenieCanvas(left, top, right, bottom, r, r.left + w / 2, GetGenieMonitorUnion(r, hMon));
+        SetCanvas(out, left, top, right, bottom);
+        return true;
+    }
 
     MONITORINFO mi = {sizeof(mi)};
     if (!GetMonitorInfoW(hMon, &mi)) {
@@ -273,6 +297,12 @@ float GenieEase(const GenieParams& g, float raw) {
     if (raw < 0.0f) raw = 0.0f;
     if (raw > 1.0f) raw = 1.0f;
     if (g.style == kGenieClassic) return raw;
+    if (IsShatterStyle(g.style)) {
+        // Closing eases every shard on its own (ShatterVS). Opening plays it backwards
+        // (the renderer runs t from 1 to 0), eased out so the pieces slow down as they
+        // settle into place instead of hitting it.
+        return g.closing ? raw : 1.0f - (1.0f - raw) * (1.0f - raw);
+    }
     return raw * raw * raw * (raw * (raw * 6.0f - 15.0f) + 10.0f);
 }
 
@@ -280,6 +310,8 @@ float GenieFade(const GenieParams& g, float t) {
     switch (g.style) {
         case kGenieClassic: return 1.0f - Smoothstep(0.8f, 1.0f, t);
         case kGenieScale: return 1.0f - Smoothstep(0.6f, 1.0f, t);
+        case kGenieShatter:
+        case kGenieFragments: return 1.0f - Smoothstep(0.96f, 1.0f, t);   // the pieces fade themselves
         default: return 1.0f - Smoothstep(0.92f, 1.0f, t);
     }
 }
@@ -296,6 +328,7 @@ void GenieVertex(const GenieParams& g, float tx, float ty, float t, float* outX,
 
 bool GenieFrameDegenerate(const GenieParams& g, float t) {
     if (GenieFade(g, t) <= 0.0f) return true;
+    if (IsShatterStyle(g.style)) return false;   // pieces never collapse to a line
     // The mesh outline is its border, so sampling the four edges bounds it.
     const int n = 8;
     float left = 1e9f, right = -1e9f, top = 1e9f, bottom = -1e9f;

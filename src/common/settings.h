@@ -10,11 +10,14 @@
 #define MACWIN_SETTINGS_MAGIC 0x3153574Du   // 'MWS1'
 #define MACWIN_LIST_CHARS 2048
 
-// Window open / close effects (SharedSettings::openEffect / closeEffect).
+// Window open / close effects (SharedSettings::openEffect / closeEffect). The DLLs only
+// tell MW_EFFECT_SYSTEM from the rest, so an effect added here needs no new DLL.
 enum : int32_t {
     MW_EFFECT_SYSTEM = 0,   // Windows' own animation (MacWin does nothing)
     MW_EFFECT_GENIE = 1,    // out of / into its taskbar icon
-    MW_EFFECT_COUNT = 2,
+    MW_EFFECT_SHATTER = 2,  // the window breaks into shards (opening: they fly together)
+    MW_EFFECT_FRAGMENTS = 3,// the same with a few big pieces, each its own way
+    MW_EFFECT_COUNT = 4,
 };
 
 // Published by the host in a shared section (MACWIN_SETTINGS_SECTION) and read by every

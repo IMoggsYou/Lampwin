@@ -283,7 +283,7 @@ void TestLocation() {
     CHECK(!ParsePlaceName(L"<html>", &name));
 }
 
-// Every style's time curve must stay symmetric (a running genie turns around without a
+// The genie's time curves must stay symmetric (a running genie turns around without a
 // jump), and every style must start on the window and end faded out.
 void TestGenieCurves() {
     for (int style : {kGenieModern, kGenieClassic, kGenieScale}) {
@@ -293,9 +293,20 @@ void TestGenieCurves() {
             float x = i / 20.0f;
             CHECK(fabsf(GenieEase(g, 1.0f - x) - (1.0f - GenieEase(g, x))) < 1e-5f);
         }
-        CHECK(GenieEase(g, 0.0f) == 0.0f && GenieEase(g, 1.0f) == 1.0f);
-        CHECK(GenieFade(g, 0.0f) == 1.0f && GenieFade(g, 1.0f) == 0.0f);
     }
+    for (int style : {kGenieModern, kGenieClassic, kGenieScale, kGenieShatter, kGenieFragments}) {
+        for (bool closing : {false, true}) {
+            GenieParams g = {};
+            g.style = style;
+            g.closing = closing;
+            CHECK(GenieEase(g, 0.0f) == 0.0f && GenieEase(g, 1.0f) == 1.0f);
+            CHECK(GenieFade(g, 0.0f) == 1.0f && GenieFade(g, 1.0f) == 0.0f);
+        }
+    }
+    // Pieces flying together slow down as they settle: the opening curve ends flat.
+    GenieParams open = {};
+    open.style = kGenieFragments;
+    CHECK(GenieEase(open, 1.0f) - GenieEase(open, 0.99f) < 0.001f);
     GenieParams g = {};
     g.style = kGenieScale;
     g.win = {100, 200, 800, 600};
@@ -310,6 +321,21 @@ void TestGenieCurves() {
     GenieVertex(g, 1.0f, 1.0f, 1.0f, &x, &y);
     CHECK(fabsf(x - 1032) < 0.01f && fabsf(y - 1424) < 0.01f);
     CHECK(!GenieFrameDegenerate(g, 0.5f));
+
+    // Shatter: 9 cells along the longer side, fragments 5; never fewer than 3 along either.
+    int cols = 0, rows = 0;
+    ShatterGrid(1200, 800, kShatterCells, &cols, &rows);
+    CHECK(cols == 9 && rows == 6);
+    ShatterGrid(500, 1000, kShatterCells, &cols, &rows);
+    CHECK(cols == 5 && rows == 9);
+    ShatterGrid(100, 2000, kShatterCells, &cols, &rows);
+    CHECK(cols == 3 && rows == 9);
+    ShatterGrid(1200, 800, kFragmentCells, &cols, &rows);
+    CHECK(cols == 5 && rows == 3);
+    for (int style : {kGenieShatter, kGenieFragments}) {
+        g.style = style;
+        CHECK(!GenieFrameDegenerate(g, 0.5f) && GenieFrameDegenerate(g, 1.0f));
+    }
 }
 
 }  // namespace

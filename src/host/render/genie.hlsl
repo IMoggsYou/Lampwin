@@ -16,6 +16,8 @@ cbuffer GenieCB : register(b0)
     float4 gIcon;     // modern: taskbar icon rect x, y, width, height (screen px)
                       // classic: dock x, dock y, neck width, 1 = dock above the window
                       // scale: the rect the window ends in
+                      // shatter: columns, rows, seed (the cracks differ every time),
+                      // 1 = fragments (a few big pieces, each its own way)
     float4 gCanvas;   // ghost canvas: left, top, width, height (screen px)
     float4 gParams;   // x = progress t, y = corner radius (snapshot px), z = tiles per side,
                       // w = global opacity
@@ -150,16 +152,130 @@ float WindowDistance(float2 uv)
 }
 
 // Premultiplied snapshot (mipmapped, anisotropic) cut to the window's shape.
-float4 GeniePS(GenieVSOut i) : SV_Target
+float4 WindowColor(float2 uv)
 {
-    float4 c = gSnapshot.Sample(gSampler, i.uv);
+    float4 c = gSnapshot.Sample(gSampler, uv);
     if (gTex.z > 0.0)
     {
-        float d = WindowDistance(i.uv);
+        float d = WindowDistance(uv);
         float aa = max(fwidth(d), 0.001);
         c *= saturate(0.5 - d / aa);
     }
-    return c * gParams.w;
+    return c;
+}
+
+float4 GeniePS(GenieVSOut i) : SV_Target
+{
+    return WindowColor(i.uv) * gParams.w;
+}
+
+// ---- Shatter and fragments (MacWin's own) ----------------------------------------------
+// The window cracks along a jittered grid into triangular shards that burst outwards from
+// its middle, spinning, shrinking and fading as they slow down; the outer ones come loose
+// first and fly farthest. Shatter: many shards in four streams (left, right, up, down).
+// Fragments: a few big pieces, each flying its own way. Opening runs it backwards (t from
+// 1 to 0): the pieces fly together into the window. Mirrored in GenieMath.ShatterTriangle
+// (settings-app), which draws the live preview.
+
+uint ShatterHash(uint x)
+{
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
+}
+
+// 0..1, the same for the same (item, salt) during one close.
+float ShatterRand(uint item, uint salt)
+{
+    return (ShatterHash(item * 0x9E3779B1u + salt * 0x85EBCA77u + (uint)gIcon.z) & 0xFFFFFFu) / 16777216.0;
+}
+
+// A corner of the crack grid in window uv. Inner points are jittered (by less than half a
+// cell, so cells never fold over); points on the outline only slide along it, which keeps
+// the window's edges straight.
+float2 ShatterPoint(uint2 p, uint2 n)
+{
+    uint id = p.y * (n.x + 1) + p.x;
+    float2 j = float2(ShatterRand(id, 1), ShatterRand(id, 2)) - 0.5;
+    if (p.x == 0 || p.x == n.x) j.x = 0.0;
+    if (p.y == 0 || p.y == n.y) j.y = 0.0;
+    return (float2(p) + j * 0.72) / float2(n);
+}
+
+struct ShardVSOut
+{
+    float4 pos : SV_Position;
+    float2 uv : TEXCOORD0;
+    float2 look : TEXCOORD1;   // x = opacity, y = light (a shard turning away gets darker)
+};
+
+// Two triangles per grid cell, three vertices each, no vertex or index buffer.
+ShardVSOut ShatterVS(uint id : SV_VertexID)
+{
+    uint2 n = uint2(gIcon.xy);
+    uint tri = id / 3;
+    uint corner = id % 3;
+    uint cell = tri / 2;
+    uint2 c = uint2(cell % n.x, cell / n.x);
+    // The cell's corners: 0 top left, 1 top right, 2 bottom left, 3 bottom right; the
+    // diagonal that splits it goes either way.
+    bool flip = ShatterRand(cell, 3) > 0.5;
+    uint3 k = (tri % 2 == 0) ? (flip ? uint3(0, 1, 3) : uint3(0, 1, 2))
+                             : (flip ? uint3(0, 3, 2) : uint3(1, 3, 2));
+    float2 q[4] = {ShatterPoint(c, n), ShatterPoint(c + uint2(1, 0), n), ShatterPoint(c + uint2(0, 1), n),
+                   ShatterPoint(c + uint2(1, 1), n)};
+    float2 a = q[k.x], b = q[k.y], d = q[k.z];
+    float2 uv = corner == 0 ? a : (corner == 1 ? b : d);
+    float2 centre = (a + b + d) / 3.0;
+
+    float2 rel = (centre - 0.5) * gWin.zw;                        // px from the window's middle
+    float reach = saturate(length(centre - 0.5) * 1.41421356);    // 0 middle .. 1 corner
+    bool big = gIcon.w > 0.5;
+    // Outwards. Shatter: pulled most of the way towards the nearest of left, right, up and
+    // down - four streams of shards. Fragments: every piece its own way.
+    float angle = atan2(rel.y, rel.x);
+    float axis = round(angle / (PI * 0.5)) * (PI * 0.5);
+    angle = big ? angle + (ShatterRand(tri, 4) - 0.5) * 1.1
+                : lerp(angle, axis, 0.7) + (ShatterRand(tri, 4) - 0.5) * 0.35;
+    float2 dir = float2(cos(angle), sin(angle));
+
+    // First the window only cracks (the pieces part a little), then they burst away and
+    // slow down; the outer ones come loose first.
+    float delay = big ? 0.05 + 0.06 * (1.0 - reach) + 0.08 * ShatterRand(tri, 5)
+                      : 0.05 + 0.1 * (1.0 - reach) + 0.05 * ShatterRand(tri, 5);
+    float t = gParams.x;
+    float crack = smoothstep(0.0, delay, t);
+    float u = saturate((t - delay) / (1.0 - delay));
+    float move = 1.0 - pow(1.0 - u, 2.6);
+    float diag = length(gWin.zw);
+    float fly = big ? (0.2 + 0.24 * reach) * (0.7 + 0.6 * ShatterRand(tri, 6))
+                    : (0.12 + 0.22 * reach) * (0.75 + 0.5 * ShatterRand(tri, 6));
+    float dist = diag * (0.012 * crack + fly * move);
+    // Big pieces turn slower and keep more of their size.
+    float spin = (ShatterRand(tri, 7) * 2.0 - 1.0) * (0.03 * crack + (big ? 0.8 : 1.5) * move);
+    float shrink = 1.0 - (big ? 0.25 : 0.4) * move;
+
+    float2 v = (uv - centre) * gWin.zw * shrink;
+    float sn = sin(spin), cs = cos(spin);
+    v = float2(v.x * cs - v.y * sn, v.x * sn + v.y * cs);
+    float2 s = gWin.xy + centre * gWin.zw + v + dir * dist;
+
+    float2 cpos = (s - gCanvas.xy) / gCanvas.zw;
+    ShardVSOut o;
+    o.pos = float4(cpos.x * 2.0 - 1.0, 1.0 - cpos.y * 2.0, 0.0, 1.0);
+    o.uv = uv;
+    o.look = float2(1.0 - smoothstep(0.35, 1.0, u), 1.0 - 0.28 * move * ShatterRand(tri, 8));
+    return o;
+}
+
+float4 ShatterPS(ShardVSOut i) : SV_Target
+{
+    float4 c = WindowColor(i.uv);
+    c.rgb *= i.look.y;
+    return c * (i.look.x * gParams.w);
 }
 
 // Exact distance to a plain rounded rectangle around 0: the shadow's shape (blurred,
