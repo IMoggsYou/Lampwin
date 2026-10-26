@@ -364,8 +364,10 @@ void Renderer::DestroyDevice() {
     genieVS_.reset();
     classicVS_.reset();
     scaleVS_.reset();
+    shatterVS_.reset();
     fullscreenVS_.reset();
     geniePS_.reset();
+    shatterPS_.reset();
     shadowPS_.reset();
     prepPS_.reset();
     genieCB_.reset();
@@ -403,9 +405,10 @@ bool Renderer::CompileShaders() {
     bool ok;
     {
         // The blobs are objects of d3dcompiler_47.dll: release them before unloading it.
-        ComPtr<ID3DBlob> vs, cvs, svs, ps, sps, fvs, pps;
+        ComPtr<ID3DBlob> vs, cvs, svs, xvs, ps, xps, sps, fvs, pps;
         ok = build("GenieVS", "vs_4_0", vs.put()) && build("ClassicVS", "vs_4_0", cvs.put()) &&
-             build("ScaleVS", "vs_4_0", svs.put()) && build("GeniePS", "ps_4_0", ps.put()) &&
+             build("ScaleVS", "vs_4_0", svs.put()) && build("ShatterVS", "vs_4_0", xvs.put()) &&
+             build("GeniePS", "ps_4_0", ps.put()) && build("ShatterPS", "ps_4_0", xps.put()) &&
              build("ShadowPS", "ps_4_0", sps.put()) && build("FullscreenVS", "vs_4_0", fvs.put()) &&
              build("PrepPS", "ps_4_0", pps.put());
         if (ok) {
@@ -415,8 +418,12 @@ bool Renderer::CompileShaders() {
                                                        classicVS_.put())) &&
                  SUCCEEDED(device_->CreateVertexShader(svs->GetBufferPointer(), svs->GetBufferSize(), nullptr,
                                                        scaleVS_.put())) &&
+                 SUCCEEDED(device_->CreateVertexShader(xvs->GetBufferPointer(), xvs->GetBufferSize(), nullptr,
+                                                       shatterVS_.put())) &&
                  SUCCEEDED(device_->CreatePixelShader(ps->GetBufferPointer(), ps->GetBufferSize(), nullptr,
                                                       geniePS_.put())) &&
+                 SUCCEEDED(device_->CreatePixelShader(xps->GetBufferPointer(), xps->GetBufferSize(), nullptr,
+                                                      shatterPS_.put())) &&
                  SUCCEEDED(device_->CreatePixelShader(sps->GetBufferPointer(), sps->GetBufferSize(), nullptr,
                                                       shadowPS_.put())) &&
                  SUCCEEDED(device_->CreateVertexShader(fvs->GetBufferPointer(), fvs->GetBufferSize(), nullptr,
@@ -650,8 +657,9 @@ Renderer::Anim* Renderer::FindAnim(HWND hwnd) {
 void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     if (Anim* running = FindAnim(job->hwnd)) {
         // A closing window's genie is never turned around (the window is going away), and
-        // a close meeting a running genie is left to Windows.
-        if (running->params.closing || job->params.closing) {
+        // a close meeting a running genie is left to Windows. Nor are flying pieces: a
+        // window minimized while its pieces fly together just appears.
+        if (running->params.closing || job->params.closing || IsShatterStyle(running->params.style)) {
             FailJob(job);
             return;
         }
@@ -847,9 +855,19 @@ bool Renderer::Draw(Anim* a, float t) {
     ctx_->IASetInputLayout(nullptr);
     ctx_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     ctx_->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
+    const bool shatter = IsShatterStyle(g.style);
     ID3D11VertexShader* vs = g.style == kGenieClassic ? classicVS_.get()
-                             : g.style == kGenieScale ? scaleVS_.get()
-                                                      : genieVS_.get();
+                             : g.style == kGenieScale || shatter ? scaleVS_.get()
+                                                                 : genieVS_.get();
+    if (shatter) {
+        // The shadow stays where the window was (the scale warp with no end of its own)
+        // and fades out while the shards come loose.
+        c.icon[0] = g.win.x;
+        c.icon[1] = g.win.y;
+        c.icon[2] = g.win.width;
+        c.icon[3] = g.win.height;
+        c.params[3] = 1.0f - fminf(t / 0.3f, 1.0f);
+    }
     ctx_->VSSetShader(vs, nullptr, 0);
     ctx_->VSSetConstantBuffers(0, 1, genieCB_.addr());
     ctx_->PSSetConstantBuffers(0, 1, genieCB_.addr());
@@ -873,9 +891,22 @@ bool Renderer::Draw(Anim* a, float t) {
         ctx_->DrawIndexed(indexCount, 0, 0);
         c.shadow[0] = 0.0f;   // the window itself: the grid ends at its edges
     }
-    if (!upload()) return false;
-    ctx_->PSSetShader(geniePS_.get(), nullptr, 0);
-    ctx_->DrawIndexed(indexCount, 0, 0);
+    if (shatter) {
+        c.icon[0] = g.icon.x;
+        c.icon[1] = g.icon.y;
+        c.icon[2] = g.icon.width;
+        c.icon[3] = g.icon.height;
+        c.params[3] = GenieFade(g, t);
+        if (!upload()) return false;
+        // Two triangles per crack-grid cell, three vertices each (ShatterVS).
+        ctx_->VSSetShader(shatterVS_.get(), nullptr, 0);
+        ctx_->PSSetShader(shatterPS_.get(), nullptr, 0);
+        ctx_->Draw((UINT)(g.icon.x * g.icon.y) * 6, 0);
+    } else {
+        if (!upload()) return false;
+        ctx_->PSSetShader(geniePS_.get(), nullptr, 0);
+        ctx_->DrawIndexed(indexCount, 0, 0);
+    }
 
     if (s->msaa) {
         ComPtr<ID3D11Texture2D> back;
@@ -906,7 +937,11 @@ void Renderer::RetireAnim(Anim* a) {
     }
     Log(L"anim %p %ls (%ls): %d frames, %d reversal(s), %.3f ms CPU/frame, first frame %.1f ms after request",
         (void*)a->hwnd, a->params.closing ? L"close" : (a->rising ? L"restore/open" : L"minimize"),
-        a->params.style == kGenieClassic ? L"classic" : a->params.style == kGenieScale ? L"scale" : L"modern",
+        a->params.style == kGenieClassic   ? L"classic"
+        : a->params.style == kGenieScale   ? L"scale"
+        : a->params.style == kGenieShatter   ? L"shatter"
+        : a->params.style == kGenieFragments ? L"fragments"
+                                             : L"modern",
         a->frames, a->reversals,
         a->frames ? a->cpuMs / a->frames : 0.0, a->firstFrameMs);
     // Ended minimized: keep the snapshot for the matching restore.

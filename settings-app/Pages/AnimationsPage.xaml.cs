@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -8,9 +9,32 @@ namespace MacWin.Settings.Pages;
 
 public partial class AnimationsPage : UserControl
 {
+    private SettingsModel? _model;
+
     public AnimationsPage()
     {
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            _model = DataContext as SettingsModel;
+            if (_model is not null) _model.PropertyChanged += Model_PropertyChanged;
+        };
+        Unloaded += (_, _) =>
+        {
+            if (_model is not null) _model.PropertyChanged -= Model_PropertyChanged;
+            _model = null;
+        };
+    }
+
+    // Choosing Shatter or Fragments shows it right away in the preview: it can't be guessed
+    // from a word.
+    private void Model_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (_model is null || _model.SuppressSideEffects) return;
+        bool opening = e.PropertyName == nameof(SettingsModel.OpenEffect);
+        if (!opening && e.PropertyName != nameof(SettingsModel.CloseEffect)) return;
+        int effect = opening ? _model.OpenEffect : _model.CloseEffect;
+        if (effect >= 2) Preview.PlayShatter(fragments: effect == 3, join: opening);
     }
 
     private void TryReal_Click(object sender, RoutedEventArgs e)

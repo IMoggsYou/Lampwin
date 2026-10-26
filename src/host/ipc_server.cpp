@@ -85,11 +85,15 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         Log(L"ipc: rejected (version %u, enabled %d, window %d)", r.version, (int)s.enabled, (int)IsWindow(hwnd));
         return MW_REPLY_FAIL;
     }
-    // Opening / closing: only with the genie chosen for it (the DLL only asks then).
+    // Opening / closing: only with an effect of MacWin chosen for it (the DLL only asks then).
     const bool opening = r.kind == MW_ANIM_LAUNCH, closing = r.kind == MW_ANIM_CLOSE;
-    if ((opening && s.genie.openEffect != MW_EFFECT_GENIE) || (closing && s.genie.closeEffect != MW_EFFECT_GENIE)) {
+    if ((opening && s.genie.openEffect == MW_EFFECT_SYSTEM) || (closing && s.genie.closeEffect == MW_EFFECT_SYSTEM)) {
         return MW_REPLY_FAIL;
     }
+    // Shatter and fragments: the window breaks apart (closing) or its pieces fly together
+    // (opening), wherever its taskbar button is.
+    const int effect = opening ? s.genie.openEffect : closing ? s.genie.closeEffect : MW_EFFECT_GENIE;
+    const bool shatter = effect == MW_EFFECT_SHATTER || effect == MW_EFFECT_FRAGMENTS;
     if (r.rawW <= 0 || r.rawH <= 0 || r.rawW > 16384 || r.rawH > 16384 ||
         !(r.cropU0 >= 0 && r.cropV0 >= 0 && r.cropU1 <= 1.0f && r.cropV1 <= 1.0f && r.cropU1 > r.cropU0 &&
           r.cropV1 > r.cropV0)) {
@@ -125,7 +129,9 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     job->requestedAt = requestedAt;
     job->durationMs = opening ? s.genie.openDurationMs : (closing ? s.genie.closeDurationMs : s.genie.durationMs);
     job->tiles = s.genie.meshQuality;
-    job->style = s.genie.style;
+    job->style = effect == MW_EFFECT_SHATTER     ? kGenieShatter
+                 : effect == MW_EFFECT_FRAGMENTS ? kGenieFragments
+                                                 : s.genie.style;
     job->params.closing = closing;
     renderer_.Retain(hwnd);   // from here on every exit goes through FailJob / the renderer
 
@@ -157,9 +163,10 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         return MW_REPLY_FAIL;
     }
     job->winRect = rect;
-    // Multi-monitor support targets the window's monitor; otherwise the primary.
-    job->hMon = s.genie.multiMonitor ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
-                                     : MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
+    // Multi-monitor support targets the window's monitor; otherwise the primary. The
+    // shards stay on the window's own monitor.
+    job->hMon = s.genie.multiMonitor || shatter ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+                                                : MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
     if (!IsZoomed(hwnd)) {
         UINT dpiX = 96, dpiY = 96;
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
@@ -181,6 +188,12 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
             job->cornerRadiusPx = dwmRadius * (float)dpiY / 96.0f;
             job->cornerSmoothing = 0.0f;
         }
+    }
+
+    // Shards go nowhere in particular: no taskbar button to look for (no UIA scan delay).
+    if (shatter) {
+        Dispatch(job, DockTarget{});
+        return MW_REPLY_OK;
     }
 
     // Dock target. Cursor over the taskbar = the user clicked THIS window's button, the
@@ -215,7 +228,9 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
 
 // Called on the IPC thread, or on the locator thread after a UIA scan.
 void IpcServer::Dispatch(GenieJob* job, const DockTarget& dock) {
-    if (dock.hasRect) {
+    if (IsShatterStyle(job->style)) {
+        Log(L"ipc: %p in pieces (%ls)", (void*)job->hwnd, job->style == kGenieFragments ? L"fragments" : L"shatter");
+    } else if (dock.hasRect) {
         Log(L"ipc: %p docks into its taskbar icon at %d,%d (icon %d px)", (void*)job->hwnd, dock.x, dock.y, dock.size);
     } else {
         Log(L"ipc: %p docks at x %d on the taskbar edge (button unknown)", (void*)job->hwnd, dock.x);

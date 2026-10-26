@@ -15,7 +15,17 @@ enum GenieStyle : int {
     kGenieModern = 0,    // Potassiumuncher's lamp curve
     kGenieClassic = 1,   // the mod's original (v2.2.0) funnel
     kGenieScale = 2,     // macOS's other effect: shrinks into the icon and fades
+    kGenieShatter = 3,   // opening / closing: the window breaks into shards that fly apart
+    kGenieFragments = 4, // the same with a few big pieces, each flying its own way
 };
+
+inline bool IsShatterStyle(int style) { return style == kGenieShatter || style == kGenieFragments; }
+
+// The crack grid for a w x h window: `cells` cells along its longer side, never fewer
+// than 3 along the other.
+void ShatterGrid(int w, int h, int cells, int* cols, int* rows);
+const int kShatterCells = 9;     // ~100 shards
+const int kFragmentCells = 5;    // ~30 big pieces
 
 struct Geometry {
     float x, y, width, height;
@@ -41,6 +51,8 @@ struct GenieParams {
     // Classic: x = dock x, y = dock y, width = neck width, height = 1 if the dock is
     // above the window (taskbar at the top), else 0.
     // Scale: the rect the window ends in, its own shape fitted into the icon.
+    // Shatter / fragments: x = columns, y = rows of the crack grid, width = seed,
+    // height = 1 for fragments.
     Geometry icon;
     int canvasLeft, canvasTop, canvasWidth, canvasHeight;   // ghost window rect
 };
@@ -54,9 +66,10 @@ int DefaultDockX(HMONITOR hMon);
 bool ComputeGenieParams(const RECT& winRect, HMONITOR hDockMon, const DockTarget& dock, int style, GenieParams* out);
 
 // Time -> progress. Modern and scale ease in and out (smootherstep: no jolt where the
-// motion starts or stops), classic is linear (its funnel eases per row). All are
+// motion starts or stops), classic is linear (its funnel eases per row). These three are
 // symmetric, f(1 - x) = 1 - f(x), which is what lets a running genie be turned around at
-// any point without a jump: see Renderer::Retarget.
+// any point without a jump: see Renderer::Retarget. Shatter and fragments are never
+// turned around.
 float GenieEase(const GenieParams& g, float raw);
 
 // Global opacity at progress t: every style melts into the icon instead of vanishing
