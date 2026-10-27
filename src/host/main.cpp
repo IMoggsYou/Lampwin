@@ -354,9 +354,15 @@ void App::StartUpdate() {
 void App::RunInstaller() {
     installAfterDownload_ = false;
     std::wstring path = updater_.InstallerPath();
-    if (path.empty()) return;
+    if (path.empty()) {
+        Log(L"update: no verified installer to run");
+        updater_.SetFailed();
+        return;
+    }
+    // A silent install shows nothing when it fails: its log says why.
     std::wstring args = settings_.Get().updateAutoInstall ? L"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
                                                           : L"/SILENT /SUPPRESSMSGBOXES /NORESTART";
+    args += L" /LOG=\"" + LocalDataDir() + L"\\updates\\install.log\"";
     SHELLEXECUTEINFOW sei = {sizeof(sei)};
     sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
     sei.lpVerb = elevated_ ? L"open" : L"runas";   // the installer needs administrator rights

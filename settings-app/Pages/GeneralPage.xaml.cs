@@ -96,7 +96,9 @@ public partial class GeneralPage : UserControl
                 "downloading" => Loc.F("settings.general.updates.status.downloading", latest),
                 "installing" => Loc.F("settings.general.updates.status.installing", latest),
                 "available" => Loc.F("settings.general.updates.status.available", latest),
-                "failed" or "failedInstall" => Loc.T("settings.general.updates.status.failed"),
+                "failed" => Loc.T("settings.general.updates.status.failed"),
+                "failedInstall" => Loc.T("settings.general.updates.status.failedInstall"),
+                "unusable" => Loc.T("settings.general.updates.status.unusable"),
                 "upToDate" => Loc.F("settings.general.updates.status.upToDate", u.Current ?? Project.Version),
                 _ => Loc.T("settings.general.updates.status.never"),
             };
@@ -151,8 +153,8 @@ public partial class GeneralPage : UserControl
             });
             if (!HostControl.IsRunning) return;
         }
-        if (!UpdateClient.CheckNow()) return;
-        _update = _update with { Status = "checking" };
+        // A host that doesn't answer is a failed check, not silence.
+        _update = _update with { Status = UpdateClient.CheckNow() ? "checking" : "failed" };
         UpdateStatus();
     }
 

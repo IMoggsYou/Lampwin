@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "バージョン {0} をダウンロードしています…",
   "settings.general.updates.status.installing": "バージョン {0} をインストールしています…",
   "settings.general.updates.status.failed": "アップデートを確認できませんでした。インターネット接続を確認して、もう一度お試しください。",
+  "settings.general.updates.status.failedInstall": "更新をインストールできませんでした。もう一度試すか、GitHub のプロジェクト ページからダウンロードしてください。",
+  "settings.general.updates.status.unusable": "更新が見つかりましたが、そのファイルを使用できませんでした。GitHub のプロジェクト ページからダウンロードしてください。",
   "settings.general.updates.status.never": "まだ確認していません。",
   "settings.general.updates.status.hostStopped": "アップデートを確認するには MacWin を開始してください。",
   "settings.general.updates.lastCheck": "最終確認: {0}",

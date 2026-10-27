@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "संस्करण {0} डाउनलोड हो रहा है…",
   "settings.general.updates.status.installing": "संस्करण {0} इंस्टॉल हो रहा है…",
   "settings.general.updates.status.failed": "अपडेट नहीं जाँचे जा सके। अपना इंटरनेट कनेक्शन जाँचें और फिर से कोशिश करें।",
+  "settings.general.updates.status.failedInstall": "अपडेट इंस्टॉल नहीं हो सका। फिर से कोशिश करें या GitHub पर प्रोजेक्ट के पेज से डाउनलोड करें।",
+  "settings.general.updates.status.unusable": "अपडेट मिला, लेकिन उसकी फ़ाइलें इस्तेमाल नहीं हो सकीं। GitHub पर प्रोजेक्ट के पेज से डाउनलोड करें।",
   "settings.general.updates.status.never": "अभी तक नहीं जाँचा गया।",
   "settings.general.updates.status.hostStopped": "अपडेट जाँचने के लिए MacWin शुरू करें।",
   "settings.general.updates.lastCheck": "पिछली जाँच: {0}",

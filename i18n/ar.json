@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "جارٍ تنزيل الإصدار {0}…",
   "settings.general.updates.status.installing": "جارٍ تثبيت الإصدار {0}…",
   "settings.general.updates.status.failed": "تعذّر التحقق من التحديثات. تحقق من اتصالك بالإنترنت وحاول مرة أخرى.",
+  "settings.general.updates.status.failedInstall": "تعذّر تثبيت التحديث. حاول مرة أخرى أو نزّله من صفحة المشروع على GitHub.",
+  "settings.general.updates.status.unusable": "عُثر على تحديث، لكن تعذّر استخدام ملفاته. نزّله من صفحة المشروع على GitHub.",
   "settings.general.updates.status.never": "لم يتم التحقق بعد.",
   "settings.general.updates.status.hostStopped": "شغّل MacWin للتحقق من التحديثات.",
   "settings.general.updates.lastCheck": "آخر تحقق: {0}",

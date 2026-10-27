@@ -29,6 +29,11 @@ bool ParseLatestRelease(const std::wstring& json, Release* out);
 // The hash for `fileName` in a SHA256SUMS.txt ("<64 hex>  <name>" lines), lowercase.
 std::wstring FindSha256(const std::string& sums, const std::wstring& fileName);
 bool IsTrustedDownloadHost(const std::wstring& host);
+// How a check ends: available, upToDate, unusable (a release without a usable installer),
+// failed (manual check, no answer), or - for a scheduled one that failed - the status it
+// started from (idle instead of checking).
+std::wstring CheckOutcome(bool fetched, unsigned long http, bool parsed, bool newer, bool manual,
+                          const std::wstring& before);
 
 class Updater {
 public:
@@ -44,7 +49,8 @@ public:
     void Download();
 
     // Snapshot of the state, for the tray and the dialogs (main thread).
-    std::wstring Status();           // idle, checking, upToDate, available, downloading, installing, failed
+    // idle, checking, upToDate, available, unusable, downloading, installing, failed, failedInstall
+    std::wstring Status();
     Release Available();             // version empty if none
     std::wstring InstallerPath();    // after kInstallerReady
     bool ShouldNotify();             // a newly found version nobody was told about yet (true once)

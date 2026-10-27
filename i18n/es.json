@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "Descargando la versión {0}…",
   "settings.general.updates.status.installing": "Instalando la versión {0}…",
   "settings.general.updates.status.failed": "No se pudieron buscar actualizaciones. Comprueba tu conexión a Internet y vuelve a intentarlo.",
+  "settings.general.updates.status.failedInstall": "No se pudo instalar la actualización. Vuelve a intentarlo o descárgala desde la página del proyecto en GitHub.",
+  "settings.general.updates.status.unusable": "Se encontró una actualización, pero no se pudieron usar sus archivos. Descárgala desde la página del proyecto en GitHub.",
   "settings.general.updates.status.never": "Todavía no se ha comprobado.",
   "settings.general.updates.status.hostStopped": "Inicia MacWin para buscar actualizaciones.",
   "settings.general.updates.lastCheck": "Última comprobación: {0}",

@@ -111,6 +111,18 @@ void TestHosts() {
     CHECK(!IsTrustedDownloadHost(L"example.com"));
 }
 
+// A check never calls an unusable release "up to date" (what 1.3.1 did after the rename).
+void TestCheckOutcome() {
+    CHECK(CheckOutcome(true, 200, true, true, true, L"idle") == L"available");
+    CHECK(CheckOutcome(true, 200, true, false, false, L"idle") == L"upToDate");
+    CHECK(CheckOutcome(false, 404, false, false, true, L"idle") == L"upToDate");
+    CHECK(CheckOutcome(true, 200, false, false, true, L"upToDate") == L"unusable");
+    CHECK(CheckOutcome(false, 0, false, false, true, L"upToDate") == L"failed");
+    // Scheduled checks that fail keep what was shown.
+    CHECK(CheckOutcome(true, 200, false, false, false, L"available") == L"available");
+    CHECK(CheckOutcome(false, 0, false, false, false, L"checking") == L"idle");
+}
+
 void TestLanguages() {
     using i18n::Resolve;
     CHECK(Resolve(L"auto", {L"pl-PL"}) == L"pl");
@@ -345,6 +357,7 @@ int wmain() {
     TestRelease();
     TestSums();
     TestHosts();
+    TestCheckOutcome();
     TestLanguages();
     TestProgramLists();
     TestJson();

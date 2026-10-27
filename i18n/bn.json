@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "সংস্করণ {0} ডাউনলোড হচ্ছে…",
   "settings.general.updates.status.installing": "সংস্করণ {0} ইনস্টল হচ্ছে…",
   "settings.general.updates.status.failed": "আপডেট পরীক্ষা করা যায়নি। আপনার ইন্টারনেট সংযোগ পরীক্ষা করে আবার চেষ্টা করুন।",
+  "settings.general.updates.status.failedInstall": "আপডেটটি ইনস্টল করা যায়নি। আবার চেষ্টা করুন অথবা GitHub-এ প্রকল্পের পাতা থেকে ডাউনলোড করুন।",
+  "settings.general.updates.status.unusable": "একটি আপডেট পাওয়া গেছে, কিন্তু এর ফাইলগুলো ব্যবহার করা যায়নি। GitHub-এ প্রকল্পের পাতা থেকে ডাউনলোড করুন।",
   "settings.general.updates.status.never": "এখনো পরীক্ষা করা হয়নি।",
   "settings.general.updates.status.hostStopped": "আপডেট পরীক্ষা করতে MacWin চালু করুন।",
   "settings.general.updates.lastCheck": "শেষ পরীক্ষা: {0}",

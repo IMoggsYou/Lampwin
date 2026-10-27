@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "Скачивание версии {0}…",
   "settings.general.updates.status.installing": "Установка версии {0}…",
   "settings.general.updates.status.failed": "Не удалось проверить обновления. Проверьте подключение к Интернету и повторите попытку.",
+  "settings.general.updates.status.failedInstall": "Не удалось установить обновление. Попробуйте ещё раз или скачайте его со страницы проекта на GitHub.",
+  "settings.general.updates.status.unusable": "Обновление найдено, но его файлы нельзя использовать. Скачайте его со страницы проекта на GitHub.",
   "settings.general.updates.status.never": "Ещё не проверялось.",
   "settings.general.updates.status.hostStopped": "Запустите MacWin, чтобы проверить обновления.",
   "settings.general.updates.lastCheck": "Последняя проверка: {0}",

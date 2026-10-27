@@ -121,6 +121,8 @@
   "settings.general.updates.status.downloading": "正在下载版本 {0}…",
   "settings.general.updates.status.installing": "正在安装版本 {0}…",
   "settings.general.updates.status.failed": "无法检查更新。请检查网络连接后重试。",
+  "settings.general.updates.status.failedInstall": "无法安装更新。请重试，或从 GitHub 上的项目页面下载。",
+  "settings.general.updates.status.unusable": "找到了更新，但无法使用其文件。请从 GitHub 上的项目页面下载。",
   "settings.general.updates.status.never": "尚未检查。",
   "settings.general.updates.status.hostStopped": "启动 MacWin 后才能检查更新。",
   "settings.general.updates.lastCheck": "上次检查：{0}",
