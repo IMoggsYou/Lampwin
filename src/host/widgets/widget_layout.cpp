@@ -9,9 +9,9 @@ namespace widgets {
 
 Span SpanOf(Size s) {
     switch (s) {
-        case Size::Medium: return {2, kRowSteps};
-        case Size::Large: return {2, 2 * kRowSteps};
-        default: return {1, kRowSteps};
+        case Size::Medium: return {2 * kColSteps, kRowSteps};
+        case Size::Large: return {2 * kColSteps, 2 * kRowSteps};
+        default: return {kColSteps, kRowSteps};
     }
 }
 
@@ -31,26 +31,40 @@ Grid::Grid(const RECT& work, double unit)
     int pitch = cell_ + gap_;
     int w = work.right - work.left - 2 * margin_ + gap_;
     int h = work.bottom - work.top - margin_ - bottomMargin_ + gap_;
-    cols_ = w > 0 ? w / pitch : 0;
+    cols_ = w > 0 ? w * kColSteps / pitch : 0;
     rows_ = h > 0 ? h * kRowSteps / pitch : 0;
 }
 
 SIZE Grid::CardSize(Span span) const {
-    int rows = span.rows / kRowSteps;
-    return {span.cols * cell_ + (span.cols - 1) * gap_, rows * cell_ + (rows - 1) * gap_};
+    int cols = span.cols / kColSteps, rows = span.rows / kRowSteps;
+    return {cols * cell_ + (cols - 1) * gap_, rows * cell_ + (rows - 1) * gap_};
 }
 
 RECT Grid::Rect(const Slot& s) const {
     SIZE size = CardSize(s.span);
     int pitch = cell_ + gap_;
     // A wider widget grows to the left of its column, which keeps its right edge on the grid.
-    int right = work_.right - margin_ - s.col * pitch;
-    // Rounded per row, so two rows are always one cell and gap apart.
+    // Rounded per step, so two steps are always one cell and gap apart.
+    int right = work_.right - margin_ - s.col * pitch / kColSteps;
     int top = work_.top + margin_ + s.row * pitch / kRowSteps;
-    // The grid rarely ends exactly on the bottom margin: the last row moves down onto it
-    // (nothing lies below it, and moving down keeps it clear of the rows above).
+    // The grid rarely ends exactly on the far margins: the last row moves down onto the
+    // bottom one and the last column left onto the left one (nothing lies beyond them, and
+    // moving that way keeps them clear of the others).
     if (s.row + s.span.rows >= rows_) top = work_.bottom - bottomMargin_ - size.cy;
-    return {right - size.cx, top, right, top + size.cy};
+    int left = right - size.cx;
+    if (s.col + s.span.cols >= cols_) left = work_.left + margin_;
+    return {left, top, left + size.cx, top + size.cy};
+}
+
+double FitUnit(const RECT& work, double unit) {
+    const double large = 2 * kCellDip + kGapDip;
+    // A few pixels to spare: the grid rounds every size to whole pixels.
+    const double byWidth = (work.right - work.left - 4) / (2.0 * kMarginDip + large);
+    const double byHeight = (work.bottom - work.top - 4) / ((double)kMarginDip + kBottomMarginDip + large);
+    double fit = byWidth < byHeight ? byWidth : byHeight;
+    // A sliver of a monitor gets no widgets rather than unreadable ones.
+    if (fit < 0.3) fit = 0.3;
+    return unit < fit ? unit : fit;
 }
 
 bool Grid::Inside(const Slot& s) const {

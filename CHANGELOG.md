@@ -9,6 +9,17 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Changed
+
+- Widgets move left and right in half steps too, and go all the way to the left edge of
+  the screen, as they already go down to the taskbar. Widgets already on the desktop stay
+  where they are.
+
+### Fixed
+
+- On a small screen, or with a big widget size and high display scaling, widgets
+  disappeared when there was no room for them; they now shrink to fit, on every monitor.
+
 ## [1.5.0] - 2026-10-27
 
 MacWin is now called **Lampwin**. Nothing changes for your settings, widgets or icons, and

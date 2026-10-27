@@ -17,12 +17,14 @@ const int kGapDip = 16;
 const int kMarginDip = 24;
 // Above the taskbar: the lowest widgets sit right next to it.
 const int kBottomMarginDip = 12;
-// Rows are half a cell high, so a widget also fits in the space a whole row would leave
-// over the taskbar; the lowest row lies on the bottom margin (see Grid::Rect).
+// Rows and columns are half a cell, so widgets move in finer steps and also fit in the
+// space whole cells would leave over; the last row lies on the bottom margin and the last
+// column on the left one (see Grid::Rect), whatever the screen's size.
 const int kRowSteps = 2;
+const int kColSteps = 2;
 
 struct Span {
-    int cols;
+    int cols;   // in columns of the grid: kColSteps per cell
     int rows;   // in rows of the grid: kRowSteps per cell
 };
 Span SpanOf(Size s);
@@ -44,7 +46,7 @@ public:
     // Size of a widget's card in px.
     SIZE CardSize(Span span) const;
     // Card rectangle of a slot (col 0 is the rightmost column). A slot that reaches the
-    // last row sits on the bottom margin.
+    // last row sits on the bottom margin, one that reaches the last column on the left one.
     RECT Rect(const Slot& s) const;
     bool Inside(const Slot& s) const;
     // The free slot whose card is closest to a card whose top-left corner is at `at` (px);
@@ -62,5 +64,10 @@ private:
 };
 
 bool Overlaps(const Slot& a, const Slot& b);
+
+// `unit` (px per DIP), made smaller when needed so a large widget (two by two cells) fits in
+// the work area: on a small screen, or at a high widget size, the widgets shrink instead of
+// disappearing.
+double FitUnit(const RECT& work, double unit);
 
 }  // namespace widgets
