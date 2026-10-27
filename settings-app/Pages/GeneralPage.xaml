@@ -31,7 +31,7 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="MacWin"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Lampwin"/>
         <Border Style="{StaticResource Group}">
             <c:SettingRow x:Name="StatusRow" Title="{l:Tr settings.general.status.title}">
                 <StackPanel Orientation="Horizontal">

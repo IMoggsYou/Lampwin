@@ -4,6 +4,7 @@
 #include "host/i18n.h"
 #include <wctype.h>
 #include <unordered_map>
+#include "common/names.h"
 #include "host/json.h"
 #include "host/log.h"
 
@@ -146,7 +147,7 @@ std::wstring LocaleName() {
 
 int Message(HWND owner, const std::wstring& text, UINT type) {
     if (IsRightToLeft()) type |= MB_RTLREADING | MB_RIGHT;
-    return MessageBoxW(owner, text.c_str(), L"MacWin", type);
+    return MessageBoxW(owner, text.c_str(), MACWIN_DISPLAY_NAME, type);
 }
 
 }  // namespace i18n

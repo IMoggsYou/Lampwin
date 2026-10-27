@@ -9,6 +9,10 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+MacWin is now called **Lampwin**. Nothing changes for your settings, widgets or icons, and
+installed copies keep updating themselves. **If you have MacWin 1.3.1 or older**, install
+this version once by hand: those versions can't find updates since the rename.
+
 ### Added
 
 - Two new ways to open and close windows (Settings → Animations):
@@ -19,6 +23,11 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
   The glass breaks where you clicked (the close button), its cracks flash, and the pieces
   tumble in 3D, catch the light and fall in an arc. The live preview shows each effect as
   soon as you pick it.
+- **Zoom** for opening and closing: the window grows out of the place you clicked, a touch
+  past its size, and settles; closing shrinks it into the pointer (its close button).
+- Lampwin follows Windows' **Animation effects** setting (Settings → Accessibility → Visual
+  effects): with it off, windows open, close and minimize without animations, the widgets
+  and the settings window stay still too. A switch on the Animations page turns this off.
 - Two new desktop widgets:
   - **Countdown**: the days to go until a day you choose (or since it), with its title; the
     medium size also shows the day itself.
@@ -27,15 +36,31 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 - **Your settings** (Settings → General): export them to a file and import them on another
   PC, or restore the defaults. Widgets, app icons, privacy switches and the language stay
   when you restore; the settings you had are kept in `settings.json.bak`.
+- Drop icon files, folders or an icon set (`.macwinicons`) onto the **App icons** page to
+  add them.
 
 ### Changed
 
+- The program's visible name is **Lampwin**: the window titles, the tray, the installer, the
+  Start menu shortcut and every text. Its files, its folder in AppData and its startup task
+  keep the old name, so nothing has to move.
+- Shatter and Fragments take a little longer than the duration slider says, so the pieces
+  have time to fly apart.
+- The installer is a third of its size (about 4.5 MB): the included icons come as compact
+  pictures. Icons you removed stay removed.
+- `--export-icon` writes a PNG when the file name ends in `.png`.
 - The **classic genie** is the default animation style for new installs (and after
   Restore defaults). It now pours into the taskbar and comes out of it, instead of
   running on to the bottom edge of the screen, which showed on an empty desktop.
 - Widgets can go lower: the grid has half-height rows, and the lowest widgets sit right
   above the taskbar instead of leaving a gap under them. Widgets already on the desktop
   stay where they are.
+
+### Fixed
+
+- **Check now** said "up to date" when the update couldn't be read or installed; it now
+  says so, and the settings window says when Lampwin can't be reached. A failed silent
+  install leaves a log (`%LOCALAPPDATA%\MacWin\updates\install.log`).
 
 ## [1.4.0] - 2026-10-24
 

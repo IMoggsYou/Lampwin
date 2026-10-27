@@ -164,7 +164,7 @@ bool App::Init(HINSTANCE hInst) {
     RegisterClassExW(&wc);
     // A real (hidden) top-level window: message-only windows miss TaskbarCreated.
     // The title tells the settings app whether we run elevated.
-    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, MACWIN_HOST_WNDCLASS, elevated_ ? L"MacWin (administrator)" : L"MacWin",
+    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, MACWIN_HOST_WNDCLASS, elevated_ ? MACWIN_DISPLAY_NAME L" (administrator)" : MACWIN_DISPLAY_NAME,
                             WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hInst, this);
     if (!hwnd_) return false;
     taskbarCreatedMsg_ = RegisterWindowMessageW(L"TaskbarCreated");

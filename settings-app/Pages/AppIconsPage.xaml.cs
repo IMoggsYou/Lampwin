@@ -364,7 +364,7 @@ public partial class AppIconsPage : UserControl
         var dialog = new SaveFileDialog
         {
             Filter = SetFilter,
-            FileName = "MacWin" + AppIconStore.SetExtension,
+            FileName = Project.Name + AppIconStore.SetExtension,
             DefaultExt = AppIconStore.SetExtension,
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
@@ -422,7 +422,7 @@ public partial class AppIconsPage : UserControl
     {
         int count = _rows.Count;
         if (count == 0) return;
-        var answer = MessageBox.Show(Window.GetWindow(this), Loc.F("settings.icons.removeAll.confirm", count), "MacWin",
+        var answer = MessageBox.Show(Window.GetWindow(this), Loc.F("settings.icons.removeAll.confirm", count), Project.Name,
                                      MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No,
                                      Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
                                                        : MessageBoxOptions.None);

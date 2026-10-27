@@ -34,6 +34,9 @@
 // 1 = remove MacWin's corners. The hook DLL answers it in DefWindowProc.
 #define MACWIN_CORNERS_MESSAGE    L"MacWin_" MACWIN_NS L"Corners_v1"          // RegisterWindowMessage
 #define MACWIN_TASK_NAME          L"MacWin"                     // scheduled task (elevated start)
+// The name people see (since 1.5.0). Every name above stays MacWin: installed copies,
+// their settings and the programs that talk to them must keep finding each other.
+#define MACWIN_DISPLAY_NAME       L"Lampwin"
 
 // Lowercase image names the DLL must never activate in.
 #define MACWIN_HOST_EXE           L"macwin.exe"

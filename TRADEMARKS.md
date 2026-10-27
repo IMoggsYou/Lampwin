@@ -1,23 +1,24 @@
 # Trademark policy
 
-The name **MacWin** and the MacWin icon and logo (`assets/MacWin.ico`) belong to
+The names **Lampwin** and **MacWin** (its name until version 1.4.0) and the program's icon
+and logo (`assets/MacWin.ico`) belong to
 [IMoggsYou](https://github.com/IMoggsYou). The GNU GPL license of the source code does
 not grant any right to them (see GPL section 7(e) and [NOTICE](NOTICE)).
 
 ## What you may do
 
-- Use, copy and share the official, unmodified MacWin releases under their own name.
-- Describe your relationship to the project in plain words: "based on MacWin",
-  "a fork of MacWin", "works with MacWin". Linking to this repository is welcome.
-- Write about MacWin in articles, videos, reviews and documentation.
+- Use, copy and share the official, unmodified Lampwin releases under their own name.
+- Describe your relationship to the project in plain words: "based on Lampwin",
+  "a fork of Lampwin", "works with Lampwin". Linking to this repository is welcome.
+- Write about Lampwin in articles, videos, reviews and documentation.
 
 ## What you may not do
 
-- Use the name "MacWin" or the icon and logo for a modified version, a fork, or any
-  other product or service, including in the program name, the installer, the window
+- Use the names "Lampwin" or "MacWin" or the icon and logo for a modified version, a
+  fork, or any other product or service, including in the program name, the installer, the window
   titles, package names, domain names and store listings.
 - Suggest that a modified version, or anything else, is made, approved or endorsed
-  by the MacWin author.
+  by the Lampwin author.
 
 ## If you fork or redistribute a modified version
 

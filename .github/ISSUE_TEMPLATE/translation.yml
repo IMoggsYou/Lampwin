@@ -1,12 +1,12 @@
 name: Translation fix
-description: A text in MacWin is wrongly translated, unclear or missing
+description: A text in Lampwin is wrongly translated, unclear or missing
 title: "[Translation]: "
 labels: ["translation"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for helping to make MacWin better in your language. You can also fix it yourself: edit the file for your language in the `i18n` folder and open a pull request (see [CONTRIBUTING.md](https://github.com/IMoggsYou/Lampwin/blob/main/CONTRIBUTING.md#translations)).
+        Thank you for helping to make Lampwin better in your language. You can also fix it yourself: edit the file for your language in the `i18n` folder and open a pull request (see [CONTRIBUTING.md](https://github.com/IMoggsYou/Lampwin/blob/main/CONTRIBUTING.md#translations)).
   - type: dropdown
     id: language
     attributes:
@@ -30,7 +30,7 @@ body:
     id: current
     attributes:
       label: Current text
-      description: The text as MacWin shows it now. Write "missing" if there is no text or it shows in the wrong language.
+      description: The text as Lampwin shows it now. Write "missing" if there is no text or it shows in the wrong language.
     validations:
       required: true
   - type: textarea

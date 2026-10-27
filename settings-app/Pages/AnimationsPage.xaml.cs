@@ -54,7 +54,7 @@ public partial class AnimationsPage : UserControl
     private bool EnsureRunning()
     {
         if (HostControl.IsRunning) return true;
-        MessageBox.Show(Window.GetWindow(this), Loc.T("settings.animations.notRunning"), "MacWin",
+        MessageBox.Show(Window.GetWindow(this), Loc.T("settings.animations.notRunning"), Project.Name,
                         MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK,
                         Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign : MessageBoxOptions.None);
         return false;

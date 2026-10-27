@@ -1,5 +1,5 @@
 # Publishes a GitHub Release for a version tag (vX.Y.Z): the installer, its SHA-256
-# (MacWin's updater checks it) and a build provenance attestation. The release notes
+# (Lampwin's updater checks it) and a build provenance attestation. The release notes
 # are that version's section of CHANGELOG.md. See AGENTS.md, "Releasing".
 #
 # Code signing through SignPath runs only once the repository has the variable
@@ -109,7 +109,7 @@ jobs:
             echo
             echo "---"
             echo "**Download:** \`MacWinSetup-${{ steps.version.outputs.version }}.exe\` below (Windows 11, x64)."
-            echo "Installed copies of MacWin update themselves. SHA-256 checksums: \`SHA256SUMS.txt\`."
+            echo "Installed copies of Lampwin update themselves. SHA-256 checksums: \`SHA256SUMS.txt\`."
           } >> notes.md
 
       - name: Publish
@@ -117,4 +117,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" dist/MacWinSetup-*.exe dist/SHA256SUMS.txt \
-            --title "MacWin ${{ steps.version.outputs.version }}" --notes-file notes.md --verify-tag
+            --title "Lampwin ${{ steps.version.outputs.version }}" --notes-file notes.md --verify-tag

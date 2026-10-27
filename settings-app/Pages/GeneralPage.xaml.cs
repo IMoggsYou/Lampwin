@@ -225,7 +225,7 @@ public partial class GeneralPage : UserControl
     }
 
     private MessageBoxResult Say(string text, MessageBoxImage image, MessageBoxButton buttons = MessageBoxButton.OK) =>
-        MessageBox.Show(Window.GetWindow(this), text, "MacWin", buttons, image,
+        MessageBox.Show(Window.GetWindow(this), text, Project.Name, buttons, image,
                         buttons == MessageBoxButton.YesNo ? MessageBoxResult.No : MessageBoxResult.OK,
                         Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
                                           : MessageBoxOptions.None);

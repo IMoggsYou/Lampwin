@@ -113,7 +113,7 @@ public partial class App : Application
         _lastReport = DateTime.UtcNow;
         try
         {
-            MessageBox.Show(Current?.MainWindow ?? new Window(), Loc.F("settings.error.unexpected", LogPath), "MacWin",
+            MessageBox.Show(Current?.MainWindow ?? new Window(), Loc.F("settings.error.unexpected", LogPath), Project.Name,
                             MessageBoxButton.OK, MessageBoxImage.Warning, MessageBoxResult.OK,
                             Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign : MessageBoxOptions.None);
         }

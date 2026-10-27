@@ -1,13 +1,22 @@
-# AGENTS.md — how to work on MacWin
+# AGENTS.md — how to work on Lampwin (MacWin)
 
 Instructions for AI coding agents (Claude Code, Codex, Cursor, Copilot, …) and for
 humans who want the short version. `CLAUDE.md` and `.github/copilot-instructions.md`
 point here; keep this file the single source.
 
-MacWin brings macOS-style window animations (the genie effect) and squircle window
+Lampwin brings macOS-style window animations (the genie effect) and squircle window
 corners to Windows 11. Author: **IMoggsYou**. License: **GPL-3.0-or-later** with the
 additional terms in `NOTICE` (keep "Created by IMoggsYou" in file headers and in the About
 page; modified versions must be renamed).
+
+**Two names.** People see **Lampwin** (since 1.5.0): texts, window titles, the installer,
+the version resources, the README. Everything a computer looks for keeps the old name
+**MacWin**: file names (`MacWin.exe`, `MacWinSetup-X.Y.Z.exe`, which 1.4.0's updater
+needs), `%APPDATA%\MacWin`, the scheduled task, window classes, registered messages, the
+installer's `AppId` and folder, `.macwinicons`, the code's namespaces and identifiers.
+Never change those, and never reuse the GitHub name `IMoggsYou/MacWin` (its redirect is
+how old copies still find the releases). In code use `MACWIN_DISPLAY_NAME` (C++) or
+`Project.Name` (C#); in texts write Lampwin.
 
 ## Architecture in one minute
 

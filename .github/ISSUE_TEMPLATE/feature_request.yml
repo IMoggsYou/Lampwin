@@ -1,12 +1,12 @@
 name: Feature request
-description: Suggest an idea or an improvement for MacWin
+description: Suggest an idea or an improvement for Lampwin
 title: "[Feature]: "
 labels: ["enhancement"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for the idea. MacWin tries to stay small and close to how macOS behaves, so please explain the problem you want to solve, not only the solution.
+        Thanks for the idea. Lampwin tries to stay small and close to how macOS behaves, so please explain the problem you want to solve, not only the solution.
   - type: checkboxes
     id: checks
     attributes:
@@ -25,7 +25,7 @@ body:
     id: solution
     attributes:
       label: The solution you would like
-      description: How should MacWin behave? If you know how macOS does it, say so.
+      description: How should Lampwin behave? If you know how macOS does it, say so.
     validations:
       required: true
   - type: textarea

@@ -78,7 +78,7 @@ target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
 # --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
 target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
 target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32)
-macwin_version_resource(MacWinHook "MacWin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
+macwin_version_resource(MacWinHook "Lampwin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
 
 # --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---
 if(MACWIN_BITS EQUAL 64)
@@ -126,7 +126,7 @@ if(MACWIN_BITS EQUAL 64)
                         shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32
                         d2d1 dwrite windowscodecs runtimeobject)
   add_dependencies(MacWin MacWinHook)
-  macwin_version_resource(MacWin "MacWin - macOS-style window animations" MacWin.exe VFT_APP)
+  macwin_version_resource(MacWin "Lampwin - macOS-style window animations" MacWin.exe VFT_APP)
 
   # Settings app (C# / WPF, .NET 10), published next to MacWin.exe.
   find_program(MACWIN_DOTNET dotnet)
@@ -160,7 +160,7 @@ if(MACWIN_BITS EQUAL 64)
   add_executable(MacWinTestWindow WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow PRIVATE -municode)
   target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
-  macwin_version_resource(MacWinTestWindow "MacWin test window" MacWinTestWindow.exe VFT_APP)
+  macwin_version_resource(MacWinTestWindow "Lampwin test window" MacWinTestWindow.exe VFT_APP)
 else()
   # --- 32-bit side: MacWinHook32.dll (above) + the helper that gets it into 32-bit
   # programs. Rendering always stays in the 64-bit MacWin.exe.
@@ -169,12 +169,12 @@ else()
   target_link_options(MacWinHelper32 PRIVATE -municode)
   target_link_libraries(MacWinHelper32 PRIVATE user32 advapi32)
   add_dependencies(MacWinHelper32 MacWinHook)
-  macwin_version_resource(MacWinHelper32 "MacWin helper for 32-bit programs" MacWinHelper32.exe VFT_APP)
+  macwin_version_resource(MacWinHelper32 "Lampwin helper for 32-bit programs" MacWinHelper32.exe VFT_APP)
 
   add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow32 PRIVATE -municode)
   target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
-  macwin_version_resource(MacWinTestWindow32 "MacWin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
+  macwin_version_resource(MacWinTestWindow32 "Lampwin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
 endif()
 
 # --- Tests: ctest --test-dir build/x64 ---

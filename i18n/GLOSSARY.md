@@ -1,6 +1,6 @@
 # Glossary
 
-The terms MacWin uses, per language. Windows words follow Microsoft's own translation of
+The terms Lampwin uses, per language. Windows words follow Microsoft's own translation of
 Windows 11 in that language; macOS words follow Apple's (Bengali has no macOS
 translation, so the common borrowed word is used). Keep new strings consistent with
 this table.
@@ -26,5 +26,5 @@ this table.
 | widget | widżet | 小组件 | विजेट | widget | widget | أداة (الأدوات) | উইজেট | виджет | widget | ウィジェット |
 | anti-cheat | ochrona przed oszustwami | 反作弊 | एंटी-चीट | antitrampas | anti-triche | مكافحة الغش | অ্যান্টি-চিট | античит | antitrapaça | アンチチート |
 
-Never translated: MacWin, Windows, Windows 11, macOS, GitHub, Figma, the program names
+Never translated: Lampwin, Windows, Windows 11, macOS, GitHub, Figma, the program names
 (Chrome, Edge, …), `settings.json`, keyboard shortcuts (French writes `Maj` for Shift).
