@@ -287,7 +287,7 @@ private:
     void ApplyUpdate(Update* u);
     std::vector<Monitor> Monitors() const;
     const Monitor* Find(const std::vector<Monitor>& monitors, const std::wstring& name) const;
-    float UnitFor(const Monitor& m) const { return m.scale * config_.scale / 100.0f; }
+    float UnitFor(const Monitor& m) const { return (float)FitUnit(m.work, m.scale * config_.scale / 100.0); }
     std::vector<Slot> Taken(const std::wstring& monitor, const Widget* except) const;
     void Layout();
     void Show(Widget* w, const Monitor& m, const Grid& grid, const Slot& slot);

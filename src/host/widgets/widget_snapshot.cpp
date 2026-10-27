@@ -144,7 +144,8 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
     std::vector<Placed> placed;
     for (const Sample& s : samples) {
         Span span = SpanOf(s.size);
-        span.rows /= kRowSteps;   // whole cells here
+        span.cols /= kColSteps;   // whole cells here
+        span.rows /= kRowSteps;
         for (int row = 0;; ++row) {
             while ((int)used.size() < row + span.rows) used.push_back(std::vector<bool>(cols, false));
             int found = -1;

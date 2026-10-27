@@ -187,9 +187,9 @@ void TestJson() {
 void TestWidgetGrid() {
     using namespace widgets;
     // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges
-    // (12 from the taskbar), rows half a cell high.
+    // (12 from the taskbar), rows and columns half a cell.
     Grid grid({0, 0, 1920, 1040}, 1.0);
-    CHECK(grid.Cols() == 10);
+    CHECK(grid.Cols() == 20);
     CHECK(grid.Rows() == 11);
     CHECK(grid.CardSize(SpanOf(Size::Small)).cx == 164);
     CHECK(grid.CardSize(SpanOf(Size::Medium)).cx == 344);
@@ -200,9 +200,14 @@ void TestWidgetGrid() {
     RECT m = grid.Rect({0, 2, SpanOf(Size::Medium)});
     CHECK(m.right == 1920 - 24 && m.left == 1920 - 24 - 344 && m.top == 24 + 180);
     CHECK(grid.Rect({0, 1, SpanOf(Size::Small)}).top == 24 + 90);
-    CHECK(!grid.Inside({9, 0, SpanOf(Size::Medium)}));
-    CHECK(grid.Inside({8, 7, SpanOf(Size::Large)}));
-    CHECK(!grid.Inside({8, 8, SpanOf(Size::Large)}));
+    CHECK(grid.Rect({1, 0, SpanOf(Size::Small)}).right == 1920 - 24 - 90);
+    CHECK(!grid.Inside({17, 0, SpanOf(Size::Medium)}));
+    CHECK(grid.Inside({16, 7, SpanOf(Size::Large)}));
+    CHECK(!grid.Inside({16, 8, SpanOf(Size::Large)}));
+    // The last column lies on the left margin, clear of the one next to it.
+    RECT leftmost = grid.Rect({18, 0, SpanOf(Size::Small)});
+    CHECK(leftmost.left == 24 && leftmost.right + 16 <= grid.Rect({16, 0, SpanOf(Size::Small)}).left);
+    CHECK(grid.Rect({16, 0, SpanOf(Size::Medium)}).left == 24);
     // The last row lies on the bottom margin, right above the taskbar, clear of the one
     // above it.
     RECT low = grid.Rect({0, 9, SpanOf(Size::Small)});
@@ -214,10 +219,11 @@ void TestWidgetGrid() {
     Slot s;
     CHECK(grid.First(SpanOf(Size::Medium), taken, &s) && s.col == 0 && s.row == 0);
     taken.push_back(s);
-    CHECK(grid.First(SpanOf(Size::Small), taken, &s) && s.col == 2 && s.row == 0);
+    CHECK(grid.First(SpanOf(Size::Small), taken, &s) && s.col == 4 && s.row == 0);
     taken.push_back(s);
     CHECK(Overlaps({1, 0, SpanOf(Size::Large)}, taken[0]));
-    CHECK(!Overlaps({3, 0, SpanOf(Size::Small)}, taken[1]));
+    CHECK(Overlaps({3, 0, SpanOf(Size::Small)}, taken[1]));
+    CHECK(!Overlaps({6, 0, SpanOf(Size::Small)}, taken[1]));
     // Dropped near a taken slot: the closest free one.
     RECT first = grid.Rect({0, 0, SpanOf(Size::Small)});
     CHECK(grid.Nearest(SpanOf(Size::Small), {first.left + 30, first.top + 20}, taken, &s));
@@ -226,6 +232,12 @@ void TestWidgetGrid() {
     // Nothing fits on a tiny screen.
     Grid tiny({0, 0, 200, 150}, 1.0);
     CHECK(!tiny.First(SpanOf(Size::Small), {}, &s));
+    // Any screen: a large widget always fits; a roomy one keeps its size.
+    CHECK(FitUnit({0, 0, 1920, 1040}, 1.0) == 1.0);
+    double fit = FitUnit({0, 0, 800, 560}, 1.5);
+    CHECK(fit < 1.5 && fit > 1.4);
+    CHECK(Grid({0, 0, 800, 560}, fit).First(SpanOf(Size::Large), {}, &s));
+    CHECK(Grid({0, 0, 1080, 1872}, FitUnit({0, 0, 1080, 1872}, 2.0)).First(SpanOf(Size::Large), {}, &s));
     // 150 %: whole pixels.
     Grid big({0, 0, 2560, 1400}, 1.5);
     CHECK(big.CellPx() == 246 && big.CardSize(SpanOf(Size::Medium)).cx == 246 * 2 + 24);

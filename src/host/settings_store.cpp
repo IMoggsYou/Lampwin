@@ -99,8 +99,11 @@ widgets::Config LoadWidgets(const json::Value* w) {
     c.fahrenheit = Str(w, L"units") == L"f";
     c.clockSeconds = w->GetBool(L"clockSeconds", c.clockSeconds);
     c.autoPlace = w->GetBool(L"autoPlace", c.autoPlace);
-    // Before 1.5.0 a row was a whole cell high; now it is kRowSteps of them.
-    const int rowScale = Str(w, L"grid") == L"half" ? 1 : widgets::kRowSteps;
+    // Rows and columns were whole cells before 1.5.0, rows half cells in 1.5.0 ("half"),
+    // both since then ("halves").
+    const std::wstring grid = Str(w, L"grid");
+    const int rowScale = grid == L"half" || grid == L"halves" ? 1 : widgets::kRowSteps;
+    const int colScale = grid == L"halves" ? 1 : widgets::kColSteps;
     if (const json::Value* place = Typed(w, L"place", json::Value::Object)) {
         const json::Value* lat = Typed(place, L"latitude", json::Value::Number);
         const json::Value* lon = Typed(place, L"longitude", json::Value::Number);
@@ -131,7 +134,7 @@ widgets::Config LoadWidgets(const json::Value* w) {
         item.placed = col && row && col->number >= 0 && row->number >= 0 && col->number < 1000 && row->number < 1000;
         if (item.placed) {
             item.monitor = Str(&v, L"monitor");
-            item.col = (int)col->number;
+            item.col = (int)col->number * colScale;
             item.row = (int)row->number * rowScale;
         }
         item.text = Str(&v, L"text");
@@ -150,7 +153,7 @@ json::Value SaveWidgets(const widgets::Config& c, const json::Value* old) {
     json::Set(&w, L"units", json::String(c.fahrenheit ? L"f" : L"c"));
     json::Set(&w, L"clockSeconds", json::Bool(c.clockSeconds));
     json::Set(&w, L"autoPlace", json::Bool(c.autoPlace));
-    json::Set(&w, L"grid", json::String(L"half"));
+    json::Set(&w, L"grid", json::String(L"halves"));
     if (c.place.valid) {
         const json::Value* oldPlace = Typed(&w, L"place", json::Value::Object);
         json::Value place = oldPlace ? *oldPlace : json::Object();
