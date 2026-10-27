@@ -36,6 +36,8 @@ public sealed class NavItem
 public partial class MainWindow : Window
 {
     private readonly SettingsStore _store = new();
+    /// <summary>For the pages that work on the file itself (General → Your settings).</summary>
+    internal SettingsStore Store => _store;
     private readonly List<NavItem> _items;
     private readonly Dictionary<NavItem, UserControl> _pages = new();
     private readonly ICollectionView _view;

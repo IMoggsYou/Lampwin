@@ -24,6 +24,9 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
     medium size also shows the day itself.
   - **Now playing**: the song or video playing on your PC, its artist and the app, the same
     as Windows' media controls show. It is read on your PC only, while the widget is shown.
+- **Your settings** (Settings → General): export them to a file and import them on another
+  PC, or restore the defaults. Widgets, app icons, privacy switches and the language stay
+  when you restore; the settings you had are kept in `settings.json.bak`.
 
 ## [1.4.0] - 2026-10-24
 

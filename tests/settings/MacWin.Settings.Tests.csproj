@@ -23,6 +23,7 @@
     <Compile Include="..\..\settings-app\Services\AppIconStore.cs" Link="App\AppIconStore.cs" />
     <Compile Include="..\..\settings-app\Services\ShellLink.cs" Link="App\ShellLink.cs" />
     <Compile Include="..\..\settings-app\Services\Native.cs" Link="App\Native.cs" />
+    <Compile Include="..\..\settings-app\Services\SettingsTransfer.cs" Link="App\SettingsTransfer.cs" />
   </ItemGroup>
 
 </Project>

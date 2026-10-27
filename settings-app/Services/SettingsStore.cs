@@ -203,6 +203,46 @@ public sealed class SettingsStore
         }
     }
 
+    /// <summary>The settings as a file to keep (General → Your settings).</summary>
+    public string Export()
+    {
+        Flush();
+        return SettingsTransfer.Export(ReadRoot(), Project.Version);
+    }
+
+    /// <summary>Puts in an exported file's settings; false when `text` isn't one.</summary>
+    public bool Import(string text)
+    {
+        Flush();
+        var settings = SettingsTransfer.Import(ReadRoot(), text);
+        if (settings is null) return false;
+        Replace(settings);
+        return true;
+    }
+
+    public void RestoreDefaults()
+    {
+        Flush();
+        Replace(SettingsTransfer.Defaults(ReadRoot()));
+    }
+
+    /// <summary>Where Import and RestoreDefaults keep the settings they replace.</summary>
+    public static string BackupPath => FilePath + ".bak";
+
+    // Writes the whole file (the one before kept in BackupPath), shows it and tells MacWin.
+    // Throws IOException / UnauthorizedAccessException for the page to show.
+    private void Replace(JsonObject root)
+    {
+        if (File.Exists(FilePath)) File.Copy(FilePath, BackupPath, overwrite: true);
+        string tmp = FilePath + ".tmp";
+        File.WriteAllText(tmp, root.ToJsonString(WriteOptions) + "\n");
+        _lastWrite = DateTime.UtcNow;
+        File.Move(tmp, FilePath, overwrite: true);
+        _lastWrite = DateTime.UtcNow;
+        Load();
+        HostControl.NotifyReload();
+    }
+
     /// <summary>The "language" setting, read before any window exists.</summary>
     public static string ReadLanguage() => Str(ReadRoot(), "language", "auto");
 
