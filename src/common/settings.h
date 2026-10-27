@@ -60,7 +60,10 @@ struct SharedSettings {
     // Programs show the icon in %LOCALAPPDATA%\MacWin\icons\apps\<program>.ico, when there
     // is one (the settings app puts it there). Was reserved: older DLLs see 0 and ignore it.
     int32_t appIcons;
-    int32_t reserved[7];
+    // Windows' "Animation effects" are off and the user wants MacWin to follow them: no
+    // window animations at all. Was reserved: older DLLs see 0, still ask, and the host says no.
+    int32_t reduceMotion;
+    int32_t reserved[6];
 
     // Lowercase entries separated by L'\0' and ended by an empty entry. An entry
     // matches a full image path, a file name or a file name without ".exe".

@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "ウィンドウがタスク バーから元の位置に飛び出して戻ります。",
   "settings.animations.multiMonitor.title": "複数のモニター",
   "settings.animations.multiMonitor.description": "試験的機能: ジニーがメイン モニターではなく、ウィンドウのあるモニターのタスク バーに向かいます。",
+  "settings.animations.followSystem.title": "Windows のアニメーション効果に従う",
+  "settings.animations.followSystem.description": "Windows でアニメーション効果がオフのとき (アクセシビリティ > 視覚効果)、ウィンドウは MacWin のアニメーションなしで開閉・最小化します。",
   "settings.animations.autoHide.header": "自動的に隠れるタスク バー",
   "settings.animations.unhide.title": "最小化中にタスク バーを表示する",
   "settings.animations.unhide.description": "隠れたタスク バーがスライドして現れ、ウィンドウの行き先になります。",

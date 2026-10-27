@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "উইন্ডোটি টাস্কবার থেকে উড়ে আগের জায়গায় ফিরে আসে।",
   "settings.animations.multiMonitor.title": "একাধিক মনিটর",
   "settings.animations.multiMonitor.description": "পরীক্ষামূলক: জিনি প্রধান মনিটরের বদলে উইন্ডোর মনিটরের টাস্কবারে যায়।",
+  "settings.animations.followSystem.title": "Windows-এর অ্যানিমেশন ইফেক্ট মেনে চলুন",
+  "settings.animations.followSystem.description": "Windows-এ অ্যানিমেশন ইফেক্ট বন্ধ থাকলে (অ্যাক্সেসিবিলিটি > ভিজ্যুয়াল ইফেক্ট), উইন্ডো MacWin-এর অ্যানিমেশন ছাড়াই খোলে, বন্ধ হয় ও ছোট হয়।",
   "settings.animations.autoHide.header": "স্বয়ংক্রিয়ভাবে লুকানো টাস্কবার",
   "settings.animations.unhide.title": "ছোট করার সময় টাস্কবার দেখান",
   "settings.animations.unhide.description": "লুকানো টাস্কবার বেরিয়ে আসে, যাতে উইন্ডোর যাওয়ার জায়গা থাকে।",

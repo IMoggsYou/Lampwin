@@ -1165,6 +1165,12 @@ void Host::Animate(Widget* w, POINT to) {
     animated_ = w;
     animFrom_ = {w->rect.left, w->rect.top};
     animTo_ = to;
+    // Windows' animation effects turned off: the widget goes straight to its place.
+    BOOL animations = TRUE;
+    if (SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animations, 0) && !animations) {
+        FinishAnimation();
+        return;
+    }
     QueryPerformanceCounter(&animStart_);
     SetTimer(control_, kAnimTimer, 8, nullptr);
 }

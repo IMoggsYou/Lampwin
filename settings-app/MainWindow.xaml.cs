@@ -282,6 +282,7 @@ public partial class MainWindow : Window
     // macOS-like appearance: a quick fade with a slight zoom.
     private void PlayOpenAnimation()
     {
+        if (!Motion.On) return;
         var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
         Root.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)));
         var zoom = new DoubleAnimation(0.965, 1, TimeSpan.FromMilliseconds(320)) { EasingFunction = ease };
@@ -302,6 +303,7 @@ public partial class MainWindow : Window
         Scroller.ScrollToTop();
 
         // Page transition: fade in while sliding up a few pixels.
+        if (!Motion.On) return;
         var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
         PageHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
         PageShift.BeginAnimation(TranslateTransform.YProperty,

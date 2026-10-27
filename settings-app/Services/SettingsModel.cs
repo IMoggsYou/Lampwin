@@ -229,6 +229,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
     private bool _multiMonitor;
     public bool MultiMonitor { get => _multiMonitor; set => Set(ref _multiMonitor, value); }
 
+    private bool _followSystemMotion = true;
+    /// <summary>Windows' animation effects off = no window animations from MacWin.</summary>
+    public bool FollowSystemMotion { get => _followSystemMotion; set => Set(ref _followSystemMotion, value); }
+
     private bool _unhideTaskbar = true;
     public bool UnhideTaskbar { get => _unhideTaskbar; set => Set(ref _unhideTaskbar, value); }
 

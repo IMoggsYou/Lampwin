@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "Okno wylatuje z paska zadań z powrotem na swoje miejsce.",
   "settings.animations.multiMonitor.title": "Wiele monitorów",
   "settings.animations.multiMonitor.description": "Eksperymentalne: dżin trafia do paska zadań na monitorze okna, a nie na głównym.",
+  "settings.animations.followSystem.title": "Stosuj efekty animacji z Windows",
+  "settings.animations.followSystem.description": "Gdy w Windows efekty animacji są wyłączone (Ułatwienia dostępu > Efekty wizualne), okna otwierają się, zamykają i minimalizują bez animacji MacWin.",
   "settings.animations.autoHide.header": "Automatycznie ukrywany pasek zadań",
   "settings.animations.unhide.title": "Pokazuj pasek podczas minimalizacji",
   "settings.animations.unhide.description": "Ukryty pasek wysuwa się, żeby okno miało gdzie wpaść.",

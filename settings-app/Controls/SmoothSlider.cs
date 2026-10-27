@@ -56,6 +56,13 @@ public static class SmoothSlider
     {
         if (thumb.RenderTransform is not ScaleTransform scale) return;
         double to = thumb.IsDragging ? HeldScale : thumb.IsMouseOver ? HoverScale : 1;
+        if (!Motion.On)
+        {
+            scale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+            scale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+            scale.ScaleX = scale.ScaleY = to;
+            return;
+        }
         bool growing = to > scale.ScaleX;
         // Growing overshoots a touch and settles (a spring); shrinking just eases back.
         IEasingFunction ease = growing
@@ -90,6 +97,11 @@ public static class SmoothSlider
     {
         double from = slider.Value;
         if (from == target) return;
+        if (!Motion.On)
+        {
+            slider.SetCurrentValue(RangeBase.ValueProperty, target);
+            return;
+        }
         // Longer ways take a little longer, never sluggish.
         double px = Math.Abs(target - from) / Math.Max(1e-9, slider.Maximum - slider.Minimum) * track.ActualWidth;
         var anim = new DoubleAnimation(from, target, TimeSpan.FromMilliseconds(Math.Clamp(160 + px * 0.6, 180, 340)))

@@ -118,6 +118,11 @@
                               Description="{l:Tr settings.animations.multiMonitor.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding MultiMonitor}"/>
                 </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.animations.followSystem.title}"
+                              Description="{l:Tr settings.animations.followSystem.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding FollowSystemMotion}"/>
+                </c:SettingRow>
             </StackPanel>
         </Border>
 

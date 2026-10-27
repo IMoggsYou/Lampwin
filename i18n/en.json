@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "The window flies out of the taskbar back to where it was.",
   "settings.animations.multiMonitor.title": "Multiple monitors",
   "settings.animations.multiMonitor.description": "Experimental: the genie goes to the taskbar on the window's monitor instead of the main one.",
+  "settings.animations.followSystem.title": "Follow Windows' animation effects",
+  "settings.animations.followSystem.description": "When Animation effects are off in Windows (Accessibility > Visual effects), windows open, close and minimize without MacWin's animations.",
   "settings.animations.autoHide.header": "Automatically hidden taskbar",
   "settings.animations.unhide.title": "Show the taskbar while minimizing",
   "settings.animations.unhide.description": "A hidden taskbar slides out so the window has somewhere to go.",

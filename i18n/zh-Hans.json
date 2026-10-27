@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "窗口从任务栏飞出，回到原来的位置。",
   "settings.animations.multiMonitor.title": "多个显示器",
   "settings.animations.multiMonitor.description": "实验性功能：神奇效果会落入窗口所在显示器的任务栏，而不是主显示器的任务栏。",
+  "settings.animations.followSystem.title": "遵循 Windows 的动画效果设置",
+  "settings.animations.followSystem.description": "当 Windows 中的动画效果关闭时（辅助功能 > 视觉效果），窗口打开、关闭和最小化时不使用 MacWin 的动画。",
   "settings.animations.autoHide.header": "自动隐藏的任务栏",
   "settings.animations.unhide.title": "最小化时显示任务栏",
   "settings.animations.unhide.description": "隐藏的任务栏会滑出，让窗口有地方可去。",

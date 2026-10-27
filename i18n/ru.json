@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "Окно вылетает из панели задач и возвращается на своё место.",
   "settings.animations.multiMonitor.title": "Несколько мониторов",
   "settings.animations.multiMonitor.description": "Экспериментально: джинн уходит в панель задач на мониторе окна, а не на основном.",
+  "settings.animations.followSystem.title": "Следовать эффектам анимации Windows",
+  "settings.animations.followSystem.description": "Когда в Windows выключены эффекты анимации (Специальные возможности > Визуальные эффекты), окна открываются, закрываются и сворачиваются без анимаций MacWin.",
   "settings.animations.autoHide.header": "Автоматически скрываемая панель задач",
   "settings.animations.unhide.title": "Показывать панель задач при сворачивании",
   "settings.animations.unhide.description": "Скрытая панель выдвигается, чтобы окну было куда уйти.",

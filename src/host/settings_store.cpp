@@ -262,6 +262,7 @@ void SettingsStore::Load() {
     s_.genie.openDurationMs = Clamp(g->GetInt(L"openDurationMs", d.genie.openDurationMs), 100, 1500);
     s_.genie.closeDurationMs = Clamp(g->GetInt(L"closeDurationMs", d.genie.closeDurationMs), 100, 1500);
     s_.genie.multiMonitor = g->GetBool(L"multiMonitor", d.genie.multiMonitor);
+    s_.genie.followSystemMotion = g->GetBool(L"followSystemMotion", d.genie.followSystemMotion);
     s_.genie.unhideTaskbar = g->GetBool(L"unhideTaskbar", d.genie.unhideTaskbar);
     s_.genie.unhideDurationMs = Clamp(g->GetInt(L"unhideDurationMs", d.genie.unhideDurationMs), 0, 5000);
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
@@ -310,6 +311,7 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"openDurationMs", json::Number(s.genie.openDurationMs));
     json::Set(&g, L"closeDurationMs", json::Number(s.genie.closeDurationMs));
     json::Set(&g, L"multiMonitor", json::Bool(s.genie.multiMonitor));
+    json::Set(&g, L"followSystemMotion", json::Bool(s.genie.followSystemMotion));
     json::Set(&g, L"unhideTaskbar", json::Bool(s.genie.unhideTaskbar));
     json::Set(&g, L"unhideDurationMs", json::Number(s.genie.unhideDurationMs));
     json::Set(&g, L"meshQuality", json::Number(s.genie.meshQuality));
@@ -368,6 +370,7 @@ void SettingsStore::Write(bool enabled) {
     v->cornerSmoothing = s_.genie.cornerSmoothing;
     v->windowCorners = s_.genie.windowCorners ? 1 : 0;
     v->appIcons = s_.appIcons ? 1 : 0;
+    v->reduceMotion = ReduceMotion() ? 1 : 0;
     WriteList(v->genieExcluded, s_.genie.excluded);
     WriteList(v->noInject, s_.noInject);
     WriteList(v->devAllowlist, s_.devAllowlist);

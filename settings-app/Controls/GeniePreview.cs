@@ -177,7 +177,8 @@ public sealed class GeniePreview : Grid
 
     private void UpdateRunning(bool force = true)
     {
-        bool run = force && IsLoaded && IsVisible;
+        // Windows' animation effects off: the preview shows the window at rest.
+        bool run = force && IsLoaded && IsVisible && Motion.On;
         if (run == _running) return;
         _running = run;
         if (run) _started = false;   // coming back to the page restarts the loop

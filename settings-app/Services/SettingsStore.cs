@@ -102,6 +102,7 @@ public sealed class SettingsStore
             m.OpenDurationMs = Num(genie, "openDurationMs", 450);
             m.CloseDurationMs = Num(genie, "closeDurationMs", 400);
             m.MultiMonitor = Bool(genie, "multiMonitor", false);
+            m.FollowSystemMotion = Bool(genie, "followSystemMotion", true);
             m.UnhideTaskbar = Bool(genie, "unhideTaskbar", true);
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
@@ -169,6 +170,7 @@ public sealed class SettingsStore
         genie["openDurationMs"] = (int)m.OpenDurationMs;
         genie["closeDurationMs"] = (int)m.CloseDurationMs;
         genie["multiMonitor"] = m.MultiMonitor;
+        genie["followSystemMotion"] = m.FollowSystemMotion;
         genie["unhideTaskbar"] = m.UnhideTaskbar;
         genie["unhideDurationMs"] = (int)m.UnhideDurationMs;
         genie["meshQuality"] = (int)m.MeshQuality;

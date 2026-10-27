@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "La fenêtre s’envole de la barre des tâches pour revenir à sa place.",
   "settings.animations.multiMonitor.title": "Plusieurs écrans",
   "settings.animations.multiMonitor.description": "Expérimental : le génie va dans la barre des tâches de l’écran de la fenêtre plutôt que dans celle de l’écran principal.",
+  "settings.animations.followSystem.title": "Suivre les effets d’animation de Windows",
+  "settings.animations.followSystem.description": "Quand les effets d’animation sont désactivés dans Windows (Accessibilité > Effets visuels), les fenêtres s’ouvrent, se ferment et se réduisent sans les animations de MacWin.",
   "settings.animations.autoHide.header": "Barre des tâches masquée automatiquement",
   "settings.animations.unhide.title": "Afficher la barre des tâches pendant la réduction",
   "settings.animations.unhide.description": "La barre masquée glisse pour que la fenêtre ait un endroit où aller.",

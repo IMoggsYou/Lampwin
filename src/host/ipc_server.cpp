@@ -85,6 +85,8 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         Log(L"ipc: rejected (version %u, enabled %d, window %d)", r.version, (int)s.enabled, (int)IsWindow(hwnd));
         return MW_REPLY_FAIL;
     }
+    // Windows' animation effects off: an older DLL (which doesn't read reduceMotion) still asks.
+    if (settings_.ReduceMotion()) return MW_REPLY_FAIL;
     // Opening / closing: only with an effect of MacWin chosen for it (the DLL only asks then).
     const bool opening = r.kind == MW_ANIM_LAUNCH, closing = r.kind == MW_ANIM_CLOSE;
     if ((opening && s.genie.openEffect == MW_EFFECT_SYSTEM) || (closing && s.genie.closeEffect == MW_EFFECT_SYSTEM)) {

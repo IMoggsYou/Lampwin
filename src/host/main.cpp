@@ -42,6 +42,12 @@ const int kHotkeyQuit = 1;
 const wchar_t kUpdateMessage[] = L"MacWin_" MACWIN_NS L"Update_v1";
 const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/Lampwin/releases";
 
+// Windows' "Animation effects" (Settings > Accessibility > Visual effects).
+bool SystemAnimationsOn() {
+    BOOL on = TRUE;
+    return !SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) || on;
+}
+
 enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
@@ -176,6 +182,7 @@ bool App::Init(HINSTANCE hInst) {
     ChangeWindowMessageFilterEx(hwnd_, updateMsg_, MSGFLT_ALLOW, nullptr);
 
     settings_.SetIpcWindow(hwnd_);
+    settings_.SetSystemAnimations(SystemAnimationsOn());
     settings_.Publish();
 
     if (!renderer_.Start()) {
@@ -631,6 +638,14 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             }
             return 0;
         case WM_SETTINGCHANGE:
+            if (wp == SPI_SETCLIENTAREAANIMATION) {
+                // Windows' animation effects switched: the DLLs follow at once.
+                bool on = SystemAnimationsOn();
+                Log(L"settings: Windows animation effects %ls", on ? L"on" : L"off");
+                settings_.SetSystemAnimations(on);
+                settings_.Publish();
+            }
+            [[fallthrough]];
         case WM_DISPLAYCHANGE:
         case WM_DPICHANGED:
             locator_.Invalidate();

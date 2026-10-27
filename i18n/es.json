@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "La ventana sale volando de la barra de tareas de vuelta a su sitio.",
   "settings.animations.multiMonitor.title": "Varios monitores",
   "settings.animations.multiMonitor.description": "Experimental: el genio va a la barra de tareas del monitor de la ventana en lugar de a la del principal.",
+  "settings.animations.followSystem.title": "Seguir los efectos de animación de Windows",
+  "settings.animations.followSystem.description": "Cuando los efectos de animación están desactivados en Windows (Accesibilidad > Efectos visuales), las ventanas se abren, se cierran y se minimizan sin las animaciones de MacWin.",
   "settings.animations.autoHide.header": "Barra de tareas que se oculta automáticamente",
   "settings.animations.unhide.title": "Mostrar la barra de tareas al minimizar",
   "settings.animations.unhide.description": "La barra oculta se despliega para que la ventana tenga adónde ir.",

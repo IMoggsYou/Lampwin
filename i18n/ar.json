@@ -69,6 +69,8 @@
   "settings.animations.restore.description": "تخرج النافذة من شريط المهام عائدةً إلى مكانها.",
   "settings.animations.multiMonitor.title": "شاشات متعددة",
   "settings.animations.multiMonitor.description": "تجريبي: يذهب المارد إلى شريط المهام على شاشة النافذة بدلًا من الشاشة الرئيسية.",
+  "settings.animations.followSystem.title": "اتباع تأثيرات الحركة في Windows",
+  "settings.animations.followSystem.description": "عندما تكون تأثيرات الحركة متوقفة في Windows (إمكانية الوصول > التأثيرات المرئية)، تُفتح النوافذ وتُغلق وتُصغَّر دون حركات MacWin.",
   "settings.animations.autoHide.header": "شريط المهام المخفي تلقائيًا",
   "settings.animations.unhide.title": "إظهار شريط المهام أثناء التصغير",
   "settings.animations.unhide.description": "ينزلق الشريط المخفي إلى الخارج حتى يكون للنافذة مكان تذهب إليه.",
