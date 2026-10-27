@@ -172,10 +172,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public bool Restore { get => _restore; set => Set(ref _restore, value); }
 
     /// <summary>settings.json names of the open / close effects, in segment order.</summary>
-    public static readonly string[] EffectNames = ["system", "genie", "shatter", "fragments"];
+    public static readonly string[] EffectNames = ["system", "genie", "shatter", "fragments", "zoom"];
 
     private int _openEffect = 1;
-    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments (the pieces fly together).</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments (the pieces fly together), 4 = zoom.</summary>
     public int OpenEffect
     {
         get => _openEffect;
@@ -194,11 +194,12 @@ public sealed class SettingsModel : INotifyPropertyChanged
         1 => "settings.animations.open.genie.description",
         2 => "settings.animations.open.shatter.description",
         3 => "settings.animations.open.fragments.description",
+        4 => "settings.animations.open.zoom.description",
         _ => "settings.animations.effect.windows.description",
     });
 
     private int _closeEffect = 1;
-    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments.</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments, 4 = zoom.</summary>
     public int CloseEffect
     {
         get => _closeEffect;
@@ -217,6 +218,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
         1 => "settings.animations.close.genie.description",
         2 => "settings.animations.close.shatter.description",
         3 => "settings.animations.close.fragments.description",
+        4 => "settings.animations.close.zoom.description",
         _ => "settings.animations.effect.windows.description",
     });
 

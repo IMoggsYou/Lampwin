@@ -105,6 +105,25 @@ internal static class GenieMath
     /// <summary>Pieces take this much longer than the duration set (kPiecesPace in the host).</summary>
     public const double PiecesPace = 1.35;
 
+    // ---- Zoom (as in genie_effect.cpp) ------------------------------------------------------
+
+    /// <summary>The window at 8 % of its size (kZoomEndScale), centred on the point.</summary>
+    public static Rect ZoomEnd(Rect w, double cx, double cy) =>
+        new(cx - w.W * 0.04, cy - w.H * 0.04, w.W * 0.08, w.H * 0.08);
+
+    /// <summary>Time -> progress: closing eases in and out; opening goes out fast, a touch
+    /// past the window's size, and settles (easeOutBack).</summary>
+    public static double ZoomEase(bool opening, double raw)
+    {
+        raw = Math.Clamp(raw, 0, 1);
+        if (!opening) return Ease(Modern, raw);
+        const double c = 0.75;
+        double x = raw - 1;
+        return 1 + (c + 1) * x * x * x + c * x * x;
+    }
+
+    public static double ZoomFade(double t) => 1 - Smoothstep(0.65, 1, t);
+
     /// <summary>The crack grid (ShatterGrid in the host): 9 cells along the longer side for
     /// shatter, 5 for fragments, never fewer than 3 along the other.</summary>
     public static (int Cols, int Rows) ShatterGrid(double w, double h, bool fragments)

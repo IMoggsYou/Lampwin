@@ -93,9 +93,11 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         return MW_REPLY_FAIL;
     }
     // Shatter and fragments: the window breaks apart (closing) or its pieces fly together
-    // (opening), wherever its taskbar button is.
+    // (opening); zoom: it grows out of the click or shrinks into the pointer - wherever its
+    // taskbar button is.
     const int effect = opening ? s.genie.openEffect : closing ? s.genie.closeEffect : MW_EFFECT_GENIE;
     const bool shatter = effect == MW_EFFECT_SHATTER || effect == MW_EFFECT_FRAGMENTS;
+    const bool zoom = effect == MW_EFFECT_ZOOM;
     if (r.rawW <= 0 || r.rawH <= 0 || r.rawW > 16384 || r.rawH > 16384 ||
         !(r.cropU0 >= 0 && r.cropV0 >= 0 && r.cropU1 <= 1.0f && r.cropV1 <= 1.0f && r.cropU1 > r.cropU0 &&
           r.cropV1 > r.cropV0)) {
@@ -133,6 +135,7 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     job->tiles = s.genie.meshQuality;
     job->style = effect == MW_EFFECT_SHATTER     ? kGenieShatter
                  : effect == MW_EFFECT_FRAGMENTS ? kGenieFragments
+                 : effect == MW_EFFECT_ZOOM      ? kGenieZoom
                                                  : s.genie.style;
     if (shatter) job->durationMs = (int)lroundf(job->durationMs * kPiecesPace);
     job->params.closing = closing;
@@ -166,10 +169,10 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         return MW_REPLY_FAIL;
     }
     job->winRect = rect;
-    // Multi-monitor support targets the window's monitor; otherwise the primary. The
-    // shards stay on the window's own monitor.
-    job->hMon = s.genie.multiMonitor || shatter ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
-                                                : MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
+    // Multi-monitor support targets the window's monitor; otherwise the primary. Pieces and
+    // zoom stay on the window's own monitor.
+    job->hMon = s.genie.multiMonitor || shatter || zoom ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+                                                        : MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY);
     if (!IsZoomed(hwnd)) {
         UINT dpiX = 96, dpiY = 96;
         GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
@@ -193,11 +196,16 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
         }
     }
 
-    // Shards go nowhere in particular: no taskbar button to look for (no UIA scan delay).
-    // A window closed with the pointer on it (its close button, mostly) breaks from there.
-    if (shatter) {
+    // Pieces and zoom go nowhere in particular: no taskbar button to look for (no UIA scan
+    // delay). A window closed with the pointer on it (its close button, mostly) breaks from
+    // there or shrinks into it; a zooming window opens out of the click that launched it
+    // (the pointer, when it is on the window's monitor).
+    if (shatter || zoom) {
         POINT cursor;
-        if (closing && GetCursorPos(&cursor) && PtInRect(&rect, cursor)) {
+        const bool onWindow = closing && GetCursorPos(&cursor) && PtInRect(&rect, cursor);
+        const bool onMonitor = zoom && opening && GetCursorPos(&cursor) &&
+                               MonitorFromPoint(cursor, MONITOR_DEFAULTTONULL) == job->hMon;
+        if (onWindow || onMonitor) {
             job->params.impactU = (float)(cursor.x - rect.left) / (float)(rect.right - rect.left);
             job->params.impactV = (float)(cursor.y - rect.top) / (float)(rect.bottom - rect.top);
         }
@@ -237,8 +245,10 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
 
 // Called on the IPC thread, or on the locator thread after a UIA scan.
 void IpcServer::Dispatch(GenieJob* job, const DockTarget& dock) {
-    if (IsShatterStyle(job->style)) {
-        Log(L"ipc: %p in pieces (%ls)", (void*)job->hwnd, job->style == kGenieFragments ? L"fragments" : L"shatter");
+    if (IsPointStyle(job->style)) {
+        Log(L"ipc: %p %ls from %.2f, %.2f", (void*)job->hwnd,
+            job->style == kGenieZoom ? L"zooms" : job->style == kGenieFragments ? L"in fragments" : L"shatters",
+            job->params.impactU, job->params.impactV);
     } else if (dock.hasRect) {
         Log(L"ipc: %p docks into its taskbar icon at %d,%d (icon %d px)", (void*)job->hwnd, dock.x, dock.y, dock.size);
     } else {

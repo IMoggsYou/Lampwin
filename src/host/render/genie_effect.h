@@ -17,9 +17,13 @@ enum GenieStyle : int {
     kGenieScale = 2,     // macOS's other effect: shrinks into the icon and fades
     kGenieShatter = 3,   // opening / closing: the window breaks into shards that fly apart
     kGenieFragments = 4, // the same with a few big pieces, each flying its own way
+    kGenieZoom = 5,      // opening / closing: grows out of / shrinks into a point (the click)
 };
 
 inline bool IsShatterStyle(int style) { return style == kGenieShatter || style == kGenieFragments; }
+// Effects about a point of the window's own (impactU/V) rather than its taskbar button:
+// no button lookup, and never turned around.
+inline bool IsPointStyle(int style) { return IsShatterStyle(style) || style == kGenieZoom; }
 
 // The crack grid for a w x h window: `cells` cells along its longer side, never fewer
 // than 3 along the other.
@@ -29,6 +33,10 @@ const int kFragmentCells = 5;    // ~30 big pieces
 // Pieces travel much farther than a genie: they take this much longer than the open or
 // close duration set, so one setting feels right for every effect.
 const float kPiecesPace = 1.35f;
+// Zoom: how small the window starts / ends (of its size), and how far an opening window
+// grows past its size before it settles (a gentle spring).
+const float kZoomEndScale = 0.08f;
+const float kZoomOvershoot = 0.04f;
 
 struct Geometry {
     float x, y, width, height;
@@ -60,6 +68,7 @@ struct GenieParams {
     int canvasLeft, canvasTop, canvasWidth, canvasHeight;   // ghost window rect
     // Shatter / fragments: where the glass breaks first, in window uv (0..1) - the pointer
     // when it is on the window (the close button you clicked), else the middle.
+    // Zoom: the point it grows out of / shrinks into (may lie outside the window).
     float impactU = 0.5f, impactV = 0.5f;
 };
 

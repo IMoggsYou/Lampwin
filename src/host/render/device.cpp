@@ -660,8 +660,8 @@ void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     if (Anim* running = FindAnim(job->hwnd)) {
         // A closing window's genie is never turned around (the window is going away), and
         // a close meeting a running genie is left to Windows. Nor are flying pieces: a
-        // window minimized while its pieces fly together just appears.
-        if (running->params.closing || job->params.closing || IsShatterStyle(running->params.style)) {
+        // window minimized while its pieces fly together (or it zooms open) just appears.
+        if (running->params.closing || job->params.closing || IsPointStyle(running->params.style)) {
             FailJob(job);
             return;
         }
@@ -859,7 +859,7 @@ bool Renderer::Draw(Anim* a, float t) {
     ctx_->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
     const bool shatter = IsShatterStyle(g.style);
     ID3D11VertexShader* vs = g.style == kGenieClassic ? classicVS_.get()
-                             : g.style == kGenieScale || shatter ? scaleVS_.get()
+                             : g.style == kGenieScale || g.style == kGenieZoom || shatter ? scaleVS_.get()
                                                                  : genieVS_.get();
     if (shatter) {
         // The shadow stays where the window was (the scale warp with no end of its own)
@@ -945,6 +945,7 @@ void Renderer::RetireAnim(Anim* a) {
         : a->params.style == kGenieScale   ? L"scale"
         : a->params.style == kGenieShatter   ? L"shatter"
         : a->params.style == kGenieFragments ? L"fragments"
+        : a->params.style == kGenieZoom      ? L"zoom"
                                              : L"modern",
         a->frames, a->reversals,
         a->frames ? a->cpuMs / a->frames : 0.0, a->firstFrameMs);

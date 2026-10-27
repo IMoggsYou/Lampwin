@@ -17,7 +17,8 @@ enum : int32_t {
     MW_EFFECT_GENIE = 1,    // out of / into its taskbar icon
     MW_EFFECT_SHATTER = 2,  // the window breaks into shards (opening: they fly together)
     MW_EFFECT_FRAGMENTS = 3,// the same with a few big pieces, each its own way
-    MW_EFFECT_COUNT = 4,
+    MW_EFFECT_ZOOM = 4,     // grows out of the click (closing: shrinks into the pointer)
+    MW_EFFECT_COUNT = 5,
 };
 
 // Published by the host in a shared section (MACWIN_SETTINGS_SECTION) and read by every

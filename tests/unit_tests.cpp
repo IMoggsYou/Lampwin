@@ -306,7 +306,7 @@ void TestGenieCurves() {
             CHECK(fabsf(GenieEase(g, 1.0f - x) - (1.0f - GenieEase(g, x))) < 1e-5f);
         }
     }
-    for (int style : {kGenieModern, kGenieClassic, kGenieScale, kGenieShatter, kGenieFragments}) {
+    for (int style : {kGenieModern, kGenieClassic, kGenieScale, kGenieShatter, kGenieFragments, kGenieZoom}) {
         for (bool closing : {false, true}) {
             GenieParams g = {};
             g.style = style;
@@ -319,6 +319,17 @@ void TestGenieCurves() {
     GenieParams open = {};
     open.style = kGenieFragments;
     CHECK(GenieEase(open, 1.0f) - GenieEase(open, 0.99f) < 0.001f);
+
+    // Zoom opening: a gentle overshoot (t dips below 0, the window grows past its size by
+    // about kZoomOvershoot), never a wild one; fully shown while it does.
+    GenieParams zoom = {};
+    zoom.style = kGenieZoom;
+    float peak = 0.0f;
+    for (int i = 0; i <= 200; ++i) peak = fmaxf(peak, GenieEase(zoom, i / 200.0f));
+    CHECK(peak > 1.005f && peak < 1.03f);
+    CHECK(GenieFade(zoom, 1.0f - peak) == 1.0f);
+    zoom.closing = true;
+    CHECK(fabsf(GenieEase(zoom, 0.5f) - 0.5f) < 1e-5f);   // closing: the smooth symmetric curve
     GenieParams g = {};
     g.style = kGenieScale;
     g.win = {100, 200, 800, 600};

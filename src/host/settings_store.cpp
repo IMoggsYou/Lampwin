@@ -55,7 +55,7 @@ bool ReadUtf8File(const std::wstring& path, std::wstring* out) {
 }
 
 // settings.json names of MW_EFFECT_*.
-const wchar_t* const kEffectNames[MW_EFFECT_COUNT] = {L"system", L"genie", L"shatter", L"fragments"};
+const wchar_t* const kEffectNames[MW_EFFECT_COUNT] = {L"system", L"genie", L"shatter", L"fragments", L"zoom"};
 
 int EffectFromJson(const json::Value* v, int fallback) {
     if (!v || v->type != json::Value::String) return fallback;
