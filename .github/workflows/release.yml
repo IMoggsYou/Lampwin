@@ -70,14 +70,14 @@ jobs:
 
       - name: Download the installer
         if: needs.sign.result != 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: MacWinSetup
           path: dist
 
       - name: Download the signed installer
         if: needs.sign.result == 'success'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: MacWinSetup-signed
           path: dist
