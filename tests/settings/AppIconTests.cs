@@ -80,6 +80,23 @@ internal static class AppIconTests
             check(AppIconStore.ProgramOf(@"C:\x\readme.txt", "") is null, "not a program");
         });
 
+        run("BundledIconsComeOnce", () =>
+        {
+            // Icons that shipped as .icns and ship as .png now: one seen (or deleted) before
+            // must not come back after the update; names with dots keep them.
+            string dir = Path.Combine(temp, "bundled"), seen = Path.Combine(temp, "bundled.json");
+            Directory.CreateDirectory(dir);
+            foreach (string f in new[] { "Discord__Dark___macOS_26.2___VGpMiSdUqI_icns-f048a3f6c5.png", "Spotify_Z7.png", "notes.txt" })
+                File.WriteAllText(Path.Combine(dir, f), "x");
+            File.WriteAllText(seen, """["Discord__Dark___macOS_26.2___VGpMiSdUqI_icns-f048a3f6c5.icns"]""");
+            var fresh = AppIconStore.NewBundledFiles(dir, seen).Select(Path.GetFileName).ToList();
+            check(fresh.SequenceEqual(["Spotify_Z7.png"]), $"new: {string.Join(", ", fresh)}");
+            AppIconStore.MarkSeen(fresh.Select(f => Path.Combine(dir, f!)), seen);
+            check(AppIconStore.NewBundledFiles(dir, seen).Count == 0, "all seen after MarkSeen");
+            File.Delete(seen);
+            check(AppIconStore.NewBundledFiles(dir, seen).Count == 2, "no list: both icons are new");
+        });
+
         run("SetIsReadSafely", () =>
         {
             string set = Path.Combine(temp, "test" + AppIconStore.SetExtension);

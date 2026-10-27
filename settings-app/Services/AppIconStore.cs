@@ -40,35 +40,50 @@ public static class AppIconStore
     private static string SeenFile => Path.Combine(Root, "bundled.json");
 
     /// <summary>The bundled icons not imported yet.</summary>
-    public static List<string> NewBundledFiles()
+    public static List<string> NewBundledFiles() => NewBundledFiles(BundledDir, SeenFile);
+
+    public static void MarkSeen(IEnumerable<string> files) => MarkSeen(files, SeenFile);
+
+    internal static List<string> NewBundledFiles(string dir, string seenFile)
     {
-        if (!Directory.Exists(BundledDir)) return [];
-        var seen = Seen();
-        return Directory.EnumerateFiles(BundledDir)
-            .Where(f => IconImport.IsSupported(f) && !seen.Contains(Path.GetFileName(f)))
+        if (!Directory.Exists(dir)) return [];
+        var seen = Seen(seenFile);
+        return Directory.EnumerateFiles(dir)
+            .Where(f => IconImport.IsSupported(f) && !seen.Contains(BundleKey(f)))
             .ToList();
     }
 
-    public static void MarkSeen(IEnumerable<string> files)
+    internal static void MarkSeen(IEnumerable<string> files, string seenFile)
     {
-        var seen = Seen();
-        foreach (string f in files) seen.Add(Path.GetFileName(f));
-        Directory.CreateDirectory(Root);
-        File.WriteAllText(SeenFile + ".tmp", JsonSerializer.Serialize(seen.Order(StringComparer.OrdinalIgnoreCase)));
-        File.Move(SeenFile + ".tmp", SeenFile, overwrite: true);
+        var seen = Seen(seenFile);
+        foreach (string f in files) seen.Add(BundleKey(f));
+        Directory.CreateDirectory(Path.GetDirectoryName(seenFile)!);
+        File.WriteAllText(seenFile + ".tmp", JsonSerializer.Serialize(seen.Order(StringComparer.OrdinalIgnoreCase)));
+        File.Move(seenFile + ".tmp", seenFile, overwrite: true);
     }
 
-    private static HashSet<string> Seen()
+    // An icon is known by its name without the file type: one that shipped as .icns and
+    // now ships as .png is the same icon (and stays gone if the user deleted it). Only an
+    // icon file type is cut off - names like "macOS_26.2_..." have dots of their own.
+    private static string BundleKey(string file)
     {
+        string name = Path.GetFileName(file);
+        return IconImport.IsSupported(name) ? Path.GetFileNameWithoutExtension(name) : name;
+    }
+
+    private static HashSet<string> Seen(string seenFile)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         try
         {
-            return new HashSet<string>(JsonSerializer.Deserialize<List<string>>(File.ReadAllText(SeenFile)) ?? [],
-                                       StringComparer.OrdinalIgnoreCase);
+            foreach (string name in JsonSerializer.Deserialize<List<string>>(File.ReadAllText(seenFile)) ?? [])
+                seen.Add(BundleKey(name));
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
         {
-            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // Nothing offered yet (or an unreadable list): every bundled icon is new.
         }
+        return seen;
     }
 
     public static string AppIconPath(string exe) => Path.Combine(AppsDir, Path.GetFileNameWithoutExtension(exe).ToLowerInvariant() + ".ico");
