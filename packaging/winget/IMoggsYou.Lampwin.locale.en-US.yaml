@@ -1,0 +1,34 @@
+# Template for the winget package (tools/winget-manifest.ps1 fills in the version).
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: IMoggsYou.Lampwin
+PackageVersion: "{{Version}}"
+PackageLocale: en-US
+Publisher: IMoggsYou
+PublisherUrl: https://github.com/IMoggsYou
+PublisherSupportUrl: https://github.com/IMoggsYou/Lampwin/issues
+Author: IMoggsYou
+PackageName: Lampwin
+PackageUrl: https://github.com/IMoggsYou/Lampwin
+License: GPL-3.0-or-later
+LicenseUrl: https://github.com/IMoggsYou/Lampwin/blob/main/LICENSE
+Copyright: Copyright (C) 2026 IMoggsYou
+ShortDescription: The macOS look for Windows 11 - the genie effect, squircle window corners, desktop widgets and app icons.
+Description: |-
+  Lampwin animates windows like macOS: they fall into the taskbar like a genie and fly back
+  out, or zoom, shatter and fall apart, and get soft squircle corners. It adds desktop
+  widgets (clock, calendar, weather, system, notes, photo, countdown, now playing), lets you
+  give programs icons of your own, and has switches to make Windows quieter about your data.
+  Free and open source; it collects nothing.
+Moniker: lampwin
+Tags:
+  - macos
+  - genie
+  - animations
+  - window-corners
+  - widgets
+  - icons
+  - customization
+  - windows-11
+ReleaseNotesUrl: "https://github.com/IMoggsYou/Lampwin/releases/tag/v{{Version}}"
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

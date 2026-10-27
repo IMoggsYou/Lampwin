@@ -1,6 +1,10 @@
 # Publishes a GitHub Release for a version tag (vX.Y.Z): the installer, its SHA-256
 # (MacWin's updater checks it) and a build provenance attestation. The release notes
 # are that version's section of CHANGELOG.md. See AGENTS.md, "Releasing".
+#
+# Code signing through SignPath runs only once the repository has the variable
+# SIGNPATH_ORGANIZATION_ID and the secret SIGNPATH_API_TOKEN (docs/SIGNING.md); until
+# then the installer is published unsigned, as before.
 name: Release
 
 on:
@@ -14,9 +18,38 @@ jobs:
   build:
     uses: ./.github/workflows/build.yml
 
+  sign:
+    name: Sign (SignPath)
+    needs: build
+    if: vars.SIGNPATH_ORGANIZATION_ID != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Submit the installer and wait for the signed one
+        uses: signpath/github-action-submit-signing-request@v1
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'Lampwin' }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG || 'release-signing' }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_ARTIFACT_CONFIGURATION_SLUG || 'installer' }}
+          github-artifact-id: ${{ needs.build.outputs.installer-artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: signed
+
+      - name: Upload the signed installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: MacWinSetup-signed
+          path: signed/MacWinSetup-*.exe
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     name: GitHub Release
-    needs: build
+    needs: [build, sign]
+    # Signing is skipped while it isn't set up; when it is, a failed signing stops the release.
+    if: ${{ !cancelled() && needs.build.result == 'success' && needs.sign.result != 'failure' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write        # create the release
@@ -35,9 +68,18 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/download-artifact@v4
+      - name: Download the installer
+        if: needs.sign.result != 'success'
+        uses: actions/download-artifact@v4
         with:
           name: MacWinSetup
+          path: dist
+
+      - name: Download the signed installer
+        if: needs.sign.result == 'success'
+        uses: actions/download-artifact@v4
+        with:
+          name: MacWinSetup-signed
           path: dist
 
       - name: Checksums

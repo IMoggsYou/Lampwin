@@ -152,6 +152,10 @@ Removed, Security). Write it for users, not for developers.
 6. `.github/workflows/release.yml` builds, tests, attaches `MacWinSetup-X.Y.Z.exe` and
    `SHA256SUMS.txt` and publishes the release with that changelog section. Installed copies
    find it within a day (the updater needs exactly those two file names).
+   Once the owner has set up SignPath ([docs/SIGNING.md](docs/SIGNING.md)), the installer
+   is signed first; until then it goes out unsigned.
+7. The owner submits the version to winget ([docs/WINGET.md](docs/WINGET.md));
+   `tools/winget-manifest.ps1` writes the manifests from the release.
 
 ## Things not to do
 
