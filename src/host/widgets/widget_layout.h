@@ -15,10 +15,15 @@ namespace widgets {
 const int kCellDip = 164;
 const int kGapDip = 16;
 const int kMarginDip = 24;
+// Above the taskbar: the lowest widgets sit right next to it.
+const int kBottomMarginDip = 12;
+// Rows are half a cell high, so a widget also fits in the space a whole row would leave
+// over the taskbar; the lowest row lies on the bottom margin (see Grid::Rect).
+const int kRowSteps = 2;
 
 struct Span {
     int cols;
-    int rows;
+    int rows;   // in rows of the grid: kRowSteps per cell
 };
 Span SpanOf(Size s);
 
@@ -38,7 +43,8 @@ public:
     int CellPx() const { return cell_; }
     // Size of a widget's card in px.
     SIZE CardSize(Span span) const;
-    // Card rectangle of a slot (col 0 is the rightmost column).
+    // Card rectangle of a slot (col 0 is the rightmost column). A slot that reaches the
+    // last row sits on the bottom margin.
     RECT Rect(const Slot& s) const;
     bool Inside(const Slot& s) const;
     // The free slot whose card is closest to a card whose top-left corner is at `at` (px);
@@ -51,7 +57,7 @@ private:
     bool Free(const Slot& s, const std::vector<Slot>& taken) const;
 
     RECT work_;
-    int cell_, gap_, margin_;
+    int cell_, gap_, margin_, bottomMargin_;
     int cols_, rows_;
 };
 

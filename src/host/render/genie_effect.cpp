@@ -259,12 +259,18 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
         // half), kept outside the window's own span so the row map stays monotonic.
         if (dockX < mon.left) dockX = mon.left;
         if (dockX > mon.right) dockX = mon.right;
-        // Always the screen edge on the taskbar's side, as in the mod, below the icon when
-        // its button is known: the funnel pours away under the taskbar. (Ending in the
-        // middle of the icon instead, only when the button was found, made the style look
-        // like two different animations.)
+        // The taskbar's edge facing the screen, below the icon when its button is known:
+        // the window pours into the taskbar and comes out of it. (The mod's screen edge
+        // showed the neck running on under the taskbar whenever the ghost window was above
+        // it, as on an empty desktop. Ending in the middle of the icon, only when the
+        // button was found, made the style look like two different animations.) An
+        // auto-hidden taskbar's edge is the screen's.
         float dockY = (float)mon.bottom;
-        if (haveTray && (tr.top + tr.bottom) < (mon.top + mon.bottom)) dockY = (float)mon.top;
+        if (haveTray) {
+            const bool trayAtTop = (tr.top + tr.bottom) < (mon.top + mon.bottom);
+            dockY = trayAtTop ? (float)(tr.bottom > mon.top ? tr.bottom : mon.top)
+                              : (float)(tr.top < mon.bottom ? tr.top : mon.bottom);
+        }
         const float bottomF = (float)(r.top + h);
         const bool above = dockY < ((float)r.top + bottomF) * 0.5f;
         if (above) {

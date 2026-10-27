@@ -186,21 +186,28 @@ void TestJson() {
 
 void TestWidgetGrid() {
     using namespace widgets;
-    // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges.
+    // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges
+    // (12 from the taskbar), rows half a cell high.
     Grid grid({0, 0, 1920, 1040}, 1.0);
     CHECK(grid.Cols() == 10);
-    CHECK(grid.Rows() == 5);
+    CHECK(grid.Rows() == 11);
     CHECK(grid.CardSize(SpanOf(Size::Small)).cx == 164);
     CHECK(grid.CardSize(SpanOf(Size::Medium)).cx == 344);
     CHECK(grid.CardSize(SpanOf(Size::Large)).cy == 344);
     // Column 0 is the rightmost; a wider widget grows to the left.
     RECT r = grid.Rect({0, 0, SpanOf(Size::Small)});
     CHECK(r.right == 1920 - 24 && r.top == 24 && r.left == 1920 - 24 - 164);
-    RECT m = grid.Rect({0, 1, SpanOf(Size::Medium)});
+    RECT m = grid.Rect({0, 2, SpanOf(Size::Medium)});
     CHECK(m.right == 1920 - 24 && m.left == 1920 - 24 - 344 && m.top == 24 + 180);
+    CHECK(grid.Rect({0, 1, SpanOf(Size::Small)}).top == 24 + 90);
     CHECK(!grid.Inside({9, 0, SpanOf(Size::Medium)}));
-    CHECK(grid.Inside({8, 3, SpanOf(Size::Large)}));
-    CHECK(!grid.Inside({8, 4, SpanOf(Size::Large)}));
+    CHECK(grid.Inside({8, 7, SpanOf(Size::Large)}));
+    CHECK(!grid.Inside({8, 8, SpanOf(Size::Large)}));
+    // The last row lies on the bottom margin, right above the taskbar, clear of the one
+    // above it.
+    RECT low = grid.Rect({0, 9, SpanOf(Size::Small)});
+    CHECK(low.bottom == 1040 - 12 && low.top >= grid.Rect({0, 7, SpanOf(Size::Small)}).bottom + 16);
+    CHECK(grid.Rect({0, 7, SpanOf(Size::Large)}).bottom == 1040 - 12);
 
     // New widgets fill the top row from the right.
     std::vector<Slot> taken;
@@ -214,7 +221,7 @@ void TestWidgetGrid() {
     // Dropped near a taken slot: the closest free one.
     RECT first = grid.Rect({0, 0, SpanOf(Size::Small)});
     CHECK(grid.Nearest(SpanOf(Size::Small), {first.left + 30, first.top + 20}, taken, &s));
-    CHECK(s.row == 1 && s.col == 0);
+    CHECK(s.row == 2 && s.col == 0);
 
     // Nothing fits on a tiny screen.
     Grid tiny({0, 0, 200, 150}, 1.0);

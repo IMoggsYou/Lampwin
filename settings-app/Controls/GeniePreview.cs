@@ -449,12 +449,12 @@ public sealed class GeniePreview : Grid
     private void UpdateMesh(int style, double t, GenieMath.Rect? end = null)
     {
         // Into the middle of the icon, like the renderer when it knows the window's button;
-        // the classic funnel always pours down to the screen edge under the taskbar. Zoom
-        // passes its own end (a small window at the point).
+        // the classic funnel pours into the taskbar's top edge. Zoom passes its own end (a
+        // small window at the point).
         double iconY = TaskbarTop + (TaskbarHeight - IconSize) / 2 - 1 + IconSize / 2;
         var dock = end ?? style switch
         {
-            GenieMath.Classic => new GenieMath.Rect(_dockX, H, 6, 0),
+            GenieMath.Classic => new GenieMath.Rect(_dockX, TaskbarTop, 6, 0),
             GenieMath.Scale => GenieMath.ScaleEnd(_winRect, _dockX, iconY, IconSize),
             _ => new GenieMath.Rect(_dockX - IconSize / 2, iconY, IconSize, IconSize / 2),
         };

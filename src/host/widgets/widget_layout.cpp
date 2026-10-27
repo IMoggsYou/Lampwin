@@ -9,9 +9,9 @@ namespace widgets {
 
 Span SpanOf(Size s) {
     switch (s) {
-        case Size::Medium: return {2, 1};
-        case Size::Large: return {2, 2};
-        default: return {1, 1};
+        case Size::Medium: return {2, kRowSteps};
+        case Size::Large: return {2, 2 * kRowSteps};
+        default: return {1, kRowSteps};
     }
 }
 
@@ -25,17 +25,19 @@ Grid::Grid(const RECT& work, double unit)
     : work_(work),
       cell_((int)lround(kCellDip * unit)),
       gap_((int)lround(kGapDip * unit)),
-      margin_((int)lround(kMarginDip * unit)) {
+      margin_((int)lround(kMarginDip * unit)),
+      bottomMargin_((int)lround(kBottomMarginDip * unit)) {
     if (cell_ < 1) cell_ = 1;
     int pitch = cell_ + gap_;
     int w = work.right - work.left - 2 * margin_ + gap_;
-    int h = work.bottom - work.top - 2 * margin_ + gap_;
+    int h = work.bottom - work.top - margin_ - bottomMargin_ + gap_;
     cols_ = w > 0 ? w / pitch : 0;
-    rows_ = h > 0 ? h / pitch : 0;
+    rows_ = h > 0 ? h * kRowSteps / pitch : 0;
 }
 
 SIZE Grid::CardSize(Span span) const {
-    return {span.cols * cell_ + (span.cols - 1) * gap_, span.rows * cell_ + (span.rows - 1) * gap_};
+    int rows = span.rows / kRowSteps;
+    return {span.cols * cell_ + (span.cols - 1) * gap_, rows * cell_ + (rows - 1) * gap_};
 }
 
 RECT Grid::Rect(const Slot& s) const {
@@ -43,7 +45,11 @@ RECT Grid::Rect(const Slot& s) const {
     int pitch = cell_ + gap_;
     // A wider widget grows to the left of its column, which keeps its right edge on the grid.
     int right = work_.right - margin_ - s.col * pitch;
-    int top = work_.top + margin_ + s.row * pitch;
+    // Rounded per row, so two rows are always one cell and gap apart.
+    int top = work_.top + margin_ + s.row * pitch / kRowSteps;
+    // The grid rarely ends exactly on the bottom margin: the last row moves down onto it
+    // (nothing lies below it, and moving down keeps it clear of the rows above).
+    if (s.row + s.span.rows >= rows_) top = work_.bottom - bottomMargin_ - size.cy;
     return {right - size.cx, top, right, top + size.cy};
 }
 

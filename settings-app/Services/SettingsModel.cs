@@ -112,7 +112,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public ObservableCollection<string> NoInject { get; } = new();
     public ObservableCollection<string> Excluded { get; } = new();
 
-    private int _style;
+    private int _style = 1;   // classic
     /// <summary>0 = modern (Potassiumuncher), 1 = classic (original), 2 = scale.</summary>
     public int Style
     {

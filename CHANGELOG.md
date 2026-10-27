@@ -28,6 +28,15 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
   PC, or restore the defaults. Widgets, app icons, privacy switches and the language stay
   when you restore; the settings you had are kept in `settings.json.bak`.
 
+### Changed
+
+- The **classic genie** is the default animation style for new installs (and after
+  Restore defaults). It now pours into the taskbar and comes out of it, instead of
+  running on to the bottom edge of the screen, which showed on an empty desktop.
+- Widgets can go lower: the grid has half-height rows, and the lowest widgets sit right
+  above the taskbar instead of leaving a gap under them. Widgets already on the desktop
+  stay where they are.
+
 ## [1.4.0] - 2026-10-24
 
 ### Added

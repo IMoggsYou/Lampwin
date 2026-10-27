@@ -144,6 +144,7 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
     std::vector<Placed> placed;
     for (const Sample& s : samples) {
         Span span = SpanOf(s.size);
+        span.rows /= kRowSteps;   // whole cells here
         for (int row = 0;; ++row) {
             while ((int)used.size() < row + span.rows) used.push_back(std::vector<bool>(cols, false));
             int found = -1;
@@ -158,7 +159,7 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
             for (int r = row; r < row + span.rows; ++r) {
                 for (int c = found; c < found + span.cols; ++c) used[r][c] = true;
             }
-            placed.push_back({s, margin + found * (cell + gap), margin + row * (cell + gap), grid.CardSize(span)});
+            placed.push_back({s, margin + found * (cell + gap), margin + row * (cell + gap), grid.CardSize(SpanOf(s.size))});
             break;
         }
     }

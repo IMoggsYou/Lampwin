@@ -10,7 +10,8 @@
 #include "host/widgets/widget_config.h"
 
 struct GenieSettings {
-    int style = 0;   // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original), 2 scale
+    // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original, the default), 2 scale
+    int style = 1;
     int durationMs = 450;
     bool restore = true;
     // Opening / closing windows: MW_EFFECT_* and their durations.

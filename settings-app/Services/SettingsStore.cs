@@ -94,7 +94,9 @@ public sealed class SettingsStore
             m.UpdateAutoInstall = Bool(updates, "autoInstall", true);
             m.UpdatePrompt = Bool(updates, "prompt", true);
             var genie = _root["genie"] as JsonObject ?? new JsonObject();
-            m.Style = Math.Max(0, System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "modern")));
+            // Classic is the default (the same as the host's settings_store.h).
+            int style = System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "classic"));
+            m.Style = style >= 0 ? style : 1;
             m.DurationMs = Num(genie, "durationMs", 450);
             m.Restore = Bool(genie, "restoreAnimation", true);
             m.OpenEffect = Effect(genie, "openAnimation", 1);
@@ -306,7 +308,10 @@ public sealed class SettingsStore
             widgets.Remove("place");
         // Positions are MacWin's (it places widgets and saves where they are dragged): each
         // widget starts from the file as it is now, so they are never overwritten.
-        var onDisk = (ReadRoot()["widgets"] as JsonObject)?["items"] as JsonArray;
+        var diskWidgets = ReadRoot()["widgets"] as JsonObject;
+        var onDisk = diskWidgets?["items"] as JsonArray;
+        // The rows on disk are counted the way MacWin's "grid" there says (whole or half cells).
+        if (diskWidgets?["grid"] is JsonNode grid) widgets["grid"] = grid.DeepClone();
         var known = widgets["items"] as JsonArray;
         var items = new JsonArray();
         foreach (var w in m.Widgets)
