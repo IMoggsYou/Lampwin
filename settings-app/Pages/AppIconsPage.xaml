@@ -5,7 +5,9 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:c="clr-namespace:MacWin.Settings.Controls"
-             xmlns:l="clr-namespace:MacWin.Settings">
+             xmlns:l="clr-namespace:MacWin.Settings"
+             AllowDrop="True" DragEnter="Page_DragOver" DragOver="Page_DragOver" DragLeave="Page_DragLeave" Drop="Page_Drop">
+    <Grid>
     <StackPanel>
         <Border Style="{StaticResource Group}">
             <c:SettingRow Title="{l:Tr settings.icons.enabled.title}" Description="{l:Tr settings.icons.enabled.description}">
@@ -98,4 +100,17 @@
         </Border>
         <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.icons.footnote}"/>
     </StackPanel>
+
+    <!-- While files are dragged over the page: the whole page is the place to drop them -->
+    <Grid x:Name="DropHint" Visibility="Collapsed" IsHitTestVisible="False">
+        <Rectangle RadiusX="12" RadiusY="12" Fill="{DynamicResource Brush.Accent}" Opacity="0.12"/>
+        <Rectangle RadiusX="12" RadiusY="12" Stroke="{DynamicResource Brush.Accent}" StrokeThickness="2"
+                   StrokeDashArray="4 3"/>
+        <Border VerticalAlignment="Top" HorizontalAlignment="Center" Margin="16,18,16,0" Padding="16,8"
+                CornerRadius="8" Background="{DynamicResource Brush.Accent}">
+            <TextBlock Text="{l:Tr settings.icons.drop}" Foreground="White" FontWeight="SemiBold"
+                       TextWrapping="Wrap" TextAlignment="Center"/>
+        </Border>
+    </Grid>
+    </Grid>
 </UserControl>

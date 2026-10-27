@@ -306,7 +306,7 @@ public sealed class GeniePreview : Grid
                 break;
             case Phase.Shattering:
             {
-                double piecesMs = Math.Max(100, _shardsJoin ? OpenDurationMs : CloseDurationMs);
+                double piecesMs = Math.Max(100, _shardsJoin ? OpenDurationMs : CloseDurationMs) * GenieMath.PiecesPace;
                 double p = Math.Min(1, elapsed / piecesMs);
                 // Opening plays the break backwards, slowing down as the pieces settle (as
                 // GenieEase does in the host).

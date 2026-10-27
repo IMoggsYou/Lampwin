@@ -26,6 +26,9 @@ inline bool IsShatterStyle(int style) { return style == kGenieShatter || style =
 void ShatterGrid(int w, int h, int cells, int* cols, int* rows);
 const int kShatterCells = 9;     // ~100 shards
 const int kFragmentCells = 5;    // ~30 big pieces
+// Pieces travel much farther than a genie: they take this much longer than the open or
+// close duration set, so one setting feels right for every effect.
+const float kPiecesPace = 1.35f;
 
 struct Geometry {
     float x, y, width, height;

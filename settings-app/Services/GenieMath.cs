@@ -102,6 +102,9 @@ internal static class GenieMath
     // The same pieces as ShatterVS in src/host/render/genie.hlsl (the same hash, grid,
     // motion and light), drawn by the live preview.
 
+    /// <summary>Pieces take this much longer than the duration set (kPiecesPace in the host).</summary>
+    public const double PiecesPace = 1.35;
+
     /// <summary>The crack grid (ShatterGrid in the host): 9 cells along the longer side for
     /// shatter, 5 for fragments, never fewer than 3 along the other.</summary>
     public static (int Cols, int Rows) ShatterGrid(double w, double h, bool fragments)

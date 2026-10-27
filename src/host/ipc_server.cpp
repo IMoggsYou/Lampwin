@@ -132,6 +132,7 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     job->style = effect == MW_EFFECT_SHATTER     ? kGenieShatter
                  : effect == MW_EFFECT_FRAGMENTS ? kGenieFragments
                                                  : s.genie.style;
+    if (shatter) job->durationMs = (int)lroundf(job->durationMs * kPiecesPace);
     job->params.closing = closing;
     renderer_.Retain(hwnd);   // from here on every exit goes through FailJob / the renderer
 

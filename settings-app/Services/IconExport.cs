@@ -10,27 +10,19 @@ using MacWin.Settings.Controls;
 namespace MacWin.Settings;
 
 /// <summary>"--export-icon file.ico": renders the vector AppIcon at the usual icon sizes and
-/// packs them (as PNG entries) into an .ico used by MacWin.exe, this app and the installer.</summary>
+/// packs them (as PNG entries) into an .ico used by MacWin.exe, this app and the installer.
+/// "--export-icon file.png" writes the 256 px image alone (README, social preview).</summary>
 internal static class IconExport
 {
     private static readonly int[] Sizes = { 16, 20, 24, 32, 40, 48, 64, 96, 128, 256 };
 
     public static void Save(string path)
     {
-        var images = new List<byte[]>();
-        foreach (int size in Sizes)
+        var images = Sizes.Select(Render).ToList();
+        if (string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase))
         {
-            var icon = new AppIcon { Width = size, Height = size };
-            icon.Measure(new Size(size, size));
-            icon.Arrange(new Rect(0, 0, size, size));
-            icon.UpdateLayout();
-            var bmp = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
-            bmp.Render(icon);
-            var png = new PngBitmapEncoder();
-            png.Frames.Add(BitmapFrame.Create(bmp));
-            using var ms = new MemoryStream();
-            png.Save(ms);
-            images.Add(ms.ToArray());
+            File.WriteAllBytes(path, images[^1]);
+            return;
         }
 
         using var fs = File.Create(path);
@@ -53,5 +45,20 @@ internal static class IconExport
             offset += images[i].Length;
         }
         foreach (var image in images) w.Write(image);
+    }
+
+    private static byte[] Render(int size)
+    {
+        var icon = new AppIcon { Width = size, Height = size };
+        icon.Measure(new Size(size, size));
+        icon.Arrange(new Rect(0, 0, size, size));
+        icon.UpdateLayout();
+        var bmp = new RenderTargetBitmap(size, size, 96, 96, PixelFormats.Pbgra32);
+        bmp.Render(icon);
+        var png = new PngBitmapEncoder();
+        png.Frames.Add(BitmapFrame.Create(bmp));
+        using var ms = new MemoryStream();
+        png.Save(ms);
+        return ms.ToArray();
     }
 }

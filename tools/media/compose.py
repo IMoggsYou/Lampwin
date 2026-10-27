@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
+
 """Builds the README images in docs/media from settings-window snapshots.
 
     MacWin.Settings.exe --snapshot <shots>\\en-light --lang en --theme light --transparent
