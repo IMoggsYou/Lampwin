@@ -249,6 +249,7 @@ public sealed class SettingsStore
             entry.Theme = Str(o, "theme", "auto");
             entry.Text = Str(o, "text", "");
             entry.Path = Str(o, "path", "");
+            entry.Date = Str(o, "date", "");
         }
     }
 
@@ -277,8 +278,9 @@ public sealed class SettingsStore
             item["type"] = w.Kind;
             item["size"] = w.Size;
             item["theme"] = w.Theme;
-            if (w.IsNotes) item["text"] = w.Text;
+            if (w.IsNotes || w.IsCountdown) item["text"] = w.Text;
             if (w.IsPhoto) item["path"] = w.Path;
+            if (w.IsCountdown) item["date"] = w.Date;
             items.Add(item);
         }
         widgets["items"] = items;

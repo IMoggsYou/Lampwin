@@ -15,6 +15,7 @@
 #include "host/json.h"
 #include "host/updater.h"
 #include "host/widgets/location.h"
+#include "host/widgets/media.h"
 #include "host/widgets/weather.h"
 #include "host/widgets/widget_layout.h"
 
@@ -232,6 +233,36 @@ void TestWidgetNames() {
     CHECK(SizeFromName(L"large") == Size::Large && SizeFromName(L"huge") == Size::Small);
     CHECK(LookFromName(L"dark") == Look::Dark && LookFromName(L"") == Look::Auto);
     CHECK(!Supports(Kind::Clock, Size::Large) && Supports(Kind::Calendar, Size::Large));
+    CHECK(!Supports(Kind::Countdown, Size::Large) && Supports(Kind::NowPlaying, Size::Medium));
+}
+
+void TestCountdown() {
+    using namespace widgets;
+    SYSTEMTIME day = {}, today = {};
+    CHECK(ParseDay(L"2026-12-24", &day) && day.wYear == 2026 && day.wMonth == 12 && day.wDay == 24);
+    CHECK(day.wDayOfWeek == 4);   // a Thursday
+    CHECK(!ParseDay(L"2026-02-30", &day) && !ParseDay(L"2026-13-01", &day) && !ParseDay(L"", &day));
+    CHECK(!ParseDay(L"24.12.2026", &day) && !ParseDay(L"2026-1-024", &day) && !ParseDay(L"2026-12-24x", &day));
+    CHECK(ParseDay(L"2026-10-27", &today));
+    today.wHour = 23;   // the time of day doesn't count
+    today.wMinute = 59;
+    CHECK(ParseDay(L"2026-10-28", &day) && DaysBetween(today, day) == 1);
+    CHECK(ParseDay(L"2026-10-26", &day) && DaysBetween(today, day) == -1);
+    CHECK(ParseDay(L"2027-10-27", &day) && DaysBetween(today, day) == 365);
+    CHECK(DaysBetween(today, today) == 0);
+}
+
+void TestMediaAppName() {
+    using namespace widgets;
+    CHECK(MediaAppName(L"Spotify.exe") == L"Spotify");
+    CHECK(MediaAppName(L"SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") == L"Spotify");
+    CHECK(MediaAppName(L"MSEdge") == L"Microsoft Edge");
+    CHECK(MediaAppName(L"Chrome") == L"Google Chrome");
+    CHECK(MediaAppName(L"308046B0AF4A39CB") == L"Firefox");
+    CHECK(MediaAppName(L"Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic") == L"Media Player");
+    CHECK(MediaAppName(L"foobar2000.exe") == L"Foobar2000");
+    CHECK(MediaAppName(L"6E7F1A2B3C4D5E6F") == L"");
+    CHECK(MediaAppName(L"") == L"");
 }
 
 const wchar_t* kForecast = LR"({
@@ -374,6 +405,8 @@ int wmain() {
     TestJson();
     TestWidgetGrid();
     TestWidgetNames();
+    TestCountdown();
+    TestMediaAppName();
     TestForecast();
     TestLocation();
     TestGenieCurves();

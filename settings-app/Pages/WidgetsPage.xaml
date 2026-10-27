@@ -85,8 +85,9 @@
         <Border Style="{StaticResource Group}" Padding="8,16,8,10">
             <ItemsControl x:Name="Gallery" Focusable="False" HorizontalAlignment="Center">
                 <ItemsControl.ItemsPanel>
+                    <!-- Two even rows of four -->
                     <ItemsPanelTemplate>
-                        <WrapPanel/>
+                        <UniformGrid Columns="4"/>
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
@@ -143,6 +144,28 @@
                                          Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
                                          Tag="{l:Tr settings.widgets.notes.placeholder}"
                                          Visibility="{Binding IsNotes, Converter={StaticResource Visible}}"/>
+                                <!-- Countdown: its title, then the day (day, month, year lists) -->
+                                <Grid Margin="55,0,14,12" Visibility="{Binding IsCountdown, Converter={StaticResource Visible}}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Style="{StaticResource MacTextBox}" MaxLength="80" VerticalAlignment="Center"
+                                             Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}"
+                                             Tag="{l:Tr settings.widgets.countdown.placeholder}"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Margin="8,0,0,0">
+                                        <ComboBox Style="{StaticResource MacComboBox}" MinWidth="62"
+                                                  AutomationProperties.Name="{l:Tr settings.widgets.countdown.day}"
+                                                  ItemsSource="{Binding Days}" SelectedItem="{Binding Day}"/>
+                                        <ComboBox Style="{StaticResource MacComboBox}" MinWidth="118" Margin="6,0,0,0"
+                                                  AutomationProperties.Name="{l:Tr settings.widgets.countdown.month}"
+                                                  ItemsSource="{Binding Source={x:Static l:WidgetEntry.Months}}"
+                                                  DisplayMemberPath="Value" SelectedValuePath="Key" SelectedValue="{Binding Month}"/>
+                                        <ComboBox Style="{StaticResource MacComboBox}" MinWidth="78" Margin="6,0,0,0"
+                                                  AutomationProperties.Name="{l:Tr settings.widgets.countdown.year}"
+                                                  ItemsSource="{Binding Years}" SelectedItem="{Binding Year}"/>
+                                    </StackPanel>
+                                </Grid>
                                 <DockPanel Margin="55,0,14,12" Visibility="{Binding IsPhoto, Converter={StaticResource Visible}}">
                                     <Button Style="{StaticResource MacButton}" Padding="12,3" Content="{l:Tr settings.widgets.photo.choose}"
                                             Click="ChoosePhoto_Click"/>

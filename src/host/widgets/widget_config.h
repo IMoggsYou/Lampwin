@@ -2,6 +2,7 @@
 // MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #pragma once
+#include <windows.h>
 #include <string>
 #include <vector>
 
@@ -9,7 +10,7 @@
 // configures them; the host places them, and writes back where the user dragged them.
 namespace widgets {
 
-enum class Kind { Clock, Calendar, Weather, System, Notes, Photo, Count };
+enum class Kind { Clock, Calendar, Weather, System, Notes, Photo, Countdown, NowPlaying, Count };
 enum class Size { Small, Medium, Large };
 // "theme": the Windows app mode, or always light / dark.
 enum class Look { Auto, Light, Dark };
@@ -25,8 +26,9 @@ struct Item {
     std::wstring monitor;
     int col = 0;
     int row = 0;
-    std::wstring text;   // Notes
+    std::wstring text;   // Notes; Countdown's title
     std::wstring path;   // Photo
+    std::wstring date;   // Countdown: the day it counts to, yyyy-MM-dd
 
     bool operator==(const Item& o) const = default;
 };
@@ -63,7 +65,15 @@ const wchar_t* SizeName(Size s);
 Size SizeFromName(const std::wstring& name);
 const wchar_t* LookName(Look l);
 Look LookFromName(const std::wstring& name);
-// The sizes a kind comes in (a clock or the system gauges have no large one).
+// The sizes a kind comes in (a clock, the system gauges, a countdown and now playing have
+// no large one).
 bool Supports(Kind k, Size s);
+
+// A Countdown's day: "2026-12-24" (wYear, wMonth, wDay and wDayOfWeek set); false when it
+// isn't a real date.
+bool ParseDay(const std::wstring& iso, SYSTEMTIME* out);
+// Whole days from `from` to `to` (dates only, the time of day doesn't count): 1 = tomorrow,
+// -1 = yesterday.
+int DaysBetween(const SYSTEMTIME& from, const SYSTEMTIME& to);
 
 }  // namespace widgets

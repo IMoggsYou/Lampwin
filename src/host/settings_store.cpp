@@ -133,6 +133,7 @@ widgets::Config LoadWidgets(const json::Value* w) {
         }
         item.text = Str(&v, L"text");
         item.path = Str(&v, L"path");
+        item.date = Str(&v, L"date");
         c.items.push_back(item);
     }
     return c;
@@ -173,8 +174,11 @@ json::Value SaveWidgets(const widgets::Config& c, const json::Value* old) {
             json::Set(&v, L"col", json::Number(item.col));
             json::Set(&v, L"row", json::Number(item.row));
         }
-        if (item.kind == widgets::Kind::Notes) json::Set(&v, L"text", json::String(item.text));
+        if (item.kind == widgets::Kind::Notes || item.kind == widgets::Kind::Countdown) {
+            json::Set(&v, L"text", json::String(item.text));
+        }
         if (item.kind == widgets::Kind::Photo) json::Set(&v, L"path", json::String(item.path));
+        if (item.kind == widgets::Kind::Countdown) json::Set(&v, L"date", json::String(item.date));
         items.items.push_back(v);
     }
     json::Set(&w, L"items", items);

@@ -41,8 +41,8 @@ little quieter about your data. Light, free and open source.
 - ⬛ **Squircle corners** — the macOS shape (100% smoothing) or the Windows 11 rounding,
   for the animation, the settings window and apps that draw their own title bar
   (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a matching shadow.
-- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note and a
-  photo, in three sizes, light or dark. They stay on the desktop under your windows and
+- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note, a
+  photo, a countdown to a day of your choice and what's playing now, light or dark. They stay on the desktop under your windows and
   snap to a grid like on macOS; drag them anywhere, right-click for size and look.
 - 🎨 **App icons** — give any program an icon of your own: on its windows, in Alt+Tab, on
   the taskbar and in the Start menu. Drop in macOS `.icns`, PNG, JPEG, WebP, HEIC, ICO or
@@ -163,7 +163,9 @@ MacWin collects nothing. It goes online for two things only:
   and there is no account or key. Windows' own location switch
   (**Settings → Privacy & security → Location**) turns the location part off.
 
-App icons and the Privacy page work entirely on your PC.
+App icons, the Privacy page and the other widgets work entirely on your PC. The Now playing
+widget shows what Windows' own media controls show (the song, the artist, the app); it reads
+that on your PC, only while the widget is on the desktop.
 
 ## FAQ
 

@@ -19,6 +19,11 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
   The glass breaks where you clicked (the close button), its cracks flash, and the pieces
   tumble in 3D, catch the light and fall in an arc. The live preview shows each effect as
   soon as you pick it.
+- Two new desktop widgets:
+  - **Countdown**: the days to go until a day you choose (or since it), with its title; the
+    medium size also shows the day itself.
+  - **Now playing**: the song or video playing on your PC, its artist and the app, the same
+    as Windows' media controls show. It is read on your PC only, while the widget is shown.
 
 ## [1.4.0] - 2026-10-24
 

@@ -5,6 +5,7 @@
 #include <string>
 #include <unordered_map>
 #include "host/widgets/canvas.h"
+#include "host/widgets/media.h"
 #include "host/widgets/weather.h"
 #include "host/widgets/widget_config.h"
 
@@ -50,9 +51,12 @@ struct Scene {
     std::wstring place;
     // System
     SystemStats stats;
-    // Notes, Photo
+    // Notes, Photo; Countdown (text is its title)
     std::wstring text;
     IWICBitmapSource* photo = nullptr;
+    std::wstring date;   // yyyy-MM-dd
+    // Now playing
+    const MediaInfo* media = nullptr;
 };
 
 // The card's corner (DIPs) and Figma-style smoothing: a continuous corner like the

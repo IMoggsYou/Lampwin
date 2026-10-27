@@ -112,6 +112,7 @@ if(MACWIN_BITS EQUAL 64)
     src/host/render/genie_effect.cpp
     src/host/widgets/canvas.cpp
     src/host/widgets/location.cpp
+    src/host/widgets/media.cpp
     src/host/widgets/system_stats.cpp
     src/host/widgets/weather.cpp
     src/host/widgets/widget_config.cpp
@@ -180,7 +181,8 @@ endif()
 if(MACWIN_BITS EQUAL 64)
   enable_testing()
   add_executable(MacWinTests tests/unit_tests.cpp src/host/json.cpp src/host/updater.cpp
-                 src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/weather.cpp
+                 src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/media.cpp
+                 src/host/widgets/weather.cpp
                  src/host/widgets/widget_config.cpp src/host/widgets/widget_layout.cpp
                  src/host/render/genie_effect.cpp)
   target_include_directories(MacWinTests PRIVATE src ${CMAKE_BINARY_DIR}/gen)
