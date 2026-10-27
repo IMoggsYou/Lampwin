@@ -22,6 +22,7 @@ struct alignas(16) GenieConstants {
     float tex[4];
     float shadow[4];
     float shadow2[4];
+    float pieces[4];   // shatter / fragments: impact u, v
 };
 
 struct alignas(16) PrepConstants {
@@ -896,6 +897,8 @@ bool Renderer::Draw(Anim* a, float t) {
         c.icon[1] = g.icon.y;
         c.icon[2] = g.icon.width;
         c.icon[3] = g.icon.height;
+        c.pieces[0] = g.impactU;
+        c.pieces[1] = g.impactV;
         c.params[3] = GenieFade(g, t);
         if (!upload()) return false;
         // Two triangles per crack-grid cell, three vertices each (ShatterVS).

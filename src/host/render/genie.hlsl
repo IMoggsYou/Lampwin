@@ -25,6 +25,7 @@ cbuffer GenieCB : register(b0)
     float4 gShadow;   // x = how far the grid reaches past the window (snapshot px; 0 for
                       // the window itself), y, z = broad shadow sigma, offset (snapshot px)
     float4 gShadow2;  // x, y = contact shadow sigma, offset (snapshot px), z, w = opacities
+    float4 gPieces;   // shatter: x, y = where the glass breaks first (window uv)
 };
 
 cbuffer PrepCB : register(b1)
@@ -170,12 +171,13 @@ float4 GeniePS(GenieVSOut i) : SV_Target
 }
 
 // ---- Shatter and fragments (MacWin's own) ----------------------------------------------
-// The window cracks along a jittered grid into triangular shards that burst outwards from
-// its middle, spinning, shrinking and fading as they slow down; the outer ones come loose
-// first and fly farthest. Shatter: many shards in four streams (left, right, up, down).
-// Fragments: a few big pieces, each flying its own way. Opening runs it backwards (t from
-// 1 to 0): the pieces fly together into the window. Mirrored in GenieMath.ShatterTriangle
-// (settings-app), which draws the live preview.
+// The window cracks along a jittered grid into triangular pieces of glass. The crack runs
+// out from the impact (where the pointer was, else the middle): the cracks flash, then the
+// pieces burst away from it, tumbling in 3D (in perspective, catching the light), falling
+// in an arc and fading as they slow down. Shatter: many shards in four streams (left,
+// right, up, down). Fragments: a few big pieces, each flying its own way. Opening runs it
+// backwards (t from 1 to 0): the pieces fly together into the window. Mirrored in
+// GenieMath.ShatterTriangle (settings-app), which draws the live preview.
 
 uint ShatterHash(uint x)
 {
@@ -209,8 +211,16 @@ struct ShardVSOut
 {
     float4 pos : SV_Position;
     float2 uv : TEXCOORD0;
-    float2 look : TEXCOORD1;   // x = opacity, y = light (a shard turning away gets darker)
+    float4 look : TEXCOORD1;   // x = opacity, y = light, z = glint, w = crack glow
+    float3 bary : TEXCOORD2;   // barycentric: 0 on the piece's edges
 };
+
+// v turned about the unit axis a by `angle` (Rodrigues' formula).
+float3 Turn(float3 v, float3 a, float angle)
+{
+    float s = sin(angle), c = cos(angle);
+    return v * c + cross(a, v) * s + a * dot(a, v) * (1.0 - c);
+}
 
 // Two triangles per grid cell, three vertices each, no vertex or index buffer.
 ShardVSOut ShatterVS(uint id : SV_VertexID)
@@ -231,43 +241,64 @@ ShardVSOut ShatterVS(uint id : SV_VertexID)
     float2 uv = corner == 0 ? a : (corner == 1 ? b : d);
     float2 centre = (a + b + d) / 3.0;
 
-    float2 rel = (centre - 0.5) * gWin.zw;                        // px from the window's middle
-    float reach = saturate(length(centre - 0.5) * 1.41421356);    // 0 middle .. 1 corner
+    float2 impact = gPieces.xy;
+    float2 rel = (centre - impact) * gWin.zw;                     // px from where it broke
+    float2 far = max(impact, 1.0 - impact) * gWin.zw;             // to the farthest corner
+    float reach = saturate(length(rel) / max(length(far), 1.0));  // 0 impact .. 1 far corner
     bool big = gIcon.w > 0.5;
-    // Outwards. Shatter: pulled most of the way towards the nearest of left, right, up and
-    // down - four streams of shards. Fragments: every piece its own way.
+    // Away from the impact. Shatter: pulled most of the way towards the nearest of left,
+    // right, up and down - four streams of shards. Fragments: every piece its own way.
     float angle = atan2(rel.y, rel.x);
     float axis = round(angle / (PI * 0.5)) * (PI * 0.5);
     angle = big ? angle + (ShatterRand(tri, 4) - 0.5) * 1.1
                 : lerp(angle, axis, 0.7) + (ShatterRand(tri, 4) - 0.5) * 0.35;
     float2 dir = float2(cos(angle), sin(angle));
 
-    // First the window only cracks (the pieces part a little), then they burst away and
-    // slow down; the outer ones come loose first.
-    float delay = big ? 0.05 + 0.06 * (1.0 - reach) + 0.08 * ShatterRand(tri, 5)
-                      : 0.05 + 0.1 * (1.0 - reach) + 0.05 * ShatterRand(tri, 5);
+    // The crack runs out from the impact: the pieces there come loose first and, hit
+    // hardest, fly farthest. Before that they only part a little (the cracks open).
+    float delay = 0.04 + (big ? 0.1 : 0.13) * reach + 0.05 * ShatterRand(tri, 5);
     float t = gParams.x;
     float crack = smoothstep(0.0, delay, t);
     float u = saturate((t - delay) / (1.0 - delay));
-    float move = 1.0 - pow(1.0 - u, 2.6);
+    float move = 1.0 - pow(1.0 - u, 2.4);
     float diag = length(gWin.zw);
-    float fly = big ? (0.2 + 0.24 * reach) * (0.7 + 0.6 * ShatterRand(tri, 6))
-                    : (0.12 + 0.22 * reach) * (0.75 + 0.5 * ShatterRand(tri, 6));
-    float dist = diag * (0.012 * crack + fly * move);
-    // Big pieces turn slower and keep more of their size.
-    float spin = (ShatterRand(tri, 7) * 2.0 - 1.0) * (0.03 * crack + (big ? 0.8 : 1.5) * move);
-    float shrink = 1.0 - (big ? 0.25 : 0.4) * move;
+    float fly = ((big ? 0.24 : 0.17) + 0.12 * (1.0 - reach)) * (0.7 + 0.6 * ShatterRand(tri, 6));
+    float dist = diag * (0.01 * crack + fly * move);
 
-    float2 v = (uv - centre) * gWin.zw * shrink;
-    float sn = sin(spin), cs = cos(spin);
-    v = float2(v.x * cs - v.y * sn, v.x * sn + v.y * cs);
-    float2 s = gWin.xy + centre * gWin.zw + v + dir * dist;
+    // Tumbling in 3D about an axis of its own, mostly in the screen's plane (so pieces flip
+    // over and show their edge); big pieces turn slower and keep more of their size.
+    float3 ax = normalize(float3(ShatterRand(tri, 9) - 0.5, ShatterRand(tri, 10) - 0.5,
+                                 0.35 * (ShatterRand(tri, 11) - 0.5)) + float3(0.0, 0.0, 1e-4));
+    float tumble = (ShatterRand(tri, 7) * 2.0 - 1.0) * (0.02 * crack + (big ? 2.4 : 3.4) * move);
+    float shrink = 1.0 - (big ? 0.15 : 0.3) * move;
+    float3 v = Turn(float3((uv - centre) * gWin.zw * shrink, 0.0), ax, tumble);
+    float3 normal = Turn(float3(0.0, 0.0, 1.0), ax, tumble);
+
+    // In perspective, seen from in front of the window: some pieces come towards you,
+    // others go away. Gravity bends every flight into an arc.
+    float depth = (ShatterRand(tri, 12) * 2.0 - 1.0) * diag * (big ? 0.35 : 0.25) * move + v.z;
+    float focal = 1.6 * diag;
+    float persp = focal / max(focal - depth, focal * 0.3);
+    float2 fall = float2(0.0, diag * (big ? 0.2 : 0.14) * u * u);
+    float2 mid = gWin.xy + 0.5 * gWin.zw;
+    float2 piece = gWin.xy + centre * gWin.zw + dir * dist + fall;
+    float2 s = mid + (piece + v.xy - mid) * persp;
+
+    // Light from the upper left: a piece turned towards it brightens, away from it darkens,
+    // and it glints as it faces it. At rest the window looks exactly as it was.
+    const float3 L = normalize(float3(-0.35, -0.55, 0.76));
+    const float3 Hv = normalize(L + float3(0.0, 0.0, 1.0));
+    float light = (0.7 + 0.3 * abs(dot(normal, L))) / (0.7 + 0.3 * L.z);
+    float glint = pow(saturate(abs(dot(normal, Hv))), 48.0) * 0.5 * smoothstep(0.0, 0.25, u) * (1.0 - u);
+    // The cracks flash as they open and fade as the pieces fly.
+    float glow = crack * (1.0 - smoothstep(0.0, 0.4, u));
 
     float2 cpos = (s - gCanvas.xy) / gCanvas.zw;
     ShardVSOut o;
     o.pos = float4(cpos.x * 2.0 - 1.0, 1.0 - cpos.y * 2.0, 0.0, 1.0);
     o.uv = uv;
-    o.look = float2(1.0 - smoothstep(0.35, 1.0, u), 1.0 - 0.28 * move * ShatterRand(tri, 8));
+    o.look = float4(1.0 - smoothstep(0.3, 1.0, u), light, glint, glow);
+    o.bary = corner == 0 ? float3(1, 0, 0) : (corner == 1 ? float3(0, 1, 0) : float3(0, 0, 1));
     return o;
 }
 
@@ -275,6 +306,12 @@ float4 ShatterPS(ShardVSOut i) : SV_Target
 {
     float4 c = WindowColor(i.uv);
     c.rgb *= i.look.y;
+    // The piece's edges: a thin bright line with a soft halo inside it.
+    float e = min(i.bary.x, min(i.bary.y, i.bary.z));
+    float w = max(fwidth(e), 1e-5);
+    float edge = max(1.0 - smoothstep(0.0, 1.6 * w, e), 0.35 * (1.0 - smoothstep(0.0, 6.0 * w, e)));
+    c.rgb += float3(0.86, 0.93, 1.0) * c.a * (i.look.z + edge * i.look.w);
+    c.rgb = min(c.rgb, c.aaa);   // still premultiplied
     return c * (i.look.x * gParams.w);
 }
 

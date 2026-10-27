@@ -98,9 +98,9 @@ internal static class GenieMath
         return (cx + (tx - 0.5) * width, y);
     }
 
-    // ---- Shatter (closing only) ------------------------------------------------------------
-    // The same shards as ShatterVS in src/host/render/genie.hlsl (the same hash, grid and
-    // motion), drawn by the live preview.
+    // ---- Shatter and fragments ------------------------------------------------------------
+    // The same pieces as ShatterVS in src/host/render/genie.hlsl (the same hash, grid,
+    // motion and light), drawn by the live preview.
 
     /// <summary>The crack grid (ShatterGrid in the host): 9 cells along the longer side for
     /// shatter, 5 for fragments, never fewer than 3 along the other.</summary>
@@ -137,10 +137,26 @@ internal static class GenieMath
         return ((px + jx * 0.72) / cols, (py + jy * 0.72) / rows);
     }
 
-    /// <summary>Shard `tri` at progress t (0..1): its three corners on screen and in the
-    /// window's texture, and its opacity. `big`: fragments (each its own way).</summary>
-    public static double ShatterTriangle(int tri, int cols, int rows, uint seed, double t, Rect w, bool big,
-                                         Span<(double X, double Y)> pos, Span<(double U, double V)> uv)
+    /// <summary>How a piece looks at a moment: opacity, light (1 = as at rest), the glint as
+    /// it faces the light, and the glow of its edges while the glass cracks.</summary>
+    public readonly record struct ShardLook(double Alpha, double Light, double Glint, double Glow);
+
+    private static (double X, double Y, double Z) Turn((double X, double Y, double Z) v, (double X, double Y, double Z) a, double angle)
+    {
+        double s = Math.Sin(angle), c = Math.Cos(angle);
+        double dot = a.X * v.X + a.Y * v.Y + a.Z * v.Z;
+        (double X, double Y, double Z) cross = (a.Y * v.Z - a.Z * v.Y, a.Z * v.X - a.X * v.Z, a.X * v.Y - a.Y * v.X);
+        return (v.X * c + cross.X * s + a.X * dot * (1 - c),
+                v.Y * c + cross.Y * s + a.Y * dot * (1 - c),
+                v.Z * c + cross.Z * s + a.Z * dot * (1 - c));
+    }
+
+    /// <summary>Piece `tri` at progress t (0..1): its three corners on screen and in the
+    /// window's texture, and how it looks. `big`: fragments (each its own way). `impact`:
+    /// where the glass breaks first, in window uv.</summary>
+    public static ShardLook ShatterTriangle(int tri, int cols, int rows, uint seed, double t, Rect w, bool big,
+                                           (double U, double V) impact,
+                                           Span<(double X, double Y)> pos, Span<(double U, double V)> uv)
     {
         int cell = tri / 2;
         int cx = cell % cols, cy = cell / cols;
@@ -149,32 +165,52 @@ internal static class GenieMath
         for (int i = 0; i < 3; i++)
             uv[i] = ShatterPoint(cx + (k[i] & 1), cy + (k[i] >> 1), cols, rows, seed);
         double mu = (uv[0].U + uv[1].U + uv[2].U) / 3, mv = (uv[0].V + uv[1].V + uv[2].V) / 3;
+        double R(uint salt) => Rand((uint)tri, salt, seed);
 
-        double rx = (mu - 0.5) * w.W, ry = (mv - 0.5) * w.H;
-        double reach = Math.Clamp(Math.Sqrt((mu - 0.5) * (mu - 0.5) + (mv - 0.5) * (mv - 0.5)) * Math.Sqrt(2), 0, 1);
+        double rx = (mu - impact.U) * w.W, ry = (mv - impact.V) * w.H;
+        double fx = Math.Max(impact.U, 1 - impact.U) * w.W, fy = Math.Max(impact.V, 1 - impact.V) * w.H;
+        double reach = Math.Clamp(Math.Sqrt(rx * rx + ry * ry) / Math.Max(Math.Sqrt(fx * fx + fy * fy), 1), 0, 1);
         double angle = Math.Atan2(ry, rx);
         double axis = Math.Round(angle / (Math.PI / 2), MidpointRounding.AwayFromZero) * (Math.PI / 2);
-        angle = big ? angle + (Rand((uint)tri, 4, seed) - 0.5) * 1.1
-                    : angle + (axis - angle) * 0.7 + (Rand((uint)tri, 4, seed) - 0.5) * 0.35;
+        angle = big ? angle + (R(4) - 0.5) * 1.1 : angle + (axis - angle) * 0.7 + (R(4) - 0.5) * 0.35;
 
-        double delay = big ? 0.05 + 0.06 * (1 - reach) + 0.08 * Rand((uint)tri, 5, seed)
-                           : 0.05 + 0.1 * (1 - reach) + 0.05 * Rand((uint)tri, 5, seed);
+        double delay = 0.04 + (big ? 0.1 : 0.13) * reach + 0.05 * R(5);
         double crack = Smoothstep(0, delay, t);
         double u = Math.Clamp((t - delay) / (1 - delay), 0, 1);
-        double move = 1 - Math.Pow(1 - u, 2.6);
+        double move = 1 - Math.Pow(1 - u, 2.4);
         double diag = Math.Sqrt(w.W * w.W + w.H * w.H);
-        double fly = big ? (0.2 + 0.24 * reach) * (0.7 + 0.6 * Rand((uint)tri, 6, seed))
-                         : (0.12 + 0.22 * reach) * (0.75 + 0.5 * Rand((uint)tri, 6, seed));
-        double dist = diag * (0.012 * crack + fly * move);
-        double spin = (Rand((uint)tri, 7, seed) * 2 - 1) * (0.03 * crack + (big ? 0.8 : 1.5) * move);
-        double shrink = 1 - (big ? 0.25 : 0.4) * move;
-        double sn = Math.Sin(spin), cs = Math.Cos(spin);
-        double ox = w.X + mu * w.W + Math.Cos(angle) * dist, oy = w.Y + mv * w.H + Math.Sin(angle) * dist;
+        double fly = ((big ? 0.24 : 0.17) + 0.12 * (1 - reach)) * (0.7 + 0.6 * R(6));
+        double dist = diag * (0.01 * crack + fly * move);
+
+        var ax = (X: R(9) - 0.5, Y: R(10) - 0.5, Z: 0.35 * (R(11) - 0.5) + 1e-4);
+        double len = Math.Sqrt(ax.X * ax.X + ax.Y * ax.Y + ax.Z * ax.Z);
+        ax = (ax.X / len, ax.Y / len, ax.Z / len);
+        double tumble = (R(7) * 2 - 1) * (0.02 * crack + (big ? 2.4 : 3.4) * move);
+        double shrink = 1 - (big ? 0.15 : 0.3) * move;
+        var normal = Turn((0, 0, 1), ax, tumble);
+
+        double focal = 1.6 * diag;
+        double depth0 = (R(12) * 2 - 1) * diag * (big ? 0.35 : 0.25) * move;
+        double fall = diag * (big ? 0.2 : 0.14) * u * u;
+        double midX = w.X + 0.5 * w.W, midY = w.Y + 0.5 * w.H;
+        double px = w.X + mu * w.W + Math.Cos(angle) * dist, py = w.Y + mv * w.H + Math.Sin(angle) * dist + fall;
         for (int i = 0; i < 3; i++)
         {
-            double vx = (uv[i].U - mu) * w.W * shrink, vy = (uv[i].V - mv) * w.H * shrink;
-            pos[i] = (ox + vx * cs - vy * sn, oy + vx * sn + vy * cs);
+            var v = Turn(((uv[i].U - mu) * w.W * shrink, (uv[i].V - mv) * w.H * shrink, 0), ax, tumble);
+            double persp = focal / Math.Max(focal - (depth0 + v.Z), focal * 0.3);
+            pos[i] = (midX + (px + v.X - midX) * persp, midY + (py + v.Y - midY) * persp);
         }
-        return 1 - Smoothstep(0.35, 1, u);
+
+        var light = (X: -0.35, Y: -0.55, Z: 0.76);
+        double ll = Math.Sqrt(light.X * light.X + light.Y * light.Y + light.Z * light.Z);
+        light = (light.X / ll, light.Y / ll, light.Z / ll);
+        var half = (X: light.X, Y: light.Y, Z: light.Z + 1);
+        double hl = Math.Sqrt(half.X * half.X + half.Y * half.Y + half.Z * half.Z);
+        double nl = Math.Abs(normal.X * light.X + normal.Y * light.Y + normal.Z * light.Z);
+        double nh = Math.Abs(normal.X * half.X + normal.Y * half.Y + normal.Z * half.Z) / hl;
+        return new ShardLook(1 - Smoothstep(0.3, 1, u),
+                             (0.7 + 0.3 * nl) / (0.7 + 0.3 * light.Z),
+                             Math.Pow(Math.Clamp(nh, 0, 1), 48) * 0.5 * Smoothstep(0, 0.25, u) * (1 - u),
+                             crack * (1 - Smoothstep(0, 0.4, u)));
     }
 }

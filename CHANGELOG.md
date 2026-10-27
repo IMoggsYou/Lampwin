@@ -16,7 +16,9 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
     up and down, spinning as they fade away; opening flies them together into the window.
   - **Fragments**: the same with a few big pieces, each flying its own way.
 
-  The live preview shows each one as soon as you pick it.
+  The glass breaks where you clicked (the close button), its cracks flash, and the pieces
+  tumble in 3D, catch the light and fall in an arc. The live preview shows each effect as
+  soon as you pick it.
 
 ## [1.4.0] - 2026-10-24
 

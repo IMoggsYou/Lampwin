@@ -83,6 +83,10 @@ public sealed class GeniePreview : Grid
     private int _shardCols, _shardRows;
     private uint _shardSeed;
     private bool _afterShatter, _shardsBig, _shardsJoin;
+
+    // Closing breaks the glass where it was clicked: the miniature's close button (its red
+    // dot, top left); opening gathers the pieces in the middle, as on the desktop.
+    private (double U, double V) ShardImpact => _shardsJoin ? (0.5, 0.5) : (13.0 / WinW, 12.0 / WinH);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private Phase _phase = Phase.Shown;
     private double _phaseStart;
@@ -198,7 +202,7 @@ public sealed class GeniePreview : Grid
         Span<(double U, double V)> tex = stackalloc (double, double)[3];
         for (int i = 0; i < count; i++)
         {
-            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, 0, _winRect, _shardsBig, pos, tex);
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, 0, _winRect, _shardsBig, ShardImpact, pos, tex);
             for (int c = 0; c < 3; c++)
             {
                 uv.Add(new Point(tex[c].U, tex[c].V));
@@ -223,7 +227,7 @@ public sealed class GeniePreview : Grid
         Span<(double U, double V)> tex = stackalloc (double, double)[3];
         for (int i = 0; i < count; i++)
         {
-            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, t, _winRect, _shardsBig, pos, tex);
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, t, _winRect, _shardsBig, ShardImpact, pos, tex);
             for (int c = 0; c < 3; c++) pts.Add(new Point3D(pos[c].X, H - pos[c].Y, 0));
         }
         pts.Freeze();

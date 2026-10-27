@@ -191,7 +191,13 @@ uint32_t IpcServer::HandleAnim(const AnimRequest& r) {
     }
 
     // Shards go nowhere in particular: no taskbar button to look for (no UIA scan delay).
+    // A window closed with the pointer on it (its close button, mostly) breaks from there.
     if (shatter) {
+        POINT cursor;
+        if (closing && GetCursorPos(&cursor) && PtInRect(&rect, cursor)) {
+            job->params.impactU = (float)(cursor.x - rect.left) / (float)(rect.right - rect.left);
+            job->params.impactV = (float)(cursor.y - rect.top) / (float)(rect.bottom - rect.top);
+        }
         Dispatch(job, DockTarget{});
         return MW_REPLY_OK;
     }

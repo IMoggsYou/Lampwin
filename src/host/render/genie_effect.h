@@ -55,6 +55,9 @@ struct GenieParams {
     // height = 1 for fragments.
     Geometry icon;
     int canvasLeft, canvasTop, canvasWidth, canvasHeight;   // ghost window rect
+    // Shatter / fragments: where the glass breaks first, in window uv (0..1) - the pointer
+    // when it is on the window (the close button you clicked), else the middle.
+    float impactU = 0.5f, impactV = 0.5f;
 };
 
 HWND FindTaskbarForMonitor(HMONITOR hMon);
