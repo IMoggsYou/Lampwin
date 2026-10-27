@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-10-27
+
 ### Changed
 
 - Widgets move left and right in half steps too, and go all the way to the left edge of
@@ -254,7 +256,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/IMoggsYou/Lampwin/compare/v1.5.0...v1.5.1
 [1.5.0]: https://github.com/IMoggsYou/Lampwin/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/IMoggsYou/Lampwin/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/IMoggsYou/Lampwin/compare/v1.3.0...v1.3.1
