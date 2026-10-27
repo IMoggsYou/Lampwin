@@ -406,6 +406,7 @@ bool Renderer::CompileShaders() {
     bool ok;
     {
         // The blobs are objects of d3dcompiler_47.dll: release them before unloading it.
+        // The same entry points are compiled by ctest (MACWIN_SHADERS in CMakeLists.txt).
         ComPtr<ID3DBlob> vs, cvs, svs, xvs, ps, xps, sps, fvs, pps;
         ok = build("GenieVS", "vs_4_0", vs.put()) && build("ClassicVS", "vs_4_0", cvs.put()) &&
              build("ScaleVS", "vs_4_0", svs.put()) && build("ShatterVS", "vs_4_0", xvs.put()) &&

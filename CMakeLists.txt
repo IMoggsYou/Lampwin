@@ -190,6 +190,31 @@ if(MACWIN_BITS EQUAL 64)
   add_test(NAME unit COMMAND MacWinTests)
   add_test(NAME i18n COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tools/check_i18n.cmake)
 
+  # The renderer compiles genie.hlsl only when MacWin starts (Renderer::CompileShaders):
+  # a mistake there would turn every animation off. fxc from the Windows SDK compiles
+  # each entry point here first. Keep this list the same as CompileShaders'.
+  file(GLOB MACWIN_SDK_BINS LIST_DIRECTORIES true "C:/Program Files (x86)/Windows Kits/10/bin/10.*/x64")
+  list(SORT MACWIN_SDK_BINS ORDER DESCENDING)
+  find_program(MACWIN_FXC fxc HINTS ${MACWIN_SDK_BINS})
+  set(MACWIN_SHADERS
+      vs_4_0:GenieVS vs_4_0:ClassicVS vs_4_0:ScaleVS vs_4_0:ShatterVS vs_4_0:FullscreenVS
+      ps_4_0:GeniePS ps_4_0:ShatterPS ps_4_0:ShadowPS ps_4_0:PrepPS)
+  if(MACWIN_FXC)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+    foreach(shader IN LISTS MACWIN_SHADERS)
+      string(REPLACE ":" ";" parts ${shader})
+      list(GET parts 0 target)
+      list(GET parts 1 entry)
+      add_test(NAME shader.${entry}
+               COMMAND ${MACWIN_FXC} /nologo /T ${target} /E ${entry} /O3
+                       /Fo ${CMAKE_BINARY_DIR}/shaders/${entry}.cso ${CMAKE_SOURCE_DIR}/src/host/render/genie.hlsl)
+    endforeach()
+  elseif(DEFINED ENV{GITHUB_ACTIONS})
+    message(FATAL_ERROR "fxc.exe (Windows SDK) not found: CI must compile the shaders")
+  else()
+    message(STATUS "fxc.exe not found: the shader tests are skipped (install the Windows SDK to run them)")
+  endif()
+
   # The settings app's logic that needs no window (C#, tests/settings).
   if(MACWIN_DOTNET)
     add_custom_target(MacWinSettingsTests ALL

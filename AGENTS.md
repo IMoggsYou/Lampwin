@@ -30,7 +30,7 @@ Windows 11 x64; tools in [docs/BUILDING.md](docs/BUILDING.md).
 
 ```powershell
 cmake --preset x64; cmake --build --preset x64            # host, DLL, settings app
-ctest --test-dir build/x64 --output-on-failure            # unit tests + i18n check
+ctest --test-dir build/x64 --output-on-failure            # unit tests, i18n check, shaders (fxc)
 cmake --build --preset x64 --target MacWinSetup           # installer (also builds x86)
 powershell -ExecutionPolicy Bypass -File tools\build-release.ps1   # all of it, like CI
 ```
@@ -68,6 +68,12 @@ A crash or hang there takes down Explorer, a browser or a game. In `src/hook/`:
   `settings-app/Services/SettingsStore.cs` identical.
 - Changing `SharedSettings` or `AnimRequest`: update the `static_assert`s **and** bump the
   `_vN` suffixes in `src/common/names.h` (and `MW_IPC_VERSION`).
+
+### The shader is compiled when MacWin starts
+
+`src/host/render/genie.hlsl` is compiled at run time (`Renderer::CompileShaders`); one
+error turns every animation off. `ctest` compiles each entry point with `fxc` from the
+Windows SDK (`MACWIN_SHADERS` in `CMakeLists.txt`): a new entry point goes in both lists.
 
 ### The Privacy page changes Windows itself
 
