@@ -31,7 +31,7 @@ jobs:
     outputs:
       installer-artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: .NET 10 SDK
         uses: actions/setup-dotnet@v4
