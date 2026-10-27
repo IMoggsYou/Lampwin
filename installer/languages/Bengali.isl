@@ -3,7 +3,7 @@
 ; every file: tools/check_i18n.cmake checks them.
 
 [Messages]
-WelcomeLabel2=এটি [name/ver] ইনস্টল করবে – macOS-ধাঁচের উইন্ডো অ্যানিমেশন: উইন্ডো জিনির মতো টাস্কবারে ঢুকে যায় এবং আবার উড়ে বেরিয়ে আসে।%n%nMacWin পটভূমিতে চলে, আর এর আইকন নোটিফিকেশন এলাকায় থাকে।
+WelcomeLabel2=এটি [name/ver] ইনস্টল করবে – macOS-ধাঁচের উইন্ডো অ্যানিমেশন: উইন্ডো জিনির মতো টাস্কবারে ঢুকে যায় এবং আবার উড়ে বেরিয়ে আসে।%n%nLampwin পটভূমিতে চলে, আর এর আইকন নোটিফিকেশন এলাকায় থাকে।
 ; Inno Setup 6 messages the older base translation (languages/base) does not have
 ; yet - the ones this installer can show.
 DiskSpaceGBLabel=কমপক্ষে [gb] GB খালি ডিস্ক জায়গা প্রয়োজন।
@@ -44,17 +44,17 @@ ExistingFileNewerOverwriteOrKeepAll=পরবর্তী দ্বন্দ্�
 [CustomMessages]
 AppComments=Windows 11-এর জন্য macOS-ধাঁচের উইন্ডো অ্যানিমেশন
 GroupStartup=স্টার্টআপ:
-TaskAutostart=সাইন ইন করলে MacWin চালু করুন
-RegisteringTask=MacWin-এর স্টার্টআপ টাস্ক নিবন্ধন করা হচ্ছে…
-LaunchMacWin=MacWin চালু করুন
+TaskAutostart=সাইন ইন করলে Lampwin চালু করুন
+RegisteringTask=Lampwin-এর স্টার্টআপ টাস্ক নিবন্ধন করা হচ্ছে…
+LaunchMacWin=Lampwin চালু করুন
 OpenSettings=সেটিংস খুলুন
 ShortcutComment=উইন্ডো অ্যানিমেশন সেটিংস
 DotNetDownloading=Microsoft থেকে .NET 10 ডেস্কটপ রানটাইম ডাউনলোড করা হচ্ছে…
 DotNetInstalling=.NET 10 ডেস্কটপ রানটাইম ইনস্টল করা হচ্ছে…
 DotNetFailed=.NET 10 ডেস্কটপ রানটাইম ইনস্টল করা যায়নি (%1)। অ্যানিমেশন এটি ছাড়াই কাজ করে, কিন্তু সেটিংস উইন্ডোর এটি দরকার। আপনি পরে এখান থেকে এটি পেতে পারেন:%n%n%2
-Arm64NotSupported=MacWin-এর জন্য 64-বিট Intel বা AMD (x64) প্রসেসর দরকার। ARM-এ Windows এখনো সমর্থিত নয়।
-RemoveSettings=MacWin-এর সেটিংস ও লগও কি মুছে ফেলবেন?
+Arm64NotSupported=Lampwin-এর জন্য 64-বিট Intel বা AMD (x64) প্রসেসর দরকার। ARM-এ Windows এখনো সমর্থিত নয়।
+RemoveSettings=Lampwin-এর সেটিংস ও লগও কি মুছে ফেলবেন?
 UpdatesTitle=স্বয়ংক্রিয় আপডেট
-UpdatesSubtitle=MacWin কীভাবে হালনাগাদ থাকবে?
-UpdatesText=দিনে একবার MacWin GitHub-কে জিজ্ঞাসা করে নতুন সংস্করণ এসেছে কি না। এটি নিজেই পটভূমিতে সেটি ডাউনলোড ও ইনস্টল করতে পারে, অথবা প্রথমে সেটিংস উইন্ডোতে আপনাকে দেখাতে পারে।%n%nপরে সেটিংসে, সাধারণ অংশে এটি বদলাতে পারবেন।
+UpdatesSubtitle=Lampwin কীভাবে হালনাগাদ থাকবে?
+UpdatesText=দিনে একবার Lampwin GitHub-কে জিজ্ঞাসা করে নতুন সংস্করণ এসেছে কি না। এটি নিজেই পটভূমিতে সেটি ডাউনলোড ও ইনস্টল করতে পারে, অথবা প্রথমে সেটিংস উইন্ডোতে আপনাকে দেখাতে পারে।%n%nপরে সেটিংসে, সাধারণ অংশে এটি বদলাতে পারবেন।
 UpdatesAuto=স্বয়ংক্রিয়ভাবে আপডেট ইনস্টল করুন (প্রস্তাবিত)

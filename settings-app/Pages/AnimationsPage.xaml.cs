@@ -26,15 +26,19 @@ public partial class AnimationsPage : UserControl
         };
     }
 
-    // Choosing Shatter or Fragments shows it right away in the preview: it can't be guessed
-    // from a word.
+    // Choosing Shatter, Fragments or Zoom shows it right away in the preview: it can't be
+    // guessed from a word.
     private void Model_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (_model is null || _model.SuppressSideEffects) return;
         bool opening = e.PropertyName == nameof(SettingsModel.OpenEffect);
         if (!opening && e.PropertyName != nameof(SettingsModel.CloseEffect)) return;
-        int effect = opening ? _model.OpenEffect : _model.CloseEffect;
-        if (effect >= 2) Preview.PlayShatter(fragments: effect == 3, join: opening);
+        switch (SettingsModel.EffectNames[opening ? _model.OpenEffect : _model.CloseEffect])
+        {
+            case "shatter": Preview.PlayShatter(fragments: false, join: opening); break;
+            case "fragments": Preview.PlayShatter(fragments: true, join: opening); break;
+            case "zoom": Preview.PlayZoom(open: opening); break;
+        }
     }
 
     private void TryReal_Click(object sender, RoutedEventArgs e)
@@ -50,7 +54,7 @@ public partial class AnimationsPage : UserControl
     private bool EnsureRunning()
     {
         if (HostControl.IsRunning) return true;
-        MessageBox.Show(Window.GetWindow(this), Loc.T("settings.animations.notRunning"), "MacWin",
+        MessageBox.Show(Window.GetWindow(this), Loc.T("settings.animations.notRunning"), Project.Name,
                         MessageBoxButton.OK, MessageBoxImage.Information, MessageBoxResult.OK,
                         Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign : MessageBoxOptions.None);
         return false;

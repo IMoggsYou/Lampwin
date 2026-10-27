@@ -17,7 +17,8 @@ enum : int32_t {
     MW_EFFECT_GENIE = 1,    // out of / into its taskbar icon
     MW_EFFECT_SHATTER = 2,  // the window breaks into shards (opening: they fly together)
     MW_EFFECT_FRAGMENTS = 3,// the same with a few big pieces, each its own way
-    MW_EFFECT_COUNT = 4,
+    MW_EFFECT_ZOOM = 4,     // grows out of the click (closing: shrinks into the pointer)
+    MW_EFFECT_COUNT = 5,
 };
 
 // Published by the host in a shared section (MACWIN_SETTINGS_SECTION) and read by every
@@ -60,7 +61,10 @@ struct SharedSettings {
     // Programs show the icon in %LOCALAPPDATA%\MacWin\icons\apps\<program>.ico, when there
     // is one (the settings app puts it there). Was reserved: older DLLs see 0 and ignore it.
     int32_t appIcons;
-    int32_t reserved[7];
+    // Windows' "Animation effects" are off and the user wants MacWin to follow them: no
+    // window animations at all. Was reserved: older DLLs see 0, still ask, and the host says no.
+    int32_t reduceMotion;
+    int32_t reserved[6];
 
     // Lowercase entries separated by L'\0' and ended by an empty entry. An entry
     // matches a full image path, a file name or a file name without ".exe".

@@ -61,9 +61,15 @@
         <Border Style="{StaticResource Group}">
             <StackPanel>
                 <c:SettingRow Title="{l:Tr settings.animations.open.title}" Description="{Binding OpenDescription}">
-                    <c:SegmentedControl MinWidth="380"
-                                        ItemKeys="settings.animations.effect.windows|settings.animations.effect.genie|settings.animations.effect.shatter|settings.animations.effect.fragments"
-                                        SelectedIndex="{Binding OpenEffect, Mode=TwoWay}"/>
+                    <!-- Five effects: a list (segments would not fit beside the title) -->
+                    <ComboBox Style="{StaticResource MacComboBox}" Width="200"
+                              SelectedIndex="{Binding OpenEffect, Mode=TwoWay}">
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.windows}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.genie}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.shatter}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.fragments}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.zoom}"/>
+                    </ComboBox>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="{l:Tr settings.animations.openDuration.title}" IsEnabled="{Binding HasOpenEffect}"
@@ -78,9 +84,15 @@
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="{l:Tr settings.animations.close.title}" Description="{Binding CloseDescription}">
-                    <c:SegmentedControl MinWidth="380"
-                                        ItemKeys="settings.animations.effect.windows|settings.animations.effect.genie|settings.animations.effect.shatter|settings.animations.effect.fragments"
-                                        SelectedIndex="{Binding CloseEffect, Mode=TwoWay}"/>
+                    <!-- Five effects: a list (segments would not fit beside the title) -->
+                    <ComboBox Style="{StaticResource MacComboBox}" Width="200"
+                              SelectedIndex="{Binding CloseEffect, Mode=TwoWay}">
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.windows}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.genie}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.shatter}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.fragments}"/>
+                        <ComboBoxItem Content="{l:Tr settings.animations.effect.zoom}"/>
+                    </ComboBox>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="{l:Tr settings.animations.closeDuration.title}" IsEnabled="{Binding HasCloseEffect}"
@@ -117,6 +129,11 @@
                 <c:SettingRow Title="{l:Tr settings.animations.multiMonitor.title}"
                               Description="{l:Tr settings.animations.multiMonitor.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding MultiMonitor}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.animations.followSystem.title}"
+                              Description="{l:Tr settings.animations.followSystem.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding FollowSystemMotion}"/>
                 </c:SettingRow>
             </StackPanel>
         </Border>

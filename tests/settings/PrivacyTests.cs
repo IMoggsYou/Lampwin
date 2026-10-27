@@ -43,6 +43,7 @@ internal static class Program
             Run(nameof(HelperArgumentsAreStrict), HelperArgumentsAreStrict);
             Run(nameof(AdminIsNeededWhereWindowsRequiresIt), AdminIsNeededWhereWindowsRequiresIt);
             AppIconTests.RunAll(Run, Check, _temp);
+            SettingsTransferTests.RunAll(Run, Check);
         }
         finally
         {

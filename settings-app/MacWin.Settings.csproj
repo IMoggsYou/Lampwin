@@ -12,8 +12,8 @@
     <ApplicationIcon>..\assets\MacWin.ico</ApplicationIcon>
     <!-- The repository's VERSION file is the only place the version is written. -->
     <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)..\VERSION').Trim())</Version>
-    <Product>MacWin</Product>
-    <Description>MacWin Settings</Description>
+    <Product>Lampwin</Product>
+    <Description>Lampwin Settings</Description>
     <Company>IMoggsYou</Company>
     <Authors>IMoggsYou</Authors>
     <Copyright>Copyright (C) 2026 IMoggsYou. Licensed under GPL-3.0-or-later.</Copyright>

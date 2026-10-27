@@ -15,6 +15,7 @@
 #include "host/json.h"
 #include "host/updater.h"
 #include "host/widgets/location.h"
+#include "host/widgets/media.h"
 #include "host/widgets/weather.h"
 #include "host/widgets/widget_layout.h"
 
@@ -111,6 +112,18 @@ void TestHosts() {
     CHECK(!IsTrustedDownloadHost(L"example.com"));
 }
 
+// A check never calls an unusable release "up to date" (what 1.3.1 did after the rename).
+void TestCheckOutcome() {
+    CHECK(CheckOutcome(true, 200, true, true, true, L"idle") == L"available");
+    CHECK(CheckOutcome(true, 200, true, false, false, L"idle") == L"upToDate");
+    CHECK(CheckOutcome(false, 404, false, false, true, L"idle") == L"upToDate");
+    CHECK(CheckOutcome(true, 200, false, false, true, L"upToDate") == L"unusable");
+    CHECK(CheckOutcome(false, 0, false, false, true, L"upToDate") == L"failed");
+    // Scheduled checks that fail keep what was shown.
+    CHECK(CheckOutcome(true, 200, false, false, false, L"available") == L"available");
+    CHECK(CheckOutcome(false, 0, false, false, false, L"checking") == L"idle");
+}
+
 void TestLanguages() {
     using i18n::Resolve;
     CHECK(Resolve(L"auto", {L"pl-PL"}) == L"pl");
@@ -173,21 +186,28 @@ void TestJson() {
 
 void TestWidgetGrid() {
     using namespace widgets;
-    // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges.
+    // 1920 x 1040 work area at 100 %: cells of 164 px, 16 px apart, 24 px from the edges
+    // (12 from the taskbar), rows half a cell high.
     Grid grid({0, 0, 1920, 1040}, 1.0);
     CHECK(grid.Cols() == 10);
-    CHECK(grid.Rows() == 5);
+    CHECK(grid.Rows() == 11);
     CHECK(grid.CardSize(SpanOf(Size::Small)).cx == 164);
     CHECK(grid.CardSize(SpanOf(Size::Medium)).cx == 344);
     CHECK(grid.CardSize(SpanOf(Size::Large)).cy == 344);
     // Column 0 is the rightmost; a wider widget grows to the left.
     RECT r = grid.Rect({0, 0, SpanOf(Size::Small)});
     CHECK(r.right == 1920 - 24 && r.top == 24 && r.left == 1920 - 24 - 164);
-    RECT m = grid.Rect({0, 1, SpanOf(Size::Medium)});
+    RECT m = grid.Rect({0, 2, SpanOf(Size::Medium)});
     CHECK(m.right == 1920 - 24 && m.left == 1920 - 24 - 344 && m.top == 24 + 180);
+    CHECK(grid.Rect({0, 1, SpanOf(Size::Small)}).top == 24 + 90);
     CHECK(!grid.Inside({9, 0, SpanOf(Size::Medium)}));
-    CHECK(grid.Inside({8, 3, SpanOf(Size::Large)}));
-    CHECK(!grid.Inside({8, 4, SpanOf(Size::Large)}));
+    CHECK(grid.Inside({8, 7, SpanOf(Size::Large)}));
+    CHECK(!grid.Inside({8, 8, SpanOf(Size::Large)}));
+    // The last row lies on the bottom margin, right above the taskbar, clear of the one
+    // above it.
+    RECT low = grid.Rect({0, 9, SpanOf(Size::Small)});
+    CHECK(low.bottom == 1040 - 12 && low.top >= grid.Rect({0, 7, SpanOf(Size::Small)}).bottom + 16);
+    CHECK(grid.Rect({0, 7, SpanOf(Size::Large)}).bottom == 1040 - 12);
 
     // New widgets fill the top row from the right.
     std::vector<Slot> taken;
@@ -201,7 +221,7 @@ void TestWidgetGrid() {
     // Dropped near a taken slot: the closest free one.
     RECT first = grid.Rect({0, 0, SpanOf(Size::Small)});
     CHECK(grid.Nearest(SpanOf(Size::Small), {first.left + 30, first.top + 20}, taken, &s));
-    CHECK(s.row == 1 && s.col == 0);
+    CHECK(s.row == 2 && s.col == 0);
 
     // Nothing fits on a tiny screen.
     Grid tiny({0, 0, 200, 150}, 1.0);
@@ -220,6 +240,36 @@ void TestWidgetNames() {
     CHECK(SizeFromName(L"large") == Size::Large && SizeFromName(L"huge") == Size::Small);
     CHECK(LookFromName(L"dark") == Look::Dark && LookFromName(L"") == Look::Auto);
     CHECK(!Supports(Kind::Clock, Size::Large) && Supports(Kind::Calendar, Size::Large));
+    CHECK(!Supports(Kind::Countdown, Size::Large) && Supports(Kind::NowPlaying, Size::Medium));
+}
+
+void TestCountdown() {
+    using namespace widgets;
+    SYSTEMTIME day = {}, today = {};
+    CHECK(ParseDay(L"2026-12-24", &day) && day.wYear == 2026 && day.wMonth == 12 && day.wDay == 24);
+    CHECK(day.wDayOfWeek == 4);   // a Thursday
+    CHECK(!ParseDay(L"2026-02-30", &day) && !ParseDay(L"2026-13-01", &day) && !ParseDay(L"", &day));
+    CHECK(!ParseDay(L"24.12.2026", &day) && !ParseDay(L"2026-1-024", &day) && !ParseDay(L"2026-12-24x", &day));
+    CHECK(ParseDay(L"2026-10-27", &today));
+    today.wHour = 23;   // the time of day doesn't count
+    today.wMinute = 59;
+    CHECK(ParseDay(L"2026-10-28", &day) && DaysBetween(today, day) == 1);
+    CHECK(ParseDay(L"2026-10-26", &day) && DaysBetween(today, day) == -1);
+    CHECK(ParseDay(L"2027-10-27", &day) && DaysBetween(today, day) == 365);
+    CHECK(DaysBetween(today, today) == 0);
+}
+
+void TestMediaAppName() {
+    using namespace widgets;
+    CHECK(MediaAppName(L"Spotify.exe") == L"Spotify");
+    CHECK(MediaAppName(L"SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") == L"Spotify");
+    CHECK(MediaAppName(L"MSEdge") == L"Microsoft Edge");
+    CHECK(MediaAppName(L"Chrome") == L"Google Chrome");
+    CHECK(MediaAppName(L"308046B0AF4A39CB") == L"Firefox");
+    CHECK(MediaAppName(L"Microsoft.ZuneMusic_8wekyb3d8bbwe!Microsoft.ZuneMusic") == L"Media Player");
+    CHECK(MediaAppName(L"foobar2000.exe") == L"Foobar2000");
+    CHECK(MediaAppName(L"6E7F1A2B3C4D5E6F") == L"");
+    CHECK(MediaAppName(L"") == L"");
 }
 
 const wchar_t* kForecast = LR"({
@@ -294,7 +344,7 @@ void TestGenieCurves() {
             CHECK(fabsf(GenieEase(g, 1.0f - x) - (1.0f - GenieEase(g, x))) < 1e-5f);
         }
     }
-    for (int style : {kGenieModern, kGenieClassic, kGenieScale, kGenieShatter, kGenieFragments}) {
+    for (int style : {kGenieModern, kGenieClassic, kGenieScale, kGenieShatter, kGenieFragments, kGenieZoom}) {
         for (bool closing : {false, true}) {
             GenieParams g = {};
             g.style = style;
@@ -307,6 +357,17 @@ void TestGenieCurves() {
     GenieParams open = {};
     open.style = kGenieFragments;
     CHECK(GenieEase(open, 1.0f) - GenieEase(open, 0.99f) < 0.001f);
+
+    // Zoom opening: a gentle overshoot (t dips below 0, the window grows past its size by
+    // about kZoomOvershoot), never a wild one; fully shown while it does.
+    GenieParams zoom = {};
+    zoom.style = kGenieZoom;
+    float peak = 0.0f;
+    for (int i = 0; i <= 200; ++i) peak = fmaxf(peak, GenieEase(zoom, i / 200.0f));
+    CHECK(peak > 1.005f && peak < 1.03f);
+    CHECK(GenieFade(zoom, 1.0f - peak) == 1.0f);
+    zoom.closing = true;
+    CHECK(fabsf(GenieEase(zoom, 0.5f) - 0.5f) < 1e-5f);   // closing: the smooth symmetric curve
     GenieParams g = {};
     g.style = kGenieScale;
     g.win = {100, 200, 800, 600};
@@ -345,11 +406,14 @@ int wmain() {
     TestRelease();
     TestSums();
     TestHosts();
+    TestCheckOutcome();
     TestLanguages();
     TestProgramLists();
     TestJson();
     TestWidgetGrid();
     TestWidgetNames();
+    TestCountdown();
+    TestMediaAppName();
     TestForecast();
     TestLocation();
     TestGenieCurves();

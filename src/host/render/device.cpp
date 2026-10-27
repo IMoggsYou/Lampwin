@@ -22,6 +22,7 @@ struct alignas(16) GenieConstants {
     float tex[4];
     float shadow[4];
     float shadow2[4];
+    float pieces[4];   // shatter / fragments: impact u, v
 };
 
 struct alignas(16) PrepConstants {
@@ -405,6 +406,7 @@ bool Renderer::CompileShaders() {
     bool ok;
     {
         // The blobs are objects of d3dcompiler_47.dll: release them before unloading it.
+        // The same entry points are compiled by ctest (MACWIN_SHADERS in CMakeLists.txt).
         ComPtr<ID3DBlob> vs, cvs, svs, xvs, ps, xps, sps, fvs, pps;
         ok = build("GenieVS", "vs_4_0", vs.put()) && build("ClassicVS", "vs_4_0", cvs.put()) &&
              build("ScaleVS", "vs_4_0", svs.put()) && build("ShatterVS", "vs_4_0", xvs.put()) &&
@@ -658,8 +660,8 @@ void Renderer::StartJob(GenieJob* job, LARGE_INTEGER now) {
     if (Anim* running = FindAnim(job->hwnd)) {
         // A closing window's genie is never turned around (the window is going away), and
         // a close meeting a running genie is left to Windows. Nor are flying pieces: a
-        // window minimized while its pieces fly together just appears.
-        if (running->params.closing || job->params.closing || IsShatterStyle(running->params.style)) {
+        // window minimized while its pieces fly together (or it zooms open) just appears.
+        if (running->params.closing || job->params.closing || IsPointStyle(running->params.style)) {
             FailJob(job);
             return;
         }
@@ -857,7 +859,7 @@ bool Renderer::Draw(Anim* a, float t) {
     ctx_->IASetIndexBuffer(ib, DXGI_FORMAT_R16_UINT, 0);
     const bool shatter = IsShatterStyle(g.style);
     ID3D11VertexShader* vs = g.style == kGenieClassic ? classicVS_.get()
-                             : g.style == kGenieScale || shatter ? scaleVS_.get()
+                             : g.style == kGenieScale || g.style == kGenieZoom || shatter ? scaleVS_.get()
                                                                  : genieVS_.get();
     if (shatter) {
         // The shadow stays where the window was (the scale warp with no end of its own)
@@ -896,6 +898,8 @@ bool Renderer::Draw(Anim* a, float t) {
         c.icon[1] = g.icon.y;
         c.icon[2] = g.icon.width;
         c.icon[3] = g.icon.height;
+        c.pieces[0] = g.impactU;
+        c.pieces[1] = g.impactV;
         c.params[3] = GenieFade(g, t);
         if (!upload()) return false;
         // Two triangles per crack-grid cell, three vertices each (ShatterVS).
@@ -941,6 +945,7 @@ void Renderer::RetireAnim(Anim* a) {
         : a->params.style == kGenieScale   ? L"scale"
         : a->params.style == kGenieShatter   ? L"shatter"
         : a->params.style == kGenieFragments ? L"fragments"
+        : a->params.style == kGenieZoom      ? L"zoom"
                                              : L"modern",
         a->frames, a->reversals,
         a->frames ? a->cpuMs / a->frames : 0.0, a->firstFrameMs);

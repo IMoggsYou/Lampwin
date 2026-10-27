@@ -112,7 +112,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public ObservableCollection<string> NoInject { get; } = new();
     public ObservableCollection<string> Excluded { get; } = new();
 
-    private int _style;
+    private int _style = 1;   // classic
     /// <summary>0 = modern (Potassiumuncher), 1 = classic (original), 2 = scale.</summary>
     public int Style
     {
@@ -172,10 +172,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
     public bool Restore { get => _restore; set => Set(ref _restore, value); }
 
     /// <summary>settings.json names of the open / close effects, in segment order.</summary>
-    public static readonly string[] EffectNames = ["system", "genie", "shatter", "fragments"];
+    public static readonly string[] EffectNames = ["system", "genie", "shatter", "fragments", "zoom"];
 
     private int _openEffect = 1;
-    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments (the pieces fly together).</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments (the pieces fly together), 4 = zoom.</summary>
     public int OpenEffect
     {
         get => _openEffect;
@@ -194,11 +194,12 @@ public sealed class SettingsModel : INotifyPropertyChanged
         1 => "settings.animations.open.genie.description",
         2 => "settings.animations.open.shatter.description",
         3 => "settings.animations.open.fragments.description",
+        4 => "settings.animations.open.zoom.description",
         _ => "settings.animations.effect.windows.description",
     });
 
     private int _closeEffect = 1;
-    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments.</summary>
+    /// <summary>0 = Windows, 1 = genie, 2 = shatter, 3 = fragments, 4 = zoom.</summary>
     public int CloseEffect
     {
         get => _closeEffect;
@@ -217,6 +218,7 @@ public sealed class SettingsModel : INotifyPropertyChanged
         1 => "settings.animations.close.genie.description",
         2 => "settings.animations.close.shatter.description",
         3 => "settings.animations.close.fragments.description",
+        4 => "settings.animations.close.zoom.description",
         _ => "settings.animations.effect.windows.description",
     });
 
@@ -228,6 +230,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
 
     private bool _multiMonitor;
     public bool MultiMonitor { get => _multiMonitor; set => Set(ref _multiMonitor, value); }
+
+    private bool _followSystemMotion = true;
+    /// <summary>Windows' animation effects off = no window animations from MacWin.</summary>
+    public bool FollowSystemMotion { get => _followSystemMotion; set => Set(ref _followSystemMotion, value); }
 
     private bool _unhideTaskbar = true;
     public bool UnhideTaskbar { get => _unhideTaskbar; set => Set(ref _unhideTaskbar, value); }

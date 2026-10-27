@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
+
 """Builds the README images in docs/media from settings-window snapshots.
 
     MacWin.Settings.exe --snapshot <shots>\\en-light --lang en --theme light --transparent
@@ -5,7 +8,7 @@
     MacWin.exe --widget-snapshot <shots>\\widgets-dark --lang en --theme dark
     python tools/media/compose.py <shots>
 
-Take the snapshots while MacWin is running (the sidebar shows its state), with a few
+Take the snapshots while MacWin (Lampwin) is running (the sidebar shows its state), with a few
 icons given to programs on the App Icons page.
 """
 import os
@@ -119,7 +122,7 @@ with_shadow(canvas, win, 640, 120, blur=26, offset=16, opacity=120)
 big_icon = icon.resize((150, 150), Image.LANCZOS)
 canvas.alpha_composite(big_icon, (70, 120))
 d = ImageDraw.Draw(canvas)
-d.text((66, 290), "MacWin", font=font("segoeuib.ttf", 92), fill=(255, 255, 255, 255))
+d.text((66, 290), "Lampwin", font=font("segoeuib.ttf", 92), fill=(255, 255, 255, 255))
 d.text((72, 410), "The macOS look for Windows 11:", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
 d.text((72, 452), "genie, corners, widgets, app icons", font=font("segoeui.ttf", 32), fill=(230, 230, 245, 255))
 d.text((72, 530), "Free & open source  ·  11 languages", font=font("segoeuib.ttf", 26), fill=(170, 190, 255, 255))

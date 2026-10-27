@@ -8,6 +8,10 @@ on:
   pull_request:
   workflow_dispatch:
   workflow_call:
+    outputs:
+      installer-artifact-id:
+        description: The uploaded installer artifact (release.yml sends it to SignPath)
+        value: ${{ jobs.build.outputs.installer-artifact-id }}
 
 permissions:
   contents: read
@@ -24,6 +28,8 @@ jobs:
   build:
     name: Windows x64 + x86
     runs-on: windows-2025
+    outputs:
+      installer-artifact-id: ${{ steps.upload.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,6 +75,7 @@ jobs:
         run: cmake --build --preset x64 --target MacWinSetup
 
       - name: Upload installer
+        id: upload
         uses: actions/upload-artifact@v4
         with:
           name: MacWinSetup

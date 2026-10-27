@@ -6,6 +6,7 @@
 #include "common/names.h"
 #include "host/json.h"
 #include "host/log.h"
+#include "host/widgets/widget_layout.h"
 
 namespace {
 
@@ -55,7 +56,7 @@ bool ReadUtf8File(const std::wstring& path, std::wstring* out) {
 }
 
 // settings.json names of MW_EFFECT_*.
-const wchar_t* const kEffectNames[MW_EFFECT_COUNT] = {L"system", L"genie", L"shatter", L"fragments"};
+const wchar_t* const kEffectNames[MW_EFFECT_COUNT] = {L"system", L"genie", L"shatter", L"fragments", L"zoom"};
 
 int EffectFromJson(const json::Value* v, int fallback) {
     if (!v || v->type != json::Value::String) return fallback;
@@ -68,12 +69,12 @@ int EffectFromJson(const json::Value* v, int fallback) {
 // settings.json names of the genie styles (GenieStyle).
 const wchar_t* const kStyleNames[] = {L"modern", L"classic", L"scale"};
 
-int StyleFromJson(const json::Value* v) {
-    if (!v || v->type != json::Value::String) return 0;
+int StyleFromJson(const json::Value* v, int fallback) {
+    if (!v || v->type != json::Value::String) return fallback;
     for (int i = 0; i < (int)(sizeof(kStyleNames) / sizeof(kStyleNames[0])); ++i) {
         if (v->str == kStyleNames[i]) return i;
     }
-    return 0;
+    return fallback;
 }
 
 // settings.json layout version: 2 added the game folders to noInject.
@@ -98,6 +99,8 @@ widgets::Config LoadWidgets(const json::Value* w) {
     c.fahrenheit = Str(w, L"units") == L"f";
     c.clockSeconds = w->GetBool(L"clockSeconds", c.clockSeconds);
     c.autoPlace = w->GetBool(L"autoPlace", c.autoPlace);
+    // Before 1.5.0 a row was a whole cell high; now it is kRowSteps of them.
+    const int rowScale = Str(w, L"grid") == L"half" ? 1 : widgets::kRowSteps;
     if (const json::Value* place = Typed(w, L"place", json::Value::Object)) {
         const json::Value* lat = Typed(place, L"latitude", json::Value::Number);
         const json::Value* lon = Typed(place, L"longitude", json::Value::Number);
@@ -129,10 +132,11 @@ widgets::Config LoadWidgets(const json::Value* w) {
         if (item.placed) {
             item.monitor = Str(&v, L"monitor");
             item.col = (int)col->number;
-            item.row = (int)row->number;
+            item.row = (int)row->number * rowScale;
         }
         item.text = Str(&v, L"text");
         item.path = Str(&v, L"path");
+        item.date = Str(&v, L"date");
         c.items.push_back(item);
     }
     return c;
@@ -146,6 +150,7 @@ json::Value SaveWidgets(const widgets::Config& c, const json::Value* old) {
     json::Set(&w, L"units", json::String(c.fahrenheit ? L"f" : L"c"));
     json::Set(&w, L"clockSeconds", json::Bool(c.clockSeconds));
     json::Set(&w, L"autoPlace", json::Bool(c.autoPlace));
+    json::Set(&w, L"grid", json::String(L"half"));
     if (c.place.valid) {
         const json::Value* oldPlace = Typed(&w, L"place", json::Value::Object);
         json::Value place = oldPlace ? *oldPlace : json::Object();
@@ -173,8 +178,11 @@ json::Value SaveWidgets(const widgets::Config& c, const json::Value* old) {
             json::Set(&v, L"col", json::Number(item.col));
             json::Set(&v, L"row", json::Number(item.row));
         }
-        if (item.kind == widgets::Kind::Notes) json::Set(&v, L"text", json::String(item.text));
+        if (item.kind == widgets::Kind::Notes || item.kind == widgets::Kind::Countdown) {
+            json::Set(&v, L"text", json::String(item.text));
+        }
         if (item.kind == widgets::Kind::Photo) json::Set(&v, L"path", json::String(item.path));
+        if (item.kind == widgets::Kind::Countdown) json::Set(&v, L"date", json::String(item.date));
         items.items.push_back(v);
     }
     json::Set(&w, L"items", items);
@@ -254,7 +262,7 @@ void SettingsStore::Load() {
     json::Value empty;
     empty.type = json::Value::Object;
     if (!g || g->type != json::Value::Object) g = &empty;
-    s_.genie.style = StyleFromJson(g->Get(L"style"));
+    s_.genie.style = StyleFromJson(g->Get(L"style"), d.genie.style);
     s_.genie.durationMs = Clamp(g->GetInt(L"durationMs", d.genie.durationMs), 50, 2000);
     s_.genie.restore = g->GetBool(L"restoreAnimation", d.genie.restore);
     s_.genie.openEffect = EffectFromJson(g->Get(L"openAnimation"), d.genie.openEffect);
@@ -262,6 +270,7 @@ void SettingsStore::Load() {
     s_.genie.openDurationMs = Clamp(g->GetInt(L"openDurationMs", d.genie.openDurationMs), 100, 1500);
     s_.genie.closeDurationMs = Clamp(g->GetInt(L"closeDurationMs", d.genie.closeDurationMs), 100, 1500);
     s_.genie.multiMonitor = g->GetBool(L"multiMonitor", d.genie.multiMonitor);
+    s_.genie.followSystemMotion = g->GetBool(L"followSystemMotion", d.genie.followSystemMotion);
     s_.genie.unhideTaskbar = g->GetBool(L"unhideTaskbar", d.genie.unhideTaskbar);
     s_.genie.unhideDurationMs = Clamp(g->GetInt(L"unhideDurationMs", d.genie.unhideDurationMs), 0, 5000);
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
@@ -310,6 +319,7 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"openDurationMs", json::Number(s.genie.openDurationMs));
     json::Set(&g, L"closeDurationMs", json::Number(s.genie.closeDurationMs));
     json::Set(&g, L"multiMonitor", json::Bool(s.genie.multiMonitor));
+    json::Set(&g, L"followSystemMotion", json::Bool(s.genie.followSystemMotion));
     json::Set(&g, L"unhideTaskbar", json::Bool(s.genie.unhideTaskbar));
     json::Set(&g, L"unhideDurationMs", json::Number(s.genie.unhideDurationMs));
     json::Set(&g, L"meshQuality", json::Number(s.genie.meshQuality));
@@ -368,6 +378,7 @@ void SettingsStore::Write(bool enabled) {
     v->cornerSmoothing = s_.genie.cornerSmoothing;
     v->windowCorners = s_.genie.windowCorners ? 1 : 0;
     v->appIcons = s_.appIcons ? 1 : 0;
+    v->reduceMotion = ReduceMotion() ? 1 : 0;
     WriteList(v->genieExcluded, s_.genie.excluded);
     WriteList(v->noInject, s_.noInject);
     WriteList(v->devAllowlist, s_.devAllowlist);

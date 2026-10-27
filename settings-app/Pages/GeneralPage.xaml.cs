@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
+using Microsoft.Win32;
 
 namespace MacWin.Settings.Pages;
 
@@ -96,7 +97,9 @@ public partial class GeneralPage : UserControl
                 "downloading" => Loc.F("settings.general.updates.status.downloading", latest),
                 "installing" => Loc.F("settings.general.updates.status.installing", latest),
                 "available" => Loc.F("settings.general.updates.status.available", latest),
-                "failed" or "failedInstall" => Loc.T("settings.general.updates.status.failed"),
+                "failed" => Loc.T("settings.general.updates.status.failed"),
+                "failedInstall" => Loc.T("settings.general.updates.status.failedInstall"),
+                "unusable" => Loc.T("settings.general.updates.status.unusable"),
                 "upToDate" => Loc.F("settings.general.updates.status.upToDate", u.Current ?? Project.Version),
                 _ => Loc.T("settings.general.updates.status.never"),
             };
@@ -151,12 +154,81 @@ public partial class GeneralPage : UserControl
             });
             if (!HostControl.IsRunning) return;
         }
-        if (!UpdateClient.CheckNow()) return;
-        _update = _update with { Status = "checking" };
+        // A host that doesn't answer is a failed check, not silence.
+        _update = _update with { Status = UpdateClient.CheckNow() ? "checking" : "failed" };
         UpdateStatus();
     }
 
     private void Install_Click(object sender, RoutedEventArgs e) => UpdateClient.Install();
+
+    private SettingsStore? Store => (Window.GetWindow(this) as MainWindow)?.Store;
+
+    private string FileFilter => Loc.T("settings.general.transfer.filter") + "|*.json";
+
+    private void Export_Click(object sender, RoutedEventArgs e)
+    {
+        if (Store is not { } store) return;
+        var dialog = new SaveFileDialog
+        {
+            Filter = FileFilter,
+            FileName = Loc.T("settings.general.transfer.fileName") + ".json",
+            DefaultExt = ".json",
+        };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        try
+        {
+            File.WriteAllText(dialog.FileName, store.Export());
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Say(Loc.F("settings.general.transfer.failed", ex.Message), MessageBoxImage.Warning);
+        }
+    }
+
+    private void Import_Click(object sender, RoutedEventArgs e)
+    {
+        if (Store is not { } store) return;
+        var dialog = new OpenFileDialog { Filter = FileFilter };
+        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        try
+        {
+            // A settings file is a few kilobytes: anything big is something else.
+            if (new FileInfo(dialog.FileName).Length > 4 << 20 || !store.Import(File.ReadAllText(dialog.FileName)))
+            {
+                Say(Loc.T("settings.general.transfer.notSettings"), MessageBoxImage.Warning);
+                return;
+            }
+            Say(Loc.T("settings.general.transfer.imported"), MessageBoxImage.Information);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Say(Loc.F("settings.general.transfer.failed", ex.Message), MessageBoxImage.Warning);
+        }
+    }
+
+    private void Reset_Click(object sender, RoutedEventArgs e)
+    {
+        if (Store is not { } store) return;
+        if (Say(Loc.T("settings.general.reset.confirm"), MessageBoxImage.Warning, MessageBoxButton.YesNo) !=
+            MessageBoxResult.Yes)
+        {
+            return;
+        }
+        try
+        {
+            store.RestoreDefaults();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Say(Loc.F("settings.general.transfer.failed", ex.Message), MessageBoxImage.Warning);
+        }
+    }
+
+    private MessageBoxResult Say(string text, MessageBoxImage image, MessageBoxButton buttons = MessageBoxButton.OK) =>
+        MessageBox.Show(Window.GetWindow(this), text, Project.Name, buttons, image,
+                        buttons == MessageBoxButton.YesNo ? MessageBoxResult.No : MessageBoxResult.OK,
+                        Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
+                                          : MessageBoxOptions.None);
 
     // The release notes in the update sheet; the release page when MacWin has none.
     private void WhatsNew_Click(object sender, RoutedEventArgs e)

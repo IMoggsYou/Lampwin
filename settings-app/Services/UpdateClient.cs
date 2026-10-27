@@ -11,6 +11,9 @@ namespace MacWin.Settings;
 /// <summary>Links to the project on GitHub.</summary>
 internal static class Project
 {
+    /// <summary>The name people see (since 1.5.0); files, folders, the scheduled task and
+    /// the window classes keep the name MacWin so installed copies keep working.</summary>
+    public const string Name = "Lampwin";
     public const string Author = "IMoggsYou";
     public const string AuthorUrl = "https://github.com/IMoggsYou";
     public const string RepoUrl = "https://github.com/IMoggsYou/Lampwin";

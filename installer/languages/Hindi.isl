@@ -3,7 +3,7 @@
 ; every file: tools/check_i18n.cmake checks them.
 
 [Messages]
-WelcomeLabel2=यह [name/ver] इंस्टॉल करेगा – macOS शैली के विंडो एनिमेशन: विंडो जिनी की तरह टास्कबार में जाती हैं और वापस उड़कर आती हैं।%n%nMacWin पृष्ठभूमि में चलता है, और इसका आइकन सूचना क्षेत्र में रहता है।
+WelcomeLabel2=यह [name/ver] इंस्टॉल करेगा – macOS शैली के विंडो एनिमेशन: विंडो जिनी की तरह टास्कबार में जाती हैं और वापस उड़कर आती हैं।%n%nLampwin पृष्ठभूमि में चलता है, और इसका आइकन सूचना क्षेत्र में रहता है।
 ; Inno Setup 6 messages the older base translation (languages/base) does not have
 ; yet - the ones this installer can show.
 DiskSpaceGBLabel=कम से कम [gb] GB खाली डिस्क स्थान आवश्यक है।
@@ -44,17 +44,17 @@ ExistingFileNewerOverwriteOrKeepAll=अगले टकरावों के �
 [CustomMessages]
 AppComments=Windows 11 के लिए macOS शैली के विंडो एनिमेशन
 GroupStartup=स्टार्टअप:
-TaskAutostart=साइन इन करने पर MacWin शुरू करें
-RegisteringTask=MacWin का स्टार्टअप कार्य पंजीकृत किया जा रहा है…
-LaunchMacWin=MacWin शुरू करें
+TaskAutostart=साइन इन करने पर Lampwin शुरू करें
+RegisteringTask=Lampwin का स्टार्टअप कार्य पंजीकृत किया जा रहा है…
+LaunchMacWin=Lampwin शुरू करें
 OpenSettings=सेटिंग्स खोलें
 ShortcutComment=विंडो एनिमेशन सेटिंग्स
 DotNetDownloading=Microsoft से .NET 10 डेस्कटॉप रनटाइम डाउनलोड किया जा रहा है…
 DotNetInstalling=.NET 10 डेस्कटॉप रनटाइम इंस्टॉल किया जा रहा है…
 DotNetFailed=.NET 10 डेस्कटॉप रनटाइम इंस्टॉल नहीं हो सका (%1)। एनिमेशन इसके बिना भी काम करते हैं, लेकिन सेटिंग्स विंडो को इसकी ज़रूरत है। आप इसे बाद में यहाँ से प्राप्त कर सकते हैं:%n%n%2
-Arm64NotSupported=MacWin को 64-बिट Intel या AMD (x64) प्रोसेसर चाहिए। ARM पर Windows अभी समर्थित नहीं है।
-RemoveSettings=क्या MacWin की सेटिंग्स और लॉग भी हटाने हैं?
+Arm64NotSupported=Lampwin को 64-बिट Intel या AMD (x64) प्रोसेसर चाहिए। ARM पर Windows अभी समर्थित नहीं है।
+RemoveSettings=क्या Lampwin की सेटिंग्स और लॉग भी हटाने हैं?
 UpdatesTitle=अपने-आप अपडेट
-UpdatesSubtitle=MacWin को अप-टू-डेट कैसे रखा जाए?
-UpdatesText=दिन में एक बार MacWin GitHub से पूछता है कि क्या कोई नया संस्करण आया है। यह उसे पृष्ठभूमि में अपने-आप डाउनलोड और इंस्टॉल कर सकता है, या पहले सेटिंग्स विंडो में आपको दिखा सकता है।%n%nआप इसे बाद में सेटिंग्स में, सामान्य के अंतर्गत बदल सकते हैं।
+UpdatesSubtitle=Lampwin को अप-टू-डेट कैसे रखा जाए?
+UpdatesText=दिन में एक बार Lampwin GitHub से पूछता है कि क्या कोई नया संस्करण आया है। यह उसे पृष्ठभूमि में अपने-आप डाउनलोड और इंस्टॉल कर सकता है, या पहले सेटिंग्स विंडो में आपको दिखा सकता है।%n%nआप इसे बाद में सेटिंग्स में, सामान्य के अंतर्गत बदल सकते हैं।
 UpdatesAuto=अपडेट अपने-आप इंस्टॉल करें (अनुशंसित)

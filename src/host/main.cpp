@@ -42,6 +42,12 @@ const int kHotkeyQuit = 1;
 const wchar_t kUpdateMessage[] = L"MacWin_" MACWIN_NS L"Update_v1";
 const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/Lampwin/releases";
 
+// Windows' "Animation effects" (Settings > Accessibility > Visual effects).
+bool SystemAnimationsOn() {
+    BOOL on = TRUE;
+    return !SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) || on;
+}
+
 enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
@@ -158,7 +164,7 @@ bool App::Init(HINSTANCE hInst) {
     RegisterClassExW(&wc);
     // A real (hidden) top-level window: message-only windows miss TaskbarCreated.
     // The title tells the settings app whether we run elevated.
-    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, MACWIN_HOST_WNDCLASS, elevated_ ? L"MacWin (administrator)" : L"MacWin",
+    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, MACWIN_HOST_WNDCLASS, elevated_ ? MACWIN_DISPLAY_NAME L" (administrator)" : MACWIN_DISPLAY_NAME,
                             WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, hInst, this);
     if (!hwnd_) return false;
     taskbarCreatedMsg_ = RegisterWindowMessageW(L"TaskbarCreated");
@@ -176,6 +182,7 @@ bool App::Init(HINSTANCE hInst) {
     ChangeWindowMessageFilterEx(hwnd_, updateMsg_, MSGFLT_ALLOW, nullptr);
 
     settings_.SetIpcWindow(hwnd_);
+    settings_.SetSystemAnimations(SystemAnimationsOn());
     settings_.Publish();
 
     if (!renderer_.Start()) {
@@ -354,9 +361,15 @@ void App::StartUpdate() {
 void App::RunInstaller() {
     installAfterDownload_ = false;
     std::wstring path = updater_.InstallerPath();
-    if (path.empty()) return;
+    if (path.empty()) {
+        Log(L"update: no verified installer to run");
+        updater_.SetFailed();
+        return;
+    }
+    // A silent install shows nothing when it fails: its log says why.
     std::wstring args = settings_.Get().updateAutoInstall ? L"/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
                                                           : L"/SILENT /SUPPRESSMSGBOXES /NORESTART";
+    args += L" /LOG=\"" + LocalDataDir() + L"\\updates\\install.log\"";
     SHELLEXECUTEINFOW sei = {sizeof(sei)};
     sei.fMask = SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI;
     sei.lpVerb = elevated_ ? L"open" : L"runas";   // the installer needs administrator rights
@@ -625,6 +638,14 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             }
             return 0;
         case WM_SETTINGCHANGE:
+            if (wp == SPI_SETCLIENTAREAANIMATION) {
+                // Windows' animation effects switched: the DLLs follow at once.
+                bool on = SystemAnimationsOn();
+                Log(L"settings: Windows animation effects %ls", on ? L"on" : L"off");
+                settings_.SetSystemAnimations(on);
+                settings_.Publish();
+            }
+            [[fallthrough]];
         case WM_DISPLAYCHANGE:
         case WM_DPICHANGED:
             locator_.Invalidate();

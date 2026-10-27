@@ -211,7 +211,7 @@ public partial class PrivacyPage : UserControl
     }
 
     private bool Ask(string question) =>
-        MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow!, question, "MacWin",
+        MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow!, question, Project.Name,
                         MessageBoxButton.YesNo, MessageBoxImage.Question, MessageBoxResult.No,
                         Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign : MessageBoxOptions.None)
         == MessageBoxResult.Yes;

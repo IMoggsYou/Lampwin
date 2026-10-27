@@ -1,13 +1,22 @@
-# AGENTS.md — how to work on MacWin
+# AGENTS.md — how to work on Lampwin (MacWin)
 
 Instructions for AI coding agents (Claude Code, Codex, Cursor, Copilot, …) and for
 humans who want the short version. `CLAUDE.md` and `.github/copilot-instructions.md`
 point here; keep this file the single source.
 
-MacWin brings macOS-style window animations (the genie effect) and squircle window
+Lampwin brings macOS-style window animations (the genie effect) and squircle window
 corners to Windows 11. Author: **IMoggsYou**. License: **GPL-3.0-or-later** with the
 additional terms in `NOTICE` (keep "Created by IMoggsYou" in file headers and in the About
 page; modified versions must be renamed).
+
+**Two names.** People see **Lampwin** (since 1.5.0): texts, window titles, the installer,
+the version resources, the README. Everything a computer looks for keeps the old name
+**MacWin**: file names (`MacWin.exe`, `MacWinSetup-X.Y.Z.exe`, which 1.4.0's updater
+needs), `%APPDATA%\MacWin`, the scheduled task, window classes, registered messages, the
+installer's `AppId` and folder, `.macwinicons`, the code's namespaces and identifiers.
+Never change those, and never reuse the GitHub name `IMoggsYou/MacWin` (its redirect is
+how old copies still find the releases). In code use `MACWIN_DISPLAY_NAME` (C++) or
+`Project.Name` (C#); in texts write Lampwin.
 
 ## Architecture in one minute
 
@@ -30,7 +39,7 @@ Windows 11 x64; tools in [docs/BUILDING.md](docs/BUILDING.md).
 
 ```powershell
 cmake --preset x64; cmake --build --preset x64            # host, DLL, settings app
-ctest --test-dir build/x64 --output-on-failure            # unit tests + i18n check
+ctest --test-dir build/x64 --output-on-failure            # unit tests, i18n check, shaders (fxc)
 cmake --build --preset x64 --target MacWinSetup           # installer (also builds x86)
 powershell -ExecutionPolicy Bypass -File tools\build-release.ps1   # all of it, like CI
 ```
@@ -68,6 +77,12 @@ A crash or hang there takes down Explorer, a browser or a game. In `src/hook/`:
   `settings-app/Services/SettingsStore.cs` identical.
 - Changing `SharedSettings` or `AnimRequest`: update the `static_assert`s **and** bump the
   `_vN` suffixes in `src/common/names.h` (and `MW_IPC_VERSION`).
+
+### The shader is compiled when MacWin starts
+
+`src/host/render/genie.hlsl` is compiled at run time (`Renderer::CompileShaders`); one
+error turns every animation off. `ctest` compiles each entry point with `fxc` from the
+Windows SDK (`MACWIN_SHADERS` in `CMakeLists.txt`): a new entry point goes in both lists.
 
 ### The Privacy page changes Windows itself
 
@@ -146,6 +161,10 @@ Removed, Security). Write it for users, not for developers.
 6. `.github/workflows/release.yml` builds, tests, attaches `MacWinSetup-X.Y.Z.exe` and
    `SHA256SUMS.txt` and publishes the release with that changelog section. Installed copies
    find it within a day (the updater needs exactly those two file names).
+   Once the owner has set up SignPath ([docs/SIGNING.md](docs/SIGNING.md)), the installer
+   is signed first; until then it goes out unsigned.
+7. The owner submits the version to winget ([docs/WINGET.md](docs/WINGET.md));
+   `tools/winget-manifest.ps1` writes the manifests from the release.
 
 ## Things not to do
 

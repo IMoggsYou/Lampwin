@@ -374,14 +374,15 @@ void MonthGrid(Ctx& c, D2D1_RECT_F box, float numberSize, float headerSize) {
     }
 }
 
-// Weekday in red, the day's number, month and year: the left side of the calendar.
-void DayColumn(Ctx& c, float left, float right) {
+// Weekday in red, the day's number, month and year: the left side of the calendar (and a
+// countdown's day).
+void DayColumn(Ctx& c, float left, float right, const SYSTEMTIME& day) {
     const Scene& s = c.s;
     const Palette& p = c.p;
-    std::wstring weekday = Upper(s, DateText(s, s.now, L"dddd"));
+    std::wstring weekday = Upper(s, DateText(s, day, L"dddd"));
     c.Text(weekday, c.Fit(weekday, 13, 10, right - left, kSemibold), {left, 14, right, 34}, p.red);
-    c.Text(std::to_wstring(s.now.wDay), c.Font(66, kLight, true), {left - 3, 22, right, 112}, p.text);
-    std::wstring month = Capitalized(s, DateText(s, s.now, c.T(L"host.widgets.date.monthYear").c_str()));
+    c.Text(std::to_wstring(day.wDay), c.Font(66, kLight, true), {left - 3, 22, right, 112}, p.text);
+    std::wstring month = Capitalized(s, DateText(s, day, c.T(L"host.widgets.date.monthYear").c_str()));
     c.Text(month, c.Fit(month, 14, 11, right - left, kSemibold), {left, c.H - 38, right, c.H - 16}, p.secondary);
 }
 
@@ -390,10 +391,10 @@ void DrawCalendar(Ctx& c) {
     FillCard(c, p.top, p.bottom);
     switch (c.s.size) {
         case Size::Small:
-            DayColumn(c, kPad, c.W - kPad);
+            DayColumn(c, kPad, c.W - kPad, c.s.now);
             break;
         case Size::Medium:
-            DayColumn(c, kPad, c.H - 8);
+            DayColumn(c, kPad, c.H - 8, c.s.now);
             MonthGrid(c, {c.H - 6, 14, c.W - 12, c.H - 10}, 11.5f, 9.5f);
             break;
         case Size::Large: {
@@ -777,6 +778,148 @@ void DrawSystem(Ctx& c) {
 }
 
 // ---------------------------------------------------------------------------
+// Countdown
+// ---------------------------------------------------------------------------
+
+// A page of a calendar with a ring around a day.
+void CountdownGlyph(Ctx& c, float x, float y) {
+    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + 22, y + 22}, 6, 6), c.Brush(Rgb(0xFF9F0A)).get());
+    const D2D1_COLOR_F white = Rgb(0xFFFFFF);
+    c.Line(x + 5.5f, y + 7.5f, x + 16.5f, y + 7.5f, 1.6f, white);
+    for (int i = 0; i < 3; ++i) c.Dot(x + 6.5f + i * 4.5f, y + 12, 1.1f, white);
+    for (int i = 0; i < 2; ++i) c.Dot(x + 6.5f + i * 4.5f, y + 16, 1.1f, white);
+    c.rt->DrawEllipse(D2D1::Ellipse({x + 15.5f, y + 16}, 2.6f, 2.6f), c.Brush(white).get(), 1.2f);
+}
+
+// Days to go (or since), the title, and on a medium card the day itself.
+void DrawCountdown(Ctx& c) {
+    const Scene& s = c.s;
+    const Palette& p = c.p;
+    FillCard(c, p.top, p.bottom);
+    SYSTEMTIME day;
+    const bool valid = ParseDay(s.date, &day);
+    const bool medium = s.size == Size::Medium && valid;
+    const float right = medium ? c.W / 2 - 8 : c.W - kPad;
+    CountdownGlyph(c, kPad, 15);
+    const std::wstring& title = s.text.empty() ? c.T(L"host.widgets.countdown.title") : s.text;
+    TextOptions wrap;
+    wrap.wrap = true;
+    c.Text(title, c.Font(15, kSemibold), {kPad, 44, right, 84}, p.text, wrap);
+    if (!valid) {
+        c.Text(c.T(L"host.widgets.countdown.empty"), c.Font(13, kRegular), {kPad, 88, right, c.H - 14}, p.secondary,
+               wrap);
+        return;
+    }
+    const int days = DaysBetween(s.now, day);
+    if (days == 0) {
+        // The day itself: one word, in red like today in the calendar.
+        const std::wstring& today = c.T(L"host.widgets.countdown.today");
+        c.Text(today, c.Fit(today, 34, 20, right - kPad, kSemibold, true), {kPad, c.H - 62, right, c.H - 16}, p.red);
+    } else {
+        // The number and a label of its own ("days to go"), so no language needs plural forms
+        // here; one day is "tomorrow" or "yesterday".
+        std::wstring number = std::to_wstring(days < 0 ? -days : days);
+        const std::wstring& label = c.T(days == 1    ? L"host.widgets.countdown.tomorrow"
+                                        : days == -1 ? L"host.widgets.countdown.yesterday"
+                                        : days > 0   ? L"host.widgets.countdown.left"
+                                                     : L"host.widgets.countdown.ago");
+        c.Text(number, c.Fit(number, 50, 28, right - kPad, kLight, true), {kPad - 2, c.H - 90, right, c.H - 34},
+               days > 0 ? p.text : p.secondary);
+        c.Text(label, c.Fit(label, 13, 10, right - kPad, kSemibold), {kPad, c.H - 36, right, c.H - 16}, p.secondary);
+    }
+    if (medium) {
+        c.Line(c.W / 2, 18, c.W / 2, c.H - 18, 1, p.hairline);
+        DayColumn(c, c.W / 2 + kPad, c.W - kPad, day);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Now playing
+// ---------------------------------------------------------------------------
+
+const UINT32 kMusicTop = 0xFF5E7A, kMusicBottom = 0xFF2D55;
+
+// Two beamed notes on a rounded tile, `size` DIPs at (x, y) from the leading corner. Music
+// isn't mirrored: only where the tile goes.
+void MusicTile(Ctx& c, float x, float y, float size, float radius) {
+    c.Unmirrored();
+    x = c.s.rtl ? c.W - x - size : x;
+    D2D1_GRADIENT_STOP stops[] = {{0, Rgb(kMusicTop)}, {1, Rgb(kMusicBottom)}};
+    ComPtr<ID2D1GradientStopCollection> collection;
+    ComPtr<ID2D1LinearGradientBrush> brush;
+    if (SUCCEEDED(c.rt->CreateGradientStopCollection(stops, 2, collection.put())) &&
+        SUCCEEDED(c.rt->CreateLinearGradientBrush({{x, y}, {x, y + size}}, collection.get(), brush.put()))) {
+        c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + size, y + size}, radius, radius), brush.get());
+    }
+    const float u = size / 22;
+    const D2D1_COLOR_F white = Rgb(0xFFFFFF);
+    c.rt->FillEllipse(D2D1::Ellipse({x + 7.6f * u, y + 15.6f * u}, 2.5f * u, 2.1f * u), c.Brush(white).get());
+    c.rt->FillEllipse(D2D1::Ellipse({x + 14.6f * u, y + 14.1f * u}, 2.5f * u, 2.1f * u), c.Brush(white).get());
+    c.Line(x + 9.9f * u, y + 15.4f * u, x + 9.9f * u, y + 6.6f * u, 1.3f * u, white);
+    c.Line(x + 16.9f * u, y + 13.9f * u, x + 16.9f * u, y + 5.1f * u, 1.3f * u, white);
+    c.Line(x + 9.9f * u, y + 6.6f * u, x + 16.9f * u, y + 5.1f * u, 2.2f * u, white);
+    c.Mirrored();
+}
+
+// Playing: level bars; paused: the pause sign. In the top corner opposite the small tile.
+void PlayState(Ctx& c, bool playing) {
+    c.Unmirrored();
+    const float right = c.s.rtl ? kPad + 18 : c.W - kPad;
+    if (playing) {
+        const float heights[] = {0.55f, 1.0f, 0.4f, 0.8f};
+        for (int i = 0; i < 4; ++i) {
+            float x = right - 16.5f + i * 5;
+            c.Line(x, 33, x, 33 - 16 * heights[i], 2.6f, Rgb(kMusicBottom));
+        }
+    } else {
+        c.Line(right - 12, 20, right - 12, 31, 3, c.p.secondary);
+        c.Line(right - 4.5f, 20, right - 4.5f, 31, 3, c.p.secondary);
+    }
+    c.Mirrored();
+}
+
+void DrawNowPlaying(Ctx& c) {
+    const Scene& s = c.s;
+    const Palette& p = c.p;
+    FillCard(c, p.top, p.bottom);
+    const bool medium = s.size == Size::Medium;
+    const MediaInfo none;
+    const MediaInfo& m = s.media ? *s.media : none;
+    // Medium: a big tile where a cover would be, the words beside it.
+    const float left = medium ? c.H : kPad;
+    if (medium) MusicTile(c, kPad, kPad, c.H - 2 * kPad, 18);
+    else MusicTile(c, kPad, 15, 22, 6);
+    const float right = c.W - kPad;
+    TextOptions wrap;
+    wrap.wrap = true;
+    if (!m.present) {
+        TextOptions bottom = wrap;
+        bottom.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
+        c.Text(c.T(L"host.widgets.nowPlaying.none"), c.Font(15, kSemibold), {left, 40, right, c.H - 56}, p.secondary,
+               bottom);
+        c.Text(c.T(L"host.widgets.nowPlaying.hint"), c.Font(12, kRegular), {left, c.H - 52, right, c.H - 12},
+               p.tertiary, wrap);
+        return;
+    }
+    PlayState(c, m.playing);
+    // From the bottom up: the app, the artist, then the title in up to two lines.
+    float y = c.H - 14;
+    if (!m.app.empty()) {
+        c.Text(Upper(s, m.app), c.Font(10.5f, kSemibold), {left, y - 14, right, y}, p.tertiary);
+        y -= 18;
+    }
+    if (!m.artist.empty()) {
+        c.Text(m.artist, c.Font(13, kRegular), {left, y - 18, right, y}, p.secondary);
+        y -= 20;
+    }
+    const float titleSize = medium ? 17 : 15;
+    TextOptions bottom = wrap;
+    bottom.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
+    c.Text(m.title, c.Font(titleSize, kSemibold), {left, std::max(y - titleSize * 2.7f, 40.0f), right, y}, p.text,
+           bottom);
+}
+
+// ---------------------------------------------------------------------------
 // Notes and Photo
 // ---------------------------------------------------------------------------
 
@@ -903,6 +1046,8 @@ void DrawCard(Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float unit, in
             break;
         case Kind::System: DrawSystem(c); break;
         case Kind::Notes: DrawNotes(c); break;
+        case Kind::Countdown: DrawCountdown(c); break;
+        case Kind::NowPlaying: DrawNowPlaying(c); break;
         case Kind::Photo:
             DrawPhoto(c);
             edge = Rgb(0x000000, 0.12f);

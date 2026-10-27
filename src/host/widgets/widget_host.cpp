@@ -17,6 +17,7 @@
 #include "host/log.h"
 #include "host/widgets/canvas.h"
 #include "host/widgets/location.h"
+#include "host/widgets/media.h"
 #include "host/widgets/system_stats.h"
 #include "host/widgets/weather.h"
 #include "host/widgets/widget_layout.h"
@@ -32,6 +33,7 @@ const wchar_t kShadowClass[] = L"MacWinWidgetShadow_v1";
 // To the widget thread's control window.
 const UINT WM_APP_UPDATE = WM_APP + 1;    // lParam: Update*
 const UINT WM_APP_WEATHER = WM_APP + 2;   // lParam: WeatherResult*
+const UINT WM_APP_MEDIA = WM_APP + 3;     // lParam: MediaInfo*
 
 const UINT_PTR kTickTimer = 1, kWeatherTimer = 2, kLayoutTimer = 3, kAnimTimer = 4;
 const UINT kWeatherEveryMs = 30 * 60 * 1000;
@@ -307,6 +309,8 @@ private:
     void FetchWeather();
     void OnWeather(WeatherResult* result);
     bool HasKind(Kind k) const;
+    void MediaChanged();
+    void OnMedia(MediaInfo* info);
 
     void StartDrag(Widget* w);
     void Drag(Widget* w, POINT cursor);
@@ -364,6 +368,10 @@ private:
     LocationStatus reported_ = LocationStatus::Unknown;
     std::wstring reportedPlace_;
 
+    // Now playing: watched only while such a widget is on screen.
+    MediaWatcher media_;
+    MediaInfo nowPlaying_;
+
     // Mouse: the widget pressed, and whether it is being dragged.
     Widget* pressed_ = nullptr;
     bool dragging_ = false;
@@ -385,6 +393,7 @@ Host::~Host() {
     t_host = nullptr;
     cancel_.Cancel();
     if (fetch_.joinable()) fetch_.join();
+    media_.Stop();
     for (auto& w : widgets_) DestroyWindows(w.get());
     if (dropTarget_) DestroyWindow(dropTarget_);
     if (displayNotify_) UnregisterPowerSettingNotification(displayNotify_);
@@ -452,9 +461,10 @@ void Host::Run() {
         while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 // Updates that came too late.
-                while (PeekMessageW(&msg, control_, WM_APP_UPDATE, WM_APP_WEATHER, PM_REMOVE)) {
+                while (PeekMessageW(&msg, control_, WM_APP_UPDATE, WM_APP_MEDIA, PM_REMOVE)) {
                     if (msg.message == WM_APP_UPDATE) delete (Update*)msg.lParam;
-                    else delete (WeatherResult*)msg.lParam;
+                    else if (msg.message == WM_APP_WEATHER) delete (WeatherResult*)msg.lParam;
+                    else delete (MediaInfo*)msg.lParam;
                 }
                 return;
             }
@@ -534,7 +544,9 @@ void Host::ApplyUpdate(Update* u) {
                 was.col != item.col || was.row != item.row) {
                 relayout = true;
             }
-            if (was.look != item.look || was.text != item.text || was.path != item.path) changed.push_back(w.get());
+            if (was.look != item.look || was.text != item.text || was.path != item.path || was.date != item.date) {
+                changed.push_back(w.get());
+            }
             w->item = item;
         }
         next.push_back(std::move(w));
@@ -758,6 +770,8 @@ Scene Host::SceneFor(Widget* w, const SYSTEMTIME& now) {
     s.place = weatherPlace_;
     s.stats = stats_;
     s.text = w->item.text;
+    s.date = w->item.date;
+    s.media = &nowPlaying_;
     if (w->item.kind == Kind::Photo) {
         SIZE size = {w->rect.right - w->rect.left, w->rect.bottom - w->rect.top};
         if (w->photoPath != w->item.path || w->photoSize.cx != size.cx || w->photoSize.cy != size.cy) {
@@ -851,7 +865,10 @@ bool Host::Busy() const {
 
 void Host::Schedule() {
     KillTimer(control_, kTickTimer);
-    if (locked_ || displayOff_) return;
+    if (locked_ || displayOff_) {
+        MediaChanged();
+        return;
+    }
     SYSTEMTIME now;
     GetLocalTime(&now);
     UINT delay = UINT_MAX, tolerance = 50;
@@ -866,6 +883,7 @@ void Host::Schedule() {
                 }
                 [[fallthrough]];
             case Kind::Calendar:
+            case Kind::Countdown:
                 delay = std::min<UINT>(delay, (60 - now.wSecond) * 1000 - now.wMilliseconds + 2);
                 break;
             case Kind::System:
@@ -875,6 +893,7 @@ void Host::Schedule() {
                 break;
         }
     }
+    MediaChanged();
     if (delay == UINT_MAX) return;
     // Windows may fire timers of all programs together within the tolerance (saves power).
     SetCoalescableTimer(control_, kTickTimer, delay, nullptr, tolerance ? tolerance : TIMERV_NO_COALESCING);
@@ -897,7 +916,8 @@ void Host::Tick() {
         bool redraw = false;
         switch (w->item.kind) {
             case Kind::Clock: redraw = config_.clockSeconds || w->drawnMinute != minute; break;
-            case Kind::Calendar: redraw = w->drawnDay != now.wDay || w->drawnMinute > minute; break;
+            case Kind::Calendar:
+            case Kind::Countdown: redraw = w->drawnDay != now.wDay || w->drawnMinute > minute; break;
             case Kind::System:
                 if (!sampled && t - statsAt_ >= kSystemEveryMs - 100) {
                     stats_ = sampler_.Sample();
@@ -1038,6 +1058,30 @@ void Host::OnWeather(WeatherResult* result) {
 }
 
 // ---------------------------------------------------------------------------
+// Now playing
+// ---------------------------------------------------------------------------
+
+void Host::MediaChanged() {
+    bool shown = false;
+    for (const auto& w : widgets_) shown = shown || (w->shown && w->item.kind == Kind::NowPlaying);
+    if (shown && !locked_ && !displayOff_) {
+        media_.Start(control_, WM_APP_MEDIA);
+    } else {
+        media_.Stop();
+    }
+}
+
+// What is playing changed (the watcher says only then).
+void Host::OnMedia(MediaInfo* info) {
+    std::unique_ptr<MediaInfo> owned(info);
+    nowPlaying_ = *info;
+    if (locked_ || displayOff_) return;
+    for (auto& w : widgets_) {
+        if (w->item.kind == Kind::NowPlaying) Render(w.get());
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Mouse: click, drag to another slot, right-click menu
 // ---------------------------------------------------------------------------
 
@@ -1165,6 +1209,12 @@ void Host::Animate(Widget* w, POINT to) {
     animated_ = w;
     animFrom_ = {w->rect.left, w->rect.top};
     animTo_ = to;
+    // Windows' animation effects turned off: the widget goes straight to its place.
+    BOOL animations = TRUE;
+    if (SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animations, 0) && !animations) {
+        FinishAnimation();
+        return;
+    }
     QueryPerformanceCounter(&animStart_);
     SetTimer(control_, kAnimTimer, 8, nullptr);
 }
@@ -1213,6 +1263,7 @@ void Host::Click(Widget* w) {
         default: break;
     }
     bool settings = target.empty() && (w->item.kind == Kind::Notes || w->item.kind == Kind::Photo ||
+                                       w->item.kind == Kind::Countdown ||
                                        (w->item.kind == Kind::Weather && (weatherState_ == WeatherState::LocationOff ||
                                                                           (!config_.autoPlace && !config_.place.valid))));
     if (!target.empty()) Notify(kOpen, (LPARAM)new std::wstring(target));
@@ -1336,6 +1387,9 @@ LRESULT Host::OnControl(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_APP_WEATHER:
             OnWeather((WeatherResult*)lp);
+            return 0;
+        case WM_APP_MEDIA:
+            OnMedia((MediaInfo*)lp);
             return 0;
         case WM_TIMER:
             if (wp == kTickTimer) {

@@ -3,6 +3,7 @@
 
 #include "host/widgets/widget_snapshot.h"
 #include <math.h>
+#include <stdio.h>
 #include <algorithm>
 #include <vector>
 #include "host/i18n.h"
@@ -117,6 +118,8 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
         {Kind::System, Size::Small},      {Kind::System, Size::Medium},     {Kind::Calendar, Size::Large},
         {Kind::Weather, Size::Large},     {Kind::Notes, Size::Large},       {Kind::Notes, Size::Small},
         {Kind::Photo, Size::Small},       {Kind::Notes, Size::Medium},      {Kind::Photo, Size::Medium},
+        {Kind::Countdown, Size::Small},   {Kind::Countdown, Size::Medium},  {Kind::NowPlaying, Size::Small},
+        {Kind::NowPlaying, Size::Medium},
     };
     const Icon icons[] = {Icon::Moon, Icon::SunCloud, Icon::MoonCloud, Icon::Cloud, Icon::Fog, Icon::Drizzle,
                           Icon::Rain, Icon::Sleet, Icon::Snow, Icon::Storm};
@@ -141,6 +144,7 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
     std::vector<Placed> placed;
     for (const Sample& s : samples) {
         Span span = SpanOf(s.size);
+        span.rows /= kRowSteps;   // whole cells here
         for (int row = 0;; ++row) {
             while ((int)used.size() < row + span.rows) used.push_back(std::vector<bool>(cols, false));
             int found = -1;
@@ -155,7 +159,7 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
             for (int r = row; r < row + span.rows; ++r) {
                 for (int c = found; c < found + span.cols; ++c) used[r][c] = true;
             }
-            placed.push_back({s, margin + found * (cell + gap), margin + row * (cell + gap), grid.CardSize(span)});
+            placed.push_back({s, margin + found * (cell + gap), margin + row * (cell + gap), grid.CardSize(SpanOf(s.size))});
             break;
         }
     }
@@ -181,6 +185,11 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
     now.wHour = 10;
     now.wMinute = 9;
     now.wSecond = 32;
+    MediaInfo media;
+    media.present = media.playing = true;
+    media.title = L"Golden Hour on the Coast Road";
+    media.artist = L"The Lanterns";
+    media.app = L"Spotify";
     wchar_t timeFormat[80] = L"";
     GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STIMEFORMAT, timeFormat, ARRAYSIZE(timeFormat));
     for (const Placed& p : placed) {
@@ -210,6 +219,20 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
             scene.text = L"Shopping\nMilk, bread, coffee beans\nCall the dentist on Monday\nPick up the parcel\n"
                          L"Book train tickets for the weekend trip to the mountains\nWater the plants";
         }
+        if (p.s.kind == Kind::Countdown) {
+            // Twelve days from the sample's today.
+            FILETIME ft;
+            SystemTimeToFileTime(&now, &ft);
+            ULARGE_INTEGER t = {{ft.dwLowDateTime, ft.dwHighDateTime}};
+            t.QuadPart += 12 * 86400ULL * 10000000ULL;
+            SYSTEMTIME day;
+            FileTimeToSystemTime((FILETIME*)&t, &day);
+            wchar_t date[16];
+            swprintf(date, ARRAYSIZE(date), L"%04u-%02u-%02u", day.wYear, day.wMonth, day.wDay);
+            scene.date = date;
+            scene.text = L"Trip to Lisbon";
+        }
+        if (p.s.kind == Kind::NowPlaying) scene.media = &media;
         if (ID2D1RenderTarget* rt = card.Begin()) {
             DrawCard(g, rt, scene, kUnit, p.size.cx, p.size.cy);
             card.End();

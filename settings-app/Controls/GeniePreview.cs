@@ -66,7 +66,7 @@ public sealed class GeniePreview : Grid
 
     // Shattering (closing) is played on demand; the window then fades back in (Returning)
     // and the genie loop goes on.
-    private enum Phase { Shown, Minimizing, Hidden, Restoring, Shattering, Returning }
+    private enum Phase { Shown, Minimizing, Hidden, Restoring, Shattering, Zooming, Returning }
 
     private readonly Grid _scene = new() { Height = H };
     private readonly Viewport3D _view = new() { Height = H, IsHitTestVisible = false };
@@ -82,7 +82,13 @@ public sealed class GeniePreview : Grid
     private readonly ImageBrush _shardTexture = new();
     private int _shardCols, _shardRows;
     private uint _shardSeed;
-    private bool _afterShatter, _shardsBig, _shardsJoin;
+    // A one-off demo (shatter, zoom) just closed the window: it fades back, then the loop.
+    private bool _afterDemo, _shardsBig, _shardsJoin, _zoomOpen;
+    private GenieMath.Rect _zoomEnd;
+
+    // Closing breaks the glass where it was clicked: the miniature's close button (its red
+    // dot, top left); opening gathers the pieces in the middle, as on the desktop.
+    private (double U, double V) ShardImpact => _shardsJoin ? (0.5, 0.5) : (13.0 / WinW, 12.0 / WinH);
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private Phase _phase = Phase.Shown;
     private double _phaseStart;
@@ -173,7 +179,8 @@ public sealed class GeniePreview : Grid
 
     private void UpdateRunning(bool force = true)
     {
-        bool run = force && IsLoaded && IsVisible;
+        // Windows' animation effects off: the preview shows the window at rest.
+        bool run = force && IsLoaded && IsVisible && Motion.On;
         if (run == _running) return;
         _running = run;
         if (run) _started = false;   // coming back to the page restarts the loop
@@ -198,7 +205,7 @@ public sealed class GeniePreview : Grid
         Span<(double U, double V)> tex = stackalloc (double, double)[3];
         for (int i = 0; i < count; i++)
         {
-            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, 0, _winRect, _shardsBig, pos, tex);
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, 0, _winRect, _shardsBig, ShardImpact, pos, tex);
             for (int c = 0; c < 3; c++)
             {
                 uv.Add(new Point(tex[c].U, tex[c].V));
@@ -210,7 +217,7 @@ public sealed class GeniePreview : Grid
         _shards.TextureCoordinates = uv;
         _shards.TriangleIndices = idx;
         _shardTexture.ImageSource = _texture.ImageSource;
-        _afterShatter = false;
+        _afterDemo = false;
         Enter(Phase.Shattering, _clock.Elapsed.TotalMilliseconds, 0);
         _shownT = double.NaN;
     }
@@ -223,7 +230,7 @@ public sealed class GeniePreview : Grid
         Span<(double U, double V)> tex = stackalloc (double, double)[3];
         for (int i = 0; i < count; i++)
         {
-            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, t, _winRect, _shardsBig, pos, tex);
+            GenieMath.ShatterTriangle(i, _shardCols, _shardRows, _shardSeed, t, _winRect, _shardsBig, ShardImpact, pos, tex);
             for (int c = 0; c < 3; c++) pts.Add(new Point3D(pos[c].X, H - pos[c].Y, 0));
         }
         pts.Freeze();
@@ -232,11 +239,25 @@ public sealed class GeniePreview : Grid
         _shardTexture.Opacity = 1 - Math.Clamp((t - 0.45) / 0.55, 0, 1);
     }
 
+    /// <summary>Shows the Zoom effect: opening grows the window out of its taskbar icon (where
+    /// it was clicked); closing shrinks it into its close button, then brings it back.</summary>
+    public void PlayZoom(bool open)
+    {
+        if (!_running) return;
+        _zoomOpen = open;
+        double iconY = TaskbarTop + (TaskbarHeight - IconSize) / 2 - 1 + IconSize / 2;
+        double cx = open ? _dockX : _winRect.X + 13, cy = open ? iconY : _winRect.Y + 12;
+        _zoomEnd = GenieMath.ZoomEnd(_winRect, cx, cy);
+        _afterDemo = false;
+        Enter(Phase.Zooming, _clock.Elapsed.TotalMilliseconds, 0);
+        _shownT = double.NaN;
+    }
+
     /// <summary>Turns the genie around from where it is (or starts it when at rest).</summary>
     private void Reverse()
     {
         double now = _clock.Elapsed.TotalMilliseconds;
-        if (_phase is Phase.Shattering or Phase.Returning || _afterShatter) return;
+        if (_phase is Phase.Shattering or Phase.Zooming or Phase.Returning || _afterDemo) return;
         switch (_phase)
         {
             case Phase.Shown: Enter(Phase.Minimizing, now, 0); break;
@@ -291,18 +312,18 @@ public sealed class GeniePreview : Grid
                 break;
             case Phase.Hidden:
                 t = 1;
-                if (_afterShatter && elapsed > 450)
+                if (_afterDemo && elapsed > 450)
                 {
                     Enter(Phase.Returning, now, 0);
                 }
-                else if (!_afterShatter && elapsed > 750 && loop)
+                else if (!_afterDemo && elapsed > 750 && loop)
                 {
                     Enter(Phase.Restoring, now, 0);
                 }
                 break;
             case Phase.Shattering:
             {
-                double piecesMs = Math.Max(100, _shardsJoin ? OpenDurationMs : CloseDurationMs);
+                double piecesMs = Math.Max(100, _shardsJoin ? OpenDurationMs : CloseDurationMs) * GenieMath.PiecesPace;
                 double p = Math.Min(1, elapsed / piecesMs);
                 // Opening plays the break backwards, slowing down as the pieces settle (as
                 // GenieEase does in the host).
@@ -320,11 +341,36 @@ public sealed class GeniePreview : Grid
                     }
                     else
                     {
-                        _afterShatter = true;
+                        _afterDemo = true;
                         Enter(Phase.Hidden, now, 0);
                     }
                 }
                 SetIndicator(_shardsJoin ? 0 : 1);
+                return;
+            }
+            case Phase.Zooming:
+            {
+                double p = Math.Min(1, elapsed / Math.Max(100, _zoomOpen ? OpenDurationMs : CloseDurationMs));
+                double eased = GenieMath.ZoomEase(_zoomOpen, p);
+                double zt = _zoomOpen ? 1 - eased : eased;
+                UpdateMesh(GenieMath.Scale, zt, _zoomEnd);
+                _texture.Opacity = GenieMath.ZoomFade(zt);
+                _shownT = double.NaN;
+                if (p >= 1)
+                {
+                    if (_zoomOpen)
+                    {
+                        UpdateMesh(style, 0);
+                        _texture.Opacity = 1;
+                        Enter(Phase.Shown, now, 0);
+                    }
+                    else
+                    {
+                        _afterDemo = true;
+                        Enter(Phase.Hidden, now, 0);
+                    }
+                }
+                SetIndicator(zt);
                 return;
             }
             case Phase.Returning:
@@ -336,7 +382,7 @@ public sealed class GeniePreview : Grid
                 _texture.Opacity = p * p * (3 - 2 * p);
                 if (p >= 1)
                 {
-                    _afterShatter = false;
+                    _afterDemo = false;
                     Enter(Phase.Shown, now, 0);
                 }
                 SetIndicator(0);
@@ -400,14 +446,15 @@ public sealed class GeniePreview : Grid
         _mesh.TriangleIndices = idx;
     }
 
-    private void UpdateMesh(int style, double t)
+    private void UpdateMesh(int style, double t, GenieMath.Rect? end = null)
     {
         // Into the middle of the icon, like the renderer when it knows the window's button;
-        // the classic funnel always pours down to the screen edge under the taskbar.
+        // the classic funnel pours into the taskbar's top edge. Zoom passes its own end (a
+        // small window at the point).
         double iconY = TaskbarTop + (TaskbarHeight - IconSize) / 2 - 1 + IconSize / 2;
-        var dock = style switch
+        var dock = end ?? style switch
         {
-            GenieMath.Classic => new GenieMath.Rect(_dockX, H, 6, 0),
+            GenieMath.Classic => new GenieMath.Rect(_dockX, TaskbarTop, 6, 0),
             GenieMath.Scale => GenieMath.ScaleEnd(_winRect, _dockX, iconY, IconSize),
             _ => new GenieMath.Rect(_dockX - IconSize / 2, iconY, IconSize, IconSize / 2),
         };

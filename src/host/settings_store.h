@@ -10,7 +10,8 @@
 #include "host/widgets/widget_config.h"
 
 struct GenieSettings {
-    int style = 0;   // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original), 2 scale
+    // GenieStyle: 0 modern (Potassiumuncher), 1 classic (original, the default), 2 scale
+    int style = 1;
     int durationMs = 450;
     bool restore = true;
     // Opening / closing windows: MW_EFFECT_* and their durations.
@@ -19,6 +20,8 @@ struct GenieSettings {
     int openDurationMs = 450;
     int closeDurationMs = 400;
     bool multiMonitor = false;
+    // Windows' "Animation effects" off = no window animations from MacWin either.
+    bool followSystemMotion = true;
     bool unhideTaskbar = true;
     int unhideDurationMs = 450;
     int meshQuality = 48;
@@ -70,6 +73,11 @@ public:
     // Publishes enabled = false without touching the file (used while shutting down).
     void PublishDisabled();
     HostSettings& Get() { return s_; }
+    // Windows' animation effects (SPI_GETCLIENTAREAANIMATION), read at start and when they
+    // change; publish afterwards.
+    void SetSystemAnimations(bool on) { systemAnimations_ = on; }
+    // No window animations now: Windows' are off and the settings say to follow them.
+    bool ReduceMotion() const { return s_.genie.followSystemMotion && !systemAnimations_; }
     const std::wstring& Path() const { return path_; }
     uint32_t Instance() const { return instance_; }
 
@@ -83,4 +91,5 @@ private:
     std::wstring path_;
     uint32_t instance_ = 0;
     uint64_t ipcHwnd_ = 0;
+    bool systemAnimations_ = true;
 };

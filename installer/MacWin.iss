@@ -16,9 +16,9 @@
 
 [Setup]
 AppId={{6F0B3E9A-2C47-4E7B-9C1D-5A8E2B7F4D10}
-AppName=MacWin
+AppName=Lampwin
 AppVersion={#AppVersion}
-AppVerName=MacWin {#AppVersion}
+AppVerName=Lampwin {#AppVersion}
 AppPublisher=IMoggsYou
 AppPublisherURL={#RepoUrl}
 AppSupportURL={#RepoUrl}/issues
@@ -38,7 +38,7 @@ OutputDir=..\build\installer
 OutputBaseFilename=MacWinSetup-{#AppVersion}
 SetupIconFile=..\assets\MacWin.ico
 UninstallDisplayIcon={app}\MacWin.exe
-UninstallDisplayName=MacWin
+UninstallDisplayName=Lampwin
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -52,8 +52,8 @@ RestartApplications=no
 VersionInfoVersion={#AppVersion}
 VersionInfoCompany=IMoggsYou
 VersionInfoCopyright=Copyright (C) 2026 IMoggsYou. Licensed under GPL-3.0-or-later.
-VersionInfoDescription=MacWin Setup
-VersionInfoProductName=MacWin
+VersionInfoDescription=Lampwin Setup
+VersionInfoProductName=Lampwin
 VersionInfoProductVersion={#AppVersion}
 
 [Languages]
@@ -93,7 +93,7 @@ Source: "..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\third_party\minhook\LICENSE.txt"; DestDir: "{app}"; DestName: "MinHook-LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\MacWin"; Filename: "{app}\MacWin.Settings.exe"; Comment: "{cm:ShortcutComment}"
+Name: "{autoprograms}\Lampwin"; Filename: "{app}\MacWin.Settings.exe"; Comment: "{cm:ShortcutComment}"
 
 [Run]
 ; The scheduled task runs MacWin with administrator rights without a UAC prompt (so
@@ -111,6 +111,11 @@ Filename: "{app}\MacWin.Settings.exe"; Description: "{cm:OpenSettings}"; Flags: 
 [UninstallRun]
 Filename: "{app}\MacWin.exe"; Parameters: "--quit"; Flags: runhidden waituntilterminated; RunOnceId: "QuitMacWin"
 Filename: "{app}\MacWin.exe"; Parameters: "--remove-task"; Flags: runhidden waituntilterminated; RunOnceId: "RemoveTask"
+
+[InstallDelete]
+; MacWin became Lampwin in 1.5.0: the Start menu shortcut of an older version goes. The
+; install folder, the settings and the scheduled task keep the name MacWin.
+Type: files; Name: "{autoprograms}\MacWin.lnk"
 
 [UninstallDelete]
 Type: files; Name: "{app}\*.old"

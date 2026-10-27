@@ -450,33 +450,45 @@ void Updater::ThreadMain() {
     }
 }
 
+std::wstring CheckOutcome(bool fetched, unsigned long http, bool parsed, bool newer, bool manual,
+                          const std::wstring& before) {
+    if (parsed) return newer ? L"available" : L"upToDate";
+    if (http == 404) return L"upToDate";   // nothing released yet
+    // A release that can't be used (no installer or checksums in it, or files outside this
+    // project) is not "up to date": the user is told so instead of seeing the old version
+    // called current. A failed scheduled check leaves the last result shown.
+    if (!manual) return before == L"checking" ? L"idle" : before;
+    return fetched ? L"unusable" : L"failed";
+}
+
 void Updater::DoCheck(bool manual) {
     std::wstring before = Status();
-    if (before == L"downloading" || before == L"installing") return;
+    if (before == L"downloading" || before == L"installing") {
+        Log(L"update: check skipped, the update is still %ls", before.c_str());
+        return;
+    }
     SetStatus(L"checking", manual);
     std::string body;
     DWORD http = 0;
     Release rel;
     bool ok = HttpGet(kLatestReleaseUrl, kMaxApiBytes, &body, nullptr, &stop_, &http);
+    DWORD err = ok ? 0 : GetLastError();
     bool parsed = ok && ParseLatestRelease(Widen(body), &rel);
-    if (!parsed) {
-        // 404: nothing released yet (or no installer in it) - that is "up to date".
-        if (ok || http == 404) {
-            Log(L"update: no usable release (HTTP %lu)", http);
-        } else {
-            Log(L"update: check failed (HTTP %lu, error %lu)", http, GetLastError());
-            SetStatus(manual ? L"failed" : (before == L"checking" ? L"idle" : before));
-            return;
-        }
-    }
-    AcquireSRWLockExclusive(&lock_);
-    lastCheck_ = NowIso(&lastCheckFiletime_);
     bool newer = parsed && CompareVersions(rel.version, MACWIN_VERSION_W) > 0;
-    if (newer) available_ = rel;
-    else available_ = Release();
-    ReleaseSRWLockExclusive(&lock_);
-    Log(L"update: latest %ls, this is %ls", parsed ? rel.version.c_str() : L"-", MACWIN_VERSION_W);
-    SetStatus(newer ? L"available" : L"upToDate");
+    std::wstring status = CheckOutcome(ok, http, parsed, newer, manual, before);
+    if (!parsed) {
+        if (ok) Log(L"update: the latest release has no installer and checksums from this project (HTTP %lu)", http);
+        else if (http == 404) Log(L"update: nothing released yet");
+        else Log(L"update: check failed (HTTP %lu, error %lu)", http, err);
+    }
+    if (status == L"available" || status == L"upToDate") {
+        AcquireSRWLockExclusive(&lock_);
+        lastCheck_ = NowIso(&lastCheckFiletime_);
+        available_ = newer ? rel : Release();
+        ReleaseSRWLockExclusive(&lock_);
+        Log(L"update: latest %ls, this is %ls", parsed ? rel.version.c_str() : L"-", MACWIN_VERSION_W);
+    }
+    SetStatus(status);
 }
 
 void Updater::DoDownload() {

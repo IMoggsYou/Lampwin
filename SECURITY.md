@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Only the latest release of MacWin receives security fixes. Please update to the latest
+Only the latest release of Lampwin receives security fixes. Please update to the latest
 release (see [Releases](https://github.com/IMoggsYou/Lampwin/releases)) before reporting,
 and say in the report which version you tested.
 
@@ -29,7 +29,7 @@ release is out.
 
 ## Scope
 
-MacWin runs code inside other programs and downloads updates, so these parts matter
+Lampwin runs code inside other programs and downloads updates, so these parts matter
 most:
 
 - **The hook DLL** (`MacWinHook64.dll` / `MacWinHook32.dll`) is injected into other
@@ -46,10 +46,10 @@ most:
 Out of scope:
 
 - Vulnerabilities in other programs, in Windows, or in third-party libraries, unless
-  MacWin makes them worse. Report those to the project concerned.
+  Lampwin makes them worse. Report those to the project concerned.
 - Attacks that already need administrator rights or full control of the user's
   account or machine.
 - Antivirus or SmartScreen warnings (injecting into other processes looks like
   malware to some scanners). Open a normal issue for false positives.
-- Crashes of MacWin or of another program that cannot be used to attack anything.
+- Crashes of Lampwin or of another program that cannot be used to attack anything.
   Report those as normal bugs.

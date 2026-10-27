@@ -79,6 +79,8 @@ public sealed class WidgetPreview : FrameworkElement
                 if (Kind == "clock") Clock(dc, p);
                 else if (Kind == "calendar") Calendar(dc, p);
                 else if (Kind == "system") Gauges(dc, p);
+                else if (Kind == "countdown") Countdown(dc, p);
+                else if (Kind == "nowPlaying") NowPlaying(dc, p);
                 else Notes(dc, p);
                 break;
         }
@@ -182,6 +184,45 @@ public sealed class WidgetPreview : FrameworkElement
         for (int i = 0; i < widths.Length; i++) dc.DrawRoundedRectangle(line, null, new Rect(12, 53 + i * 10, widths[i], 5), 2.5, 2.5);
     }
 
+    private void Countdown(DrawingContext dc, Palette p)
+    {
+        dc.DrawRoundedRectangle(new SolidColorBrush(Hex(0xFF9F0A)), null, new Rect(12, 12, 17, 17), 4.5, 4.5);
+        var white = new SolidColorBrush(System.Windows.Media.Colors.White);
+        dc.DrawLine(RoundPen(System.Windows.Media.Colors.White, 1.3), new Point(16.3, 17.8), new Point(24.7, 17.8));
+        for (int i = 0; i < 3; i++) dc.DrawEllipse(white, null, new Point(17 + i * 3.5, 21.3), 0.9, 0.9);
+        dc.DrawEllipse(white, null, new Point(17, 24.4), 0.9, 0.9);
+        dc.DrawEllipse(null, new Pen(white, 0.9), new Point(24, 24.4), 1.9, 1.9);
+        dc.DrawRoundedRectangle(new SolidColorBrush(p.Text), null, new Rect(12, 38, 46, 7), 3.5, 3.5);
+        Text(dc, "12", 31, FontWeights.Light, p.Text, new Point(10, 45), VisualTreeHelper.GetDpi(this).PixelsPerDip,
+             display: true);
+        var line = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
+        dc.DrawRoundedRectangle(line, null, new Rect(12, 86, 44, 5), 2.5, 2.5);
+    }
+
+    private static void NowPlaying(DrawingContext dc, Palette p)
+    {
+        var pink = Hex(0xFF2D55);
+        dc.DrawRoundedRectangle(Vertical(Hex(0xFF5E7A), pink), null, new Rect(12, 12, 17, 17), 4.5, 4.5);
+        var white = new SolidColorBrush(System.Windows.Media.Colors.White);
+        var stem = RoundPen(System.Windows.Media.Colors.White, 1.1);
+        dc.DrawEllipse(white, null, new Point(17.9, 24.1), 1.9, 1.6);
+        dc.DrawEllipse(white, null, new Point(23.3, 22.9), 1.9, 1.6);
+        dc.DrawLine(stem, new Point(19.7, 23.9), new Point(19.7, 17.1));
+        dc.DrawLine(stem, new Point(25.1, 22.7), new Point(25.1, 15.9));
+        dc.DrawLine(RoundPen(System.Windows.Media.Colors.White, 1.7), new Point(19.7, 17.1), new Point(25.1, 15.9));
+        double[] bars = [0.55, 1.0, 0.4, 0.8];
+        for (int i = 0; i < bars.Length; i++)
+        {
+            double x = 74 + i * 4.2;
+            dc.DrawLine(RoundPen(pink, 2.4), new Point(x, 27), new Point(x, 27 - 13 * bars[i]));
+        }
+        dc.DrawRoundedRectangle(new SolidColorBrush(p.Text), null, new Rect(12, 56, 62, 7), 3.5, 3.5);
+        dc.DrawRoundedRectangle(new SolidColorBrush(p.Text), null, new Rect(12, 66, 38, 7), 3.5, 3.5);
+        var line = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
+        dc.DrawRoundedRectangle(line, null, new Rect(12, 79, 46, 5), 2.5, 2.5);
+        dc.DrawRoundedRectangle(line, null, new Rect(12, 88, 26, 4), 2, 2);
+    }
+
     private static void Photo(DrawingContext dc)
     {
         dc.DrawRectangle(Vertical(Hex(0x6FA8F0), Hex(0xF6C79A)), null, new Rect(0, 0, 100, 100));
@@ -191,7 +232,7 @@ public sealed class WidgetPreview : FrameworkElement
     }
 
     // Dates as the host writes them (Arabic as Egypt does: Gregorian months).
-    private static CultureInfo DateCulture()
+    internal static CultureInfo DateCulture()
     {
         string name = Loc.Code switch
         {

@@ -267,11 +267,55 @@ public partial class AppIconsPage : UserControl
     {
         var dialog = new OpenFolderDialog();
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
-        string folder = dialog.FolderName;
+        await ImportAsync(await ExpandAsync([dialog.FolderName]));
+    }
+
+    /// <summary>The icon files among `paths`, folders searched through (on a worker thread:
+    /// a big folder takes a moment).</summary>
+    private static Task<List<string>> ExpandAsync(IReadOnlyList<string> paths)
+    {
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true };
-        var files = await AppIconActions.Sta(() =>
-            Directory.EnumerateFiles(folder, "*", options).Where(IconImport.IsSupported).ToList());
-        await ImportAsync(files);
+        return AppIconActions.Sta(() => paths
+            .SelectMany(p => Directory.Exists(p) ? Directory.EnumerateFiles(p, "*", options) : [p])
+            .Where(IconImport.IsSupported)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList());
+    }
+
+    // ---- drag and drop -------------------------------------------------------------------
+    // Icon files and folders dropped anywhere on the page are added like "Choose files…";
+    // a dropped icon set is loaded.
+
+    private static string[] Dropped(DragEventArgs e) =>
+        e.Data.GetDataPresent(DataFormats.FileDrop) && e.Data.GetData(DataFormats.FileDrop) is string[] paths ? paths : [];
+
+    private static bool IsSet(string path) =>
+        string.Equals(Path.GetExtension(path), AppIconStore.SetExtension, StringComparison.OrdinalIgnoreCase);
+
+    private static bool Usable(string path) => Directory.Exists(path) || IconImport.IsSupported(path) || IsSet(path);
+
+    private void Page_DragOver(object sender, DragEventArgs e)
+    {
+        bool ok = !_busy && _model is not null && Dropped(e).Any(Usable);
+        e.Effects = ok ? DragDropEffects.Copy : DragDropEffects.None;
+        DropHint.Visibility = ok ? Visibility.Visible : Visibility.Collapsed;
+        e.Handled = true;
+    }
+
+    private void Page_DragLeave(object sender, DragEventArgs e) => DropHint.Visibility = Visibility.Collapsed;
+
+    private async void Page_Drop(object sender, DragEventArgs e)
+    {
+        DropHint.Visibility = Visibility.Collapsed;
+        var paths = Dropped(e);
+        e.Handled = true;
+        if (_busy || _model is null || paths.Length == 0) return;
+        if (paths.FirstOrDefault(IsSet) is string set)
+        {
+            await LoadSetAsync(set);
+            return;
+        }
+        await ImportAsync(await ExpandAsync(paths));
     }
 
     private Task ImportAsync(IReadOnlyList<string> files) => files.Count == 0 ? Task.CompletedTask : Work(async model =>
@@ -320,7 +364,7 @@ public partial class AppIconsPage : UserControl
         var dialog = new SaveFileDialog
         {
             Filter = SetFilter,
-            FileName = "MacWin" + AppIconStore.SetExtension,
+            FileName = Project.Name + AppIconStore.SetExtension,
             DefaultExt = AppIconStore.SetExtension,
         };
         if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
@@ -335,14 +379,18 @@ public partial class AppIconsPage : UserControl
     private async void LoadSet_Click(object sender, RoutedEventArgs e)
     {
         var dialog = new OpenFileDialog { Filter = SetFilter };
-        if (dialog.ShowDialog(Window.GetWindow(this)) != true) return;
+        if (dialog.ShowDialog(Window.GetWindow(this)) == true) await LoadSetAsync(dialog.FileName);
+    }
+
+    private async Task LoadSetAsync(string path)
+    {
         await Work(async model =>
         {
             var progress = new Progress<(int Done, int Total)>(p =>
                 SetsRow.Description = Loc.F("settings.icons.import.busy", p.Done, p.Total));
             try
             {
-                int given = await AppIconActions.LoadSetAsync(model, dialog.FileName, progress);
+                int given = await AppIconActions.LoadSetAsync(model, path, progress);
                 SetsRow.Description = Loc.F("settings.icons.sets.loaded", given);
             }
             catch (Exception ex) when (ex is InvalidDataException or System.Text.Json.JsonException or IOException
@@ -374,7 +422,7 @@ public partial class AppIconsPage : UserControl
     {
         int count = _rows.Count;
         if (count == 0) return;
-        var answer = MessageBox.Show(Window.GetWindow(this), Loc.F("settings.icons.removeAll.confirm", count), "MacWin",
+        var answer = MessageBox.Show(Window.GetWindow(this), Loc.F("settings.icons.removeAll.confirm", count), Project.Name,
                                      MessageBoxButton.YesNo, MessageBoxImage.Warning, MessageBoxResult.No,
                                      Loc.IsRightToLeft ? MessageBoxOptions.RtlReading | MessageBoxOptions.RightAlign
                                                        : MessageBoxOptions.None);

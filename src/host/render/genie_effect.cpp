@@ -179,6 +179,24 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
     if (w <= 0 || h <= 0) return false;
     Geometry wGeom = {(float)r.left, (float)r.top, (float)w, (float)h};
 
+    if (style == kGenieZoom) {
+        // The window at ~8 % of its size, its own shape, centred on the point.
+        out->style = style;
+        out->win = wGeom;
+        const float cx = wGeom.x + out->impactU * w, cy = wGeom.y + out->impactV * h;
+        const float ew = w * kZoomEndScale, eh = h * kZoomEndScale;
+        out->icon = {cx - ew * 0.5f, cy - eh * 0.5f, ew, eh};
+        // Room for the opening's overshoot around the window.
+        const int pad = (int)(fmaxf((float)w, (float)h) * (kZoomOvershoot + 0.02f));
+        int left = (int)fminf(wGeom.x - pad, out->icon.x), top = (int)fminf(wGeom.y - pad, out->icon.y);
+        int right = (int)ceilf(fmaxf(wGeom.x + w + pad, out->icon.x + ew));
+        int bottom = (int)ceilf(fmaxf(wGeom.y + h + pad, out->icon.y + eh));
+        PadForShadow(*out, left, top, right, bottom);
+        ClampGenieCanvas(left, top, right, bottom, r, (int)cx, GetGenieMonitorUnion(r, hMon));
+        SetCanvas(out, left, top, right, bottom);
+        return true;
+    }
+
     if (IsShatterStyle(style)) {
         // No dock: the pieces fly up to ~0.6 of the window's diagonal away from it.
         const bool fragments = style == kGenieFragments;
@@ -241,12 +259,18 @@ bool ComputeGenieParams(const RECT& r, HMONITOR hMon, const DockTarget& dock, in
         // half), kept outside the window's own span so the row map stays monotonic.
         if (dockX < mon.left) dockX = mon.left;
         if (dockX > mon.right) dockX = mon.right;
-        // Always the screen edge on the taskbar's side, as in the mod, below the icon when
-        // its button is known: the funnel pours away under the taskbar. (Ending in the
-        // middle of the icon instead, only when the button was found, made the style look
-        // like two different animations.)
+        // The taskbar's edge facing the screen, below the icon when its button is known:
+        // the window pours into the taskbar and comes out of it. (The mod's screen edge
+        // showed the neck running on under the taskbar whenever the ghost window was above
+        // it, as on an empty desktop. Ending in the middle of the icon, only when the
+        // button was found, made the style look like two different animations.) An
+        // auto-hidden taskbar's edge is the screen's.
         float dockY = (float)mon.bottom;
-        if (haveTray && (tr.top + tr.bottom) < (mon.top + mon.bottom)) dockY = (float)mon.top;
+        if (haveTray) {
+            const bool trayAtTop = (tr.top + tr.bottom) < (mon.top + mon.bottom);
+            dockY = trayAtTop ? (float)(tr.bottom > mon.top ? tr.bottom : mon.top)
+                              : (float)(tr.top < mon.bottom ? tr.top : mon.bottom);
+        }
         const float bottomF = (float)(r.top + h);
         const bool above = dockY < ((float)r.top + bottomF) * 0.5f;
         if (above) {
@@ -297,6 +321,12 @@ float GenieEase(const GenieParams& g, float raw) {
     if (raw < 0.0f) raw = 0.0f;
     if (raw > 1.0f) raw = 1.0f;
     if (g.style == kGenieClassic) return raw;
+    if (g.style == kGenieZoom && !g.closing) {
+        // Opening (played from t = 1 to 0): out fast, a touch past the window's size (t < 0
+        // grows it by about kZoomOvershoot), then settling - easeOutBack.
+        const float c = 0.75f, x = raw - 1.0f;
+        return 1.0f + (c + 1.0f) * x * x * x + c * x * x;
+    }
     if (IsShatterStyle(g.style)) {
         // Closing eases every shard on its own (ShatterVS). Opening plays it backwards
         // (the renderer runs t from 1 to 0), eased out so the pieces slow down as they
@@ -310,6 +340,7 @@ float GenieFade(const GenieParams& g, float t) {
     switch (g.style) {
         case kGenieClassic: return 1.0f - Smoothstep(0.8f, 1.0f, t);
         case kGenieScale: return 1.0f - Smoothstep(0.6f, 1.0f, t);
+        case kGenieZoom: return 1.0f - Smoothstep(0.65f, 1.0f, t);
         case kGenieShatter:
         case kGenieFragments: return 1.0f - Smoothstep(0.96f, 1.0f, t);   // the pieces fade themselves
         default: return 1.0f - Smoothstep(0.92f, 1.0f, t);
@@ -319,7 +350,7 @@ float GenieFade(const GenieParams& g, float t) {
 void GenieVertex(const GenieParams& g, float tx, float ty, float t, float* outX, float* outY) {
     if (g.style == kGenieClassic) {
         ClassicVertex(tx, ty, t, g.win, g.icon, outX, outY);
-    } else if (g.style == kGenieScale) {
+    } else if (g.style == kGenieScale || g.style == kGenieZoom) {
         ScaleVertex(tx, ty, t, g.win, g.icon, outX, outY);
     } else {
         LampVertexMacOS(tx, ty, t, g.win, g.icon, outX, outY);

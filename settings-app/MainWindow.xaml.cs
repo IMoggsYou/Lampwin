@@ -36,6 +36,8 @@ public sealed class NavItem
 public partial class MainWindow : Window
 {
     private readonly SettingsStore _store = new();
+    /// <summary>For the pages that work on the file itself (General → Your settings).</summary>
+    internal SettingsStore Store => _store;
     private readonly List<NavItem> _items;
     private readonly Dictionary<NavItem, UserControl> _pages = new();
     private readonly ICollectionView _view;
@@ -282,6 +284,7 @@ public partial class MainWindow : Window
     // macOS-like appearance: a quick fade with a slight zoom.
     private void PlayOpenAnimation()
     {
+        if (!Motion.On) return;
         var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
         Root.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(200)));
         var zoom = new DoubleAnimation(0.965, 1, TimeSpan.FromMilliseconds(320)) { EasingFunction = ease };
@@ -302,6 +305,7 @@ public partial class MainWindow : Window
         Scroller.ScrollToTop();
 
         // Page transition: fade in while sliding up a few pixels.
+        if (!Motion.On) return;
         var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
         PageHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
         PageShift.BeginAnimation(TranslateTransform.YProperty,

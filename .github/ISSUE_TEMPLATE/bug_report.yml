@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in MacWin does not work as it should
+description: Something in Lampwin does not work as it should
 title: "[Bug]: "
 labels: ["bug"]
 body:
@@ -16,13 +16,13 @@ body:
       options:
         - label: I searched the existing issues and this has not been reported yet.
           required: true
-        - label: I am using the latest MacWin release.
+        - label: I am using the latest Lampwin release.
           required: false
   - type: input
     id: macwin_version
     attributes:
-      label: MacWin version
-      description: Shown on the About page of the MacWin settings.
+      label: Lampwin version
+      description: Shown on the About page of the Lampwin settings.
       placeholder: "1.0.0"
     validations:
       required: true
@@ -50,8 +50,8 @@ body:
   - type: dropdown
     id: language
     attributes:
-      label: MacWin language
-      description: The language MacWin shows its settings and messages in.
+      label: Lampwin language
+      description: The language Lampwin shows its settings and messages in.
       options:
         - English (en)
         - Polish (pl)

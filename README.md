@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="docs/media/icon.png" width="128" height="128" alt="MacWin icon">
+<img src="docs/media/icon.png" width="128" height="128" alt="Lampwin icon">
 
-# MacWin
+# Lampwin
 
 **The macOS look for Windows 11: the genie effect, squircle corners, desktop widgets and app icons.**
 
@@ -17,13 +17,13 @@ little quieter about your data. Light, free and open source.
 [![Languages](https://img.shields.io/badge/languages-11-AF52DE?style=for-the-badge)](#languages)
 [![License](https://img.shields.io/badge/license-GPL--3.0-orange?style=for-the-badge)](LICENSE)
 
-### [⬇&nbsp; Download MacWin for Windows 11](https://github.com/IMoggsYou/Lampwin/releases/latest)
+### [⬇&nbsp; Download Lampwin for Windows 11](https://github.com/IMoggsYou/Lampwin/releases/latest)
 
 <img src="docs/media/demo.gif" width="860" alt="A window falls into its taskbar icon with the genie effect and flies back out">
 
 **English** · [Polski](README.pl.md)
 
-<sub>This repository was called MacWin until version 1.4.0; old links lead here.</sub>
+<sub>Lampwin was called MacWin until version 1.4.0; old links lead here.</sub>
 
 </div>
 
@@ -35,18 +35,22 @@ little quieter about your data. Light, free and open source.
   on restore, drawn on the GPU with a smooth "lamp" curve (or the classic funnel), the
   window's shadow travelling along. Prefer something calmer? The **scale** effect shrinks
   the window into its icon in one soft glide.
-- 🪟 **Opening and closing** with the genie, from and into the program's taskbar icon.
+- 🪟 **Opening and closing** with the genie, from and into the program's taskbar icon, or
+  with **Zoom** (out of the place you clicked), **Shatter** or **Fragments** (the window
+  breaks into glass pieces that tumble away in 3D).
 - ↩️ **Reversible mid-flight** — click again while it is still moving and the genie turns
-  around from exactly where it is. Win+D animates every window at once.
+  around from exactly where it is. Win+D animates every window at once. With Windows'
+  *Animation effects* turned off, Lampwin stays still too.
 - ⬛ **Squircle corners** — the macOS shape (100% smoothing) or the Windows 11 rounding,
   for the animation, the settings window and apps that draw their own title bar
   (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a matching shadow.
-- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note and a
-  photo, in three sizes, light or dark. They stay on the desktop under your windows and
-  snap to a grid like on macOS; drag them anywhere, right-click for size and look.
+- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note, a
+  photo, a countdown to a day of your choice and what's playing now, light or dark. They
+  stay on the desktop under your windows and snap to a grid like on macOS, down to the
+  taskbar; drag them anywhere, right-click for size and look.
 - 🎨 **App icons** — give any program an icon of your own: on its windows, in Alt+Tab, on
   the taskbar and in the Start menu. Drop in macOS `.icns`, PNG, JPEG, WebP, HEIC, ICO or
-  take one from another program; MacWin trims it to the size of Windows icons and finds
+  take one from another program; Lampwin trims it to the size of Windows icons and finds
   the program from the file name. A set of macOS-style icons comes included. Save your
   setup as an **icon set**, switch back to the **Windows icons** in one click, or remove
   everything.
@@ -55,7 +59,7 @@ little quieter about your data. Light, free and open source.
   is backed up first and **Restore** undoes it all; Windows Update, Defender, SmartScreen
   and the firewall are never touched.
 - ⚙️ **A settings window like macOS System Settings** — live preview, search, light and
-  dark mode, per-app exclusions.
+  dark mode, per-app exclusions, and your settings in a file to take to another PC.
 - 🌍 **11 languages**, picked automatically from Windows (see [Languages](#languages)).
 - 🔄 **Automatic updates** from GitHub, verified with SHA-256 — installed in the background,
   or offered with a short "what's new" when you open the settings.
@@ -88,11 +92,16 @@ little quieter about your data. Light, free and open source.
    [latest release](https://github.com/IMoggsYou/Lampwin/releases/latest).
 2. Run it. If the .NET 10 Desktop Runtime (needed by the settings window) is missing, the
    installer downloads it from Microsoft for you.
-3. Done — minimize any window. MacWin starts with Windows; its icon is in the
+3. Done — minimize any window. Lampwin starts with Windows; its icon is in the
    notification area (click it for the settings).
 
+> [!IMPORTANT]
+> **Have MacWin 1.3.1 or older?** Those versions can't update themselves since the project
+> was renamed. Install the latest release once by hand (your settings stay); from then on
+> it updates itself again.
+
 > [!NOTE]
-> MacWin is not code-signed yet, so Windows SmartScreen may say *"Windows protected your
+> Lampwin is not code-signed yet, so Windows SmartScreen may say *"Windows protected your
 > PC"*. Click **More info → Run anyway**. Every release is built by GitHub Actions from
 > this repository, with a published SHA-256 (`SHA256SUMS.txt`) and a
 > [build provenance attestation](https://github.com/IMoggsYou/Lampwin/attestations).
@@ -103,17 +112,17 @@ little quieter about your data. Light, free and open source.
 | --- | --- |
 | Windows | Windows 11 (22H2 or newer recommended), 64-bit **x64** |
 | Graphics | Any: AMD, Intel, NVIDIA, or none (Direct3D 11 / WARP) |
-| Disk | ~20 MB, most of it the included icons (+ the .NET 10 Desktop Runtime for the settings window) |
+| Disk | ~7 MB (+ the .NET 10 Desktop Runtime for the settings window) |
 | Not supported yet | Windows on ARM (Snapdragon PCs) |
 
 ### Uninstall
 
-**Settings → Apps → Installed apps → MacWin → Uninstall.** It asks whether to remove your
+**Settings → Apps → Installed apps → Lampwin → Uninstall.** It asks whether to remove your
 settings too.
 
 ## Languages
 
-MacWin speaks your language: it follows the Windows display language and falls back to
+Lampwin speaks your language: it follows the Windows display language and falls back to
 English. You can also pick one in **Settings → General → Language**.
 
 | | | | |
@@ -149,12 +158,12 @@ and not at all while the screen is off, the PC is locked or a full-screen game i
 
 ## Privacy
 
-MacWin collects nothing. It goes online for two things only:
+Lampwin collects nothing. It goes online for two things only:
 
 - **Updates:** once a day it asks the GitHub API whether a new release exists, and
   downloads it from GitHub if you choose to update. You can turn it off in
   **Settings → General → Updates**.
-- **Weather**, only while a Weather widget is on the desktop: every 30 minutes MacWin asks
+- **Weather**, only while a Weather widget is on the desktop: every 30 minutes Lampwin asks
   [Open-Meteo](https://open-meteo.com) for the forecast. With **Use my location** (on by
   default) the place comes from Windows location services, and
   [OpenStreetMap](https://nominatim.openstreetmap.org) names the town, asked only when the
@@ -163,29 +172,31 @@ MacWin collects nothing. It goes online for two things only:
   and there is no account or key. Windows' own location switch
   (**Settings → Privacy & security → Location**) turns the location part off.
 
-App icons and the Privacy page work entirely on your PC.
+App icons, the Privacy page and the other widgets work entirely on your PC. The Now playing
+widget shows what Windows' own media controls show (the song, the artist, the app); it reads
+that on your PC, only while the widget is on the desktop.
 
 ## FAQ
 
 <details>
 <summary><b>Is it safe for games with anti-cheat?</b></summary>
 
-MacWin never loads into games installed in the Steam, Epic, Riot, Xbox, EA, Ubisoft or
+Lampwin never loads into games installed in the Steam, Epic, Riot, Xbox, EA, Ubisoft or
 GOG game folders, into games shipping EasyAntiCheat or BattlEye, or into a list of known
 anti-cheat games. You can add any program or folder under **Settings → Exclusions →
-Never load MacWin**.
+Never load Lampwin**.
 </details>
 
 <details>
 <summary><b>Something looks wrong. How do I turn it off right now?</b></summary>
 
-Press **Ctrl+Alt+Shift+F12**. MacWin quits and every window behaves normally again. Then
+Press **Ctrl+Alt+Shift+F12**. Lampwin quits and every window behaves normally again. Then
 please [report the problem](https://github.com/IMoggsYou/Lampwin/issues/new/choose) with the
 log (`%LOCALAPPDATA%\MacWin\host.log`).
 </details>
 
 <details>
-<summary><b>Why does MacWin ask for administrator rights during installation?</b></summary>
+<summary><b>Why does Lampwin ask for administrator rights during installation?</b></summary>
 
 It installs into Program Files and registers a scheduled task, so it can start with
 Windows and animate programs that run as administrator — without a UAC prompt at every
@@ -195,7 +206,7 @@ sign-in.
 <details>
 <summary><b>Why do File Explorer and Notepad keep the Windows 11 corners?</b></summary>
 
-Windows with the system title bar break when their shape is changed. MacWin gives the
+Windows with the system title bar break when their shape is changed. Lampwin gives the
 squircle to the genie, its own window and apps that draw their own title bar.
 </details>
 
@@ -240,7 +251,7 @@ Bug reports, ideas, translations and code are welcome. Please read
 [CONTRIBUTING.md](CONTRIBUTING.md) (and [AGENTS.md](AGENTS.md) if you work with an AI
 coding assistant). Security issues: [SECURITY.md](SECURITY.md).
 
-If you like MacWin, a ⭐ helps others find it.
+If you like Lampwin, a ⭐ helps others find it.
 
 ## Credits
 
@@ -255,9 +266,9 @@ Full notices: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Created by **[IMoggsYou](https://github.com/IMoggsYou)**. Copyright © 2026 IMoggsYou.
 
-MacWin is free software under the [GNU General Public License v3.0 or later](LICENSE),
+Lampwin is free software under the [GNU General Public License v3.0 or later](LICENSE),
 with the additional terms in [NOTICE](NOTICE): keep the author attribution, mark modified
 versions and give them another name and icon ([TRADEMARKS.md](TRADEMARKS.md)).
 
 macOS is a trademark of Apple Inc.; Windows is a trademark of Microsoft Corporation.
-MacWin is not affiliated with either.
+Lampwin is not affiliated with either.

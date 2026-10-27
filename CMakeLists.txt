@@ -78,7 +78,7 @@ target_compile_options(MacWinHook PRIVATE -fno-exceptions -fno-rtti)
 # --kill-at: undecorated stdcall exports on x86 (MacWinCbtProc, not _MacWinCbtProc@12).
 target_link_options(MacWinHook PRIVATE -Wl,--kill-at)
 target_link_libraries(MacWinHook PRIVATE minhook dwmapi gdi32 user32)
-macwin_version_resource(MacWinHook "MacWin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
+macwin_version_resource(MacWinHook "Lampwin hook (${MACWIN_BITS}-bit)" MacWinHook${MACWIN_BITS}.dll VFT_DLL)
 
 # --- Host (64-bit only: owns the renderer, the tray icon and the hooks) ---
 if(MACWIN_BITS EQUAL 64)
@@ -112,6 +112,7 @@ if(MACWIN_BITS EQUAL 64)
     src/host/render/genie_effect.cpp
     src/host/widgets/canvas.cpp
     src/host/widgets/location.cpp
+    src/host/widgets/media.cpp
     src/host/widgets/system_stats.cpp
     src/host/widgets/weather.cpp
     src/host/widgets/widget_config.cpp
@@ -125,7 +126,7 @@ if(MACWIN_BITS EQUAL 64)
                         shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32
                         d2d1 dwrite windowscodecs runtimeobject)
   add_dependencies(MacWin MacWinHook)
-  macwin_version_resource(MacWin "MacWin - macOS-style window animations" MacWin.exe VFT_APP)
+  macwin_version_resource(MacWin "Lampwin - macOS-style window animations" MacWin.exe VFT_APP)
 
   # Settings app (C# / WPF, .NET 10), published next to MacWin.exe.
   find_program(MACWIN_DOTNET dotnet)
@@ -159,7 +160,7 @@ if(MACWIN_BITS EQUAL 64)
   add_executable(MacWinTestWindow WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow PRIVATE -municode)
   target_link_libraries(MacWinTestWindow PRIVATE user32 gdi32 dwmapi)
-  macwin_version_resource(MacWinTestWindow "MacWin test window" MacWinTestWindow.exe VFT_APP)
+  macwin_version_resource(MacWinTestWindow "Lampwin test window" MacWinTestWindow.exe VFT_APP)
 else()
   # --- 32-bit side: MacWinHook32.dll (above) + the helper that gets it into 32-bit
   # programs. Rendering always stays in the 64-bit MacWin.exe.
@@ -168,19 +169,20 @@ else()
   target_link_options(MacWinHelper32 PRIVATE -municode)
   target_link_libraries(MacWinHelper32 PRIVATE user32 advapi32)
   add_dependencies(MacWinHelper32 MacWinHook)
-  macwin_version_resource(MacWinHelper32 "MacWin helper for 32-bit programs" MacWinHelper32.exe VFT_APP)
+  macwin_version_resource(MacWinHelper32 "Lampwin helper for 32-bit programs" MacWinHelper32.exe VFT_APP)
 
   add_executable(MacWinTestWindow32 WIN32 tools/test_window.cpp tools/corner_test.cpp)
   target_link_options(MacWinTestWindow32 PRIVATE -municode)
   target_link_libraries(MacWinTestWindow32 PRIVATE user32 gdi32 dwmapi)
-  macwin_version_resource(MacWinTestWindow32 "MacWin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
+  macwin_version_resource(MacWinTestWindow32 "Lampwin test window (32-bit)" MacWinTestWindow32.exe VFT_APP)
 endif()
 
 # --- Tests: ctest --test-dir build/x64 ---
 if(MACWIN_BITS EQUAL 64)
   enable_testing()
   add_executable(MacWinTests tests/unit_tests.cpp src/host/json.cpp src/host/updater.cpp
-                 src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/weather.cpp
+                 src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/media.cpp
+                 src/host/widgets/weather.cpp
                  src/host/widgets/widget_config.cpp src/host/widgets/widget_layout.cpp
                  src/host/render/genie_effect.cpp)
   target_include_directories(MacWinTests PRIVATE src ${CMAKE_BINARY_DIR}/gen)
@@ -189,6 +191,31 @@ if(MACWIN_BITS EQUAL 64)
   set_target_properties(MacWinTests PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
   add_test(NAME unit COMMAND MacWinTests)
   add_test(NAME i18n COMMAND ${CMAKE_COMMAND} -P ${CMAKE_SOURCE_DIR}/tools/check_i18n.cmake)
+
+  # The renderer compiles genie.hlsl only when MacWin starts (Renderer::CompileShaders):
+  # a mistake there would turn every animation off. fxc from the Windows SDK compiles
+  # each entry point here first. Keep this list the same as CompileShaders'.
+  file(GLOB MACWIN_SDK_BINS LIST_DIRECTORIES true "C:/Program Files (x86)/Windows Kits/10/bin/10.*/x64")
+  list(SORT MACWIN_SDK_BINS ORDER DESCENDING)
+  find_program(MACWIN_FXC fxc HINTS ${MACWIN_SDK_BINS})
+  set(MACWIN_SHADERS
+      vs_4_0:GenieVS vs_4_0:ClassicVS vs_4_0:ScaleVS vs_4_0:ShatterVS vs_4_0:FullscreenVS
+      ps_4_0:GeniePS ps_4_0:ShatterPS ps_4_0:ShadowPS ps_4_0:PrepPS)
+  if(MACWIN_FXC)
+    file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/shaders)
+    foreach(shader IN LISTS MACWIN_SHADERS)
+      string(REPLACE ":" ";" parts ${shader})
+      list(GET parts 0 target)
+      list(GET parts 1 entry)
+      add_test(NAME shader.${entry}
+               COMMAND ${MACWIN_FXC} /nologo /T ${target} /E ${entry} /O3
+                       /Fo ${CMAKE_BINARY_DIR}/shaders/${entry}.cso ${CMAKE_SOURCE_DIR}/src/host/render/genie.hlsl)
+    endforeach()
+  elseif(DEFINED ENV{GITHUB_ACTIONS})
+    message(FATAL_ERROR "fxc.exe (Windows SDK) not found: CI must compile the shaders")
+  else()
+    message(STATUS "fxc.exe not found: the shader tests are skipped (install the Windows SDK to run them)")
+  endif()
 
   # The settings app's logic that needs no window (C#, tests/settings).
   if(MACWIN_DOTNET)

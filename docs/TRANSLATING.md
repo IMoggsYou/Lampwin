@@ -1,6 +1,6 @@
-# Translating MacWin
+# Translating Lampwin
 
-MacWin speaks English, Polish, Simplified Chinese, Hindi, Spanish, French, Arabic,
+Lampwin speaks English, Polish, Simplified Chinese, Hindi, Spanish, French, Arabic,
 Bengali, Russian, Brazilian Portuguese and Japanese. It picks the Windows display
 language (or English for any other one); users can also choose a language in
 **Settings → General → Language**.

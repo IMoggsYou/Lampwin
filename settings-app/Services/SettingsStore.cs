@@ -94,7 +94,9 @@ public sealed class SettingsStore
             m.UpdateAutoInstall = Bool(updates, "autoInstall", true);
             m.UpdatePrompt = Bool(updates, "prompt", true);
             var genie = _root["genie"] as JsonObject ?? new JsonObject();
-            m.Style = Math.Max(0, System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "modern")));
+            // Classic is the default (the same as the host's settings_store.h).
+            int style = System.Array.IndexOf(SettingsModel.StyleNames, Str(genie, "style", "classic"));
+            m.Style = style >= 0 ? style : 1;
             m.DurationMs = Num(genie, "durationMs", 450);
             m.Restore = Bool(genie, "restoreAnimation", true);
             m.OpenEffect = Effect(genie, "openAnimation", 1);
@@ -102,6 +104,7 @@ public sealed class SettingsStore
             m.OpenDurationMs = Num(genie, "openDurationMs", 450);
             m.CloseDurationMs = Num(genie, "closeDurationMs", 400);
             m.MultiMonitor = Bool(genie, "multiMonitor", false);
+            m.FollowSystemMotion = Bool(genie, "followSystemMotion", true);
             m.UnhideTaskbar = Bool(genie, "unhideTaskbar", true);
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
@@ -169,6 +172,7 @@ public sealed class SettingsStore
         genie["openDurationMs"] = (int)m.OpenDurationMs;
         genie["closeDurationMs"] = (int)m.CloseDurationMs;
         genie["multiMonitor"] = m.MultiMonitor;
+        genie["followSystemMotion"] = m.FollowSystemMotion;
         genie["unhideTaskbar"] = m.UnhideTaskbar;
         genie["unhideDurationMs"] = (int)m.UnhideDurationMs;
         genie["meshQuality"] = (int)m.MeshQuality;
@@ -199,6 +203,46 @@ public sealed class SettingsStore
             // The file is briefly locked (MacWin writing it): try again shortly.
             _saveTimer.Start();
         }
+    }
+
+    /// <summary>The settings as a file to keep (General → Your settings).</summary>
+    public string Export()
+    {
+        Flush();
+        return SettingsTransfer.Export(ReadRoot(), Project.Version);
+    }
+
+    /// <summary>Puts in an exported file's settings; false when `text` isn't one.</summary>
+    public bool Import(string text)
+    {
+        Flush();
+        var settings = SettingsTransfer.Import(ReadRoot(), text);
+        if (settings is null) return false;
+        Replace(settings);
+        return true;
+    }
+
+    public void RestoreDefaults()
+    {
+        Flush();
+        Replace(SettingsTransfer.Defaults(ReadRoot()));
+    }
+
+    /// <summary>Where Import and RestoreDefaults keep the settings they replace.</summary>
+    public static string BackupPath => FilePath + ".bak";
+
+    // Writes the whole file (the one before kept in BackupPath), shows it and tells MacWin.
+    // Throws IOException / UnauthorizedAccessException for the page to show.
+    private void Replace(JsonObject root)
+    {
+        if (File.Exists(FilePath)) File.Copy(FilePath, BackupPath, overwrite: true);
+        string tmp = FilePath + ".tmp";
+        File.WriteAllText(tmp, root.ToJsonString(WriteOptions) + "\n");
+        _lastWrite = DateTime.UtcNow;
+        File.Move(tmp, FilePath, overwrite: true);
+        _lastWrite = DateTime.UtcNow;
+        Load();
+        HostControl.NotifyReload();
     }
 
     /// <summary>The "language" setting, read before any window exists.</summary>
@@ -247,6 +291,7 @@ public sealed class SettingsStore
             entry.Theme = Str(o, "theme", "auto");
             entry.Text = Str(o, "text", "");
             entry.Path = Str(o, "path", "");
+            entry.Date = Str(o, "date", "");
         }
     }
 
@@ -263,7 +308,10 @@ public sealed class SettingsStore
             widgets.Remove("place");
         // Positions are MacWin's (it places widgets and saves where they are dragged): each
         // widget starts from the file as it is now, so they are never overwritten.
-        var onDisk = (ReadRoot()["widgets"] as JsonObject)?["items"] as JsonArray;
+        var diskWidgets = ReadRoot()["widgets"] as JsonObject;
+        var onDisk = diskWidgets?["items"] as JsonArray;
+        // The rows on disk are counted the way MacWin's "grid" there says (whole or half cells).
+        if (diskWidgets?["grid"] is JsonNode grid) widgets["grid"] = grid.DeepClone();
         var known = widgets["items"] as JsonArray;
         var items = new JsonArray();
         foreach (var w in m.Widgets)
@@ -275,8 +323,9 @@ public sealed class SettingsStore
             item["type"] = w.Kind;
             item["size"] = w.Size;
             item["theme"] = w.Theme;
-            if (w.IsNotes) item["text"] = w.Text;
+            if (w.IsNotes || w.IsCountdown) item["text"] = w.Text;
             if (w.IsPhoto) item["path"] = w.Path;
+            if (w.IsCountdown) item["date"] = w.Date;
             items.Add(item);
         }
         widgets["items"] = items;

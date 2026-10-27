@@ -1,0 +1,19 @@
+# Template for the winget package (tools/winget-manifest.ps1 fills in the version, the
+# download and its SHA-256). The installer is Inno Setup: winget passes its silent switches.
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+PackageIdentifier: IMoggsYou.Lampwin
+PackageVersion: "{{Version}}"
+MinimumOSVersion: 10.0.22000.0
+InstallerType: inno
+Scope: machine
+ElevationRequirement: elevatesSelf
+UpgradeBehavior: install
+# The installer's AppId: the same for every version, so winget sees upgrades.
+ProductCode: "{6F0B3E9A-2C47-4E7B-9C1D-5A8E2B7F4D10}_is1"
+ReleaseDate: "{{ReleaseDate}}"
+Installers:
+  - Architecture: x64
+    InstallerUrl: "{{InstallerUrl}}"
+    InstallerSha256: "{{InstallerSha256}}"
+ManifestType: installer
+ManifestVersion: 1.6.0

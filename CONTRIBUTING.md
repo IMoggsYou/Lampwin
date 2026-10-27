@@ -1,4 +1,4 @@
-# Contributing to MacWin
+# Contributing to Lampwin
 
 Thank you for helping. Bug reports, translation fixes, ideas and code are all welcome.
 Please read the [Code of Conduct](CODE_OF_CONDUCT.md) first.
@@ -15,7 +15,7 @@ on the direction and you do not spend time on something that cannot be merged.
 
 ## Building
 
-MacWin is built on Windows 11 x64. You need:
+Lampwin is built on Windows 11 x64. You need:
 
 | Tool                | Notes                                                                 |
 | ------------------- | --------------------------------------------------------------------- |
@@ -60,7 +60,7 @@ before a bigger change.
 - **Tests.** `ctest --test-dir build/x64` must pass. Add or update tests with the change
   when you can.
 - **Real-world check.** Say in the pull request which Windows 11 build and which GPU
-  (AMD, Intel or NVIDIA) you tested on. MacWin draws with the GPU, so this matters.
+  (AMD, Intel or NVIDIA) you tested on. Lampwin draws with the GPU, so this matters.
 - **Small and focused.** One logical change per pull request. Follow the style of the code
   around you and the [`.editorconfig`](.editorconfig).
 - **Commit messages.** A short imperative summary, with the area first when it helps
@@ -78,13 +78,13 @@ any placeholders and any formatting markers exactly as they are in `en`.
 
 ## Licensing of contributions
 
-MacWin is licensed under the GNU General Public License, version 3 or (at your option) any
+Lampwin is licensed under the GNU General Public License, version 3 or (at your option) any
 later version (GPL-3.0-or-later), with the additional terms in [NOTICE](NOTICE). See
 [LICENSE](LICENSE).
 
 - **Inbound = outbound.** By contributing, you agree that your contribution is licensed
   under GPL-3.0-or-later with the additional terms in [NOTICE](NOTICE), the same as the
-  rest of MacWin. You keep the copyright on your contribution.
+  rest of Lampwin. You keep the copyright on your contribution.
 - **Developer Certificate of Origin.** Every commit must carry a `Signed-off-by` line, which
   states that you agree to the [DCO 1.1](https://developercertificate.org/) below. Add it
   with `git commit -s`, which uses your `user.name` and `user.email` from git:
@@ -95,10 +95,10 @@ later version (GPL-3.0-or-later), with the additional terms in [NOTICE](NOTICE).
 
   If you forgot it, fix the last commit with `git commit --amend -s --no-edit`, or add it
   to several commits with `git rebase --signoff main`.
-- **Relicensing grant.** By contributing to MacWin, you also grant IMoggsYou a perpetual,
+- **Relicensing grant.** By contributing to Lampwin, you also grant IMoggsYou a perpetual,
   irrevocable, worldwide, non-exclusive, royalty-free license to use, copy, modify,
   distribute, sublicense and **relicense** your contribution, under any license terms,
-  as part of MacWin. This lets the project change its license in the future without
+  as part of Lampwin. This lets the project change its license in the future without
   asking every contributor again. It does not take away the rights that the GPL gives
   everyone else for the version you contributed to.
 

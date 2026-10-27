@@ -131,8 +131,10 @@ bool PendingMinimize(HWND h) {
 
 int DurationMs() { return Settings()->genieDurationMs; }
 bool RestoreEnabled() { return Settings()->genieRestore != 0; }
-bool LaunchEnabled() { return Settings()->genieLaunch != 0; }
-bool CloseEnabled() { return Settings()->closeEffect != MW_EFFECT_SYSTEM; }
+// Windows' animation effects off (and MacWin asked to follow them): Windows does the rest.
+bool MotionReduced() { return Settings()->reduceMotion != 0; }
+bool LaunchEnabled() { return Settings()->genieLaunch != 0 && !MotionReduced(); }
+bool CloseEnabled() { return Settings()->closeEffect != MW_EFFECT_SYSTEM && !MotionReduced(); }
 bool UnhideEnabled() { return Settings()->genieUnhideTaskbar != 0; }
 int UnhideDurationMs() { return Settings()->genieUnhideDurationMs; }
 
@@ -229,7 +231,7 @@ void MacGenieUndoRisingHide(HWND hWnd, LONG_PTR originalExStyle, BOOL cloakHidde
 
 // Only real top-level windows of a reasonable size.
 bool MacGenieShouldAnimate(HWND hWnd) {
-    if (!hWnd) return false;
+    if (!hWnd || MotionReduced()) return false;
     LONG_PTR style = GetWindowLongPtrW(hWnd, GWL_STYLE);
     if (style & WS_CHILD) return false;
     RECT r;

@@ -31,7 +31,7 @@
             </StackPanel>
         </Border>
 
-        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="MacWin"/>
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="Lampwin"/>
         <Border Style="{StaticResource Group}">
             <c:SettingRow x:Name="StatusRow" Title="{l:Tr settings.general.status.title}">
                 <StackPanel Orientation="Horizontal">
@@ -74,6 +74,27 @@
                         <Button x:Name="CheckButton" Style="{StaticResource MacButton}"
                                 Content="{l:Tr settings.general.updates.checkNow}" Click="Check_Click"/>
                     </StackPanel>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.general.transfer.header}"/>
+        <Border Style="{StaticResource Group}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.general.transfer.title}"
+                              Description="{l:Tr settings.general.transfer.description}">
+                    <StackPanel Orientation="Horizontal">
+                        <Button Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Content="{l:Tr settings.general.transfer.export}" Click="Export_Click"/>
+                        <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.general.transfer.import}"
+                                Click="Import_Click"/>
+                    </StackPanel>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.general.reset.title}"
+                              Description="{l:Tr settings.general.reset.description}">
+                    <Button Style="{StaticResource MacButton}" Content="{l:Tr settings.general.reset.button}"
+                            Click="Reset_Click"/>
                 </c:SettingRow>
             </StackPanel>
         </Border>

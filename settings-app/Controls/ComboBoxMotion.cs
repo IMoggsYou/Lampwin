@@ -53,6 +53,7 @@ public static class ComboBoxMotion
     {
         if (box.Template?.FindName("PART_Popup", box) is not Popup popup || popup.Child is not FrameworkElement menu) return;
         Follow(box, true);
+        if (!Motion.On) return;
         // The menu grows out of its button: from slightly smaller, just above, see-through.
         menu.RenderTransformOrigin = new Point(0.5, 0);
         var scale = new ScaleTransform(0.96, 0.96);
