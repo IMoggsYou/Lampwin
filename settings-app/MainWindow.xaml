@@ -45,9 +45,22 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <DockPanel>
-                            <Border Width="22" Height="22" CornerRadius="5.5" Background="{Binding Tint}">
-                                <Path Data="{Binding Icon}" Fill="White" Stretch="Uniform" Width="12" Height="12"/>
-                            </Border>
+                            <!-- A macOS-style tile: the color, a soft sheen on its upper half and a
+                                 hairline edge, with Windows 11's own icon in white. -->
+                            <Grid Width="22" Height="22">
+                                <Border CornerRadius="5.5" Background="{Binding Tint}"/>
+                                <Border CornerRadius="5.5" BorderThickness="0.5" BorderBrush="#26000000">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#38FFFFFF" Offset="0"/>
+                                            <GradientStop Color="#00FFFFFF" Offset="0.55"/>
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
+                                           FontSize="13" Foreground="White" HorizontalAlignment="Center"
+                                           VerticalAlignment="Center" TextOptions.TextRenderingMode="Grayscale"/>
+                            </Grid>
                             <TextBlock Text="{Binding Title}" Margin="9,0,0,0" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}"/>
                         </DockPanel>

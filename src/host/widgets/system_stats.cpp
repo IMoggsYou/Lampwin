@@ -59,22 +59,25 @@ SystemStats SystemSampler::Sample() {
     return s;
 }
 
-// Every adapter that is up and isn't the loopback or a tunnel: the sum is what the PC
-// receives and sends.
+// The adapter Windows sends internet traffic through (its routing table, asked for a public
+// address: nothing is sent): Wi-Fi or Ethernet, or the VPN while one is on. Adding up every
+// adapter would count a VPN's traffic twice, and virtual switches' too.
 void SystemSampler::SampleNetwork(SystemStats* s) {
-    MIB_IF_TABLE2* table = nullptr;
-    if (GetIfTable2(&table) != NO_ERROR || !table) return;
-    ULONGLONG received = 0, sent = 0;
-    for (ULONG i = 0; i < table->NumEntries; ++i) {
-        const MIB_IF_ROW2& row = table->Table[i];
-        if (row.OperStatus != IfOperStatusUp || row.Type == IF_TYPE_SOFTWARE_LOOPBACK || row.Type == IF_TYPE_TUNNEL ||
-            !row.InterfaceAndOperStatusFlags.HardwareInterface || row.InterfaceAndOperStatusFlags.FilterInterface) {
-            continue;
-        }
-        received += row.InOctets;
-        sent += row.OutOctets;
+    sockaddr_in internet = {};
+    internet.sin_family = AF_INET;
+    internet.sin_addr.s_addr = 0x01010101;   // 1.1.1.1 (the same in any byte order), only looked up
+    DWORD index = 0;
+    MIB_IF_ROW2 row = {};
+    if (GetBestInterfaceEx((sockaddr*)&internet, &index) != NO_ERROR) return;
+    row.InterfaceIndex = index;
+    if (GetIfEntry2(&row) != NO_ERROR) return;
+    if (index != interface_) {
+        // Another adapter (Wi-Fi to Ethernet, a VPN): start counting afresh.
+        interface_ = index;
+        networkAt_ = 0;
     }
-    FreeMibTable(table);
+    s->link = row.ReceiveLinkSpeed != (ULONG64)-1 ? row.ReceiveLinkSpeed : 0;
+    const ULONGLONG received = row.InOctets, sent = row.OutOctets;
     const ULONGLONG now = GetTickCount64();
     if (networkAt_ && now > networkAt_ && received >= received_ && sent >= sent_) {
         const double seconds = (now - networkAt_) / 1000.0;

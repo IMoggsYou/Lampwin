@@ -886,6 +886,22 @@ std::wstring Speed(Ctx& c, double bytesPerSecond) {
     return Fill(c.T(megabytes ? L"host.widgets.network.mb" : L"host.widgets.network.kb"), number);
 }
 
+// The adapter's link speed: "1 Gb/s", "866 Mb/s"; empty when Windows doesn't know it.
+std::wstring LinkSpeed(Ctx& c, ULONGLONG bits) {
+    if (!bits) return std::wstring();
+    wchar_t number[32];
+    const bool giga = bits >= 1000000000ULL;
+    const double v = giga ? bits / 1e9 : bits / 1e6;
+    swprintf(number, ARRAYSIZE(number), giga && v < 10 && fmod(v, 1) > 0.05 ? L"%.1f" : L"%.0f", v);
+    wchar_t separator[8] = L".";
+    if (GetLocaleInfoEx(c.s.locale.c_str(), LOCALE_SDECIMAL, separator, ARRAYSIZE(separator)) > 1) {
+        for (wchar_t* ch = number; *ch; ++ch) {
+            if (*ch == L'.') *ch = separator[0];
+        }
+    }
+    return Fill(c.T(giga ? L"host.widgets.network.gbit" : L"host.widgets.network.mbit"), number);
+}
+
 // The last minute of a speed, as a filled line over `box`; `scale` is the top of the chart.
 void SpeedChart(Ctx& c, const float* history, float scale, D2D1_RECT_F box, const D2D1_COLOR_F& color) {
     ComPtr<ID2D1Factory> f;
@@ -942,6 +958,13 @@ void DrawNetwork(Ctx& c) {
 
     const std::wstring& title = c.T(L"host.widgets.network.title");
     c.Text(title, c.Font(13, kSemibold), {kPad, kPad - 2, c.W - kPad, kPad + 16}, p.secondary);
+    // What the connection itself can do, beside the title: today's traffic is usually far less.
+    const std::wstring link = LinkSpeed(c, st.link);
+    if (!link.empty()) {
+        TextOptions right;
+        right.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
+        c.Text(link, c.Font(11, kSemibold), {kPad, kPad - 1, c.W - kPad, kPad + 15}, p.tertiary, right);
+    }
     const float textRight = small ? c.W - kPad : c.W * 0.46f;
     const std::wstring down = Speed(c, st.down), up = Speed(c, st.up);
     const float rowH = small ? 34 : 44;

@@ -23,7 +23,8 @@ public sealed class NavItem
     public required string Id { get; init; }
     public required string TitleKey { get; init; }
     public required Brush Tint { get; init; }
-    public required Geometry Icon { get; init; }
+    /// <summary>A Segoe Fluent Icons glyph (Windows 11's own icon font): sharp at any size.</summary>
+    public required string Glyph { get; init; }
     public required Func<UserControl> Create { get; init; }
 
     public string Title => Loc.T(TitleKey);
@@ -60,52 +61,52 @@ public partial class MainWindow : Window
             new()
             {
                 Id = "animations", TitleKey = "settings.nav.animations",
-                Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Icon = GenieIcon(), Create = () => new AnimationsPage(),
+                Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Glyph = "\uE8A7", Create = () => new AnimationsPage(),
             },
             new()
             {
                 Id = "corners", TitleKey = "settings.nav.corners",
-                Tint = Gradient("#FF34C759", "#FF1F9E46"), Icon = CornersIcon(), Create = () => new CornersPage(),
+                Tint = Gradient("#FF34C759", "#FF1F9E46"), Glyph = "\uE739", Create = () => new CornersPage(),
             },
             new()
             {
                 Id = "widgets", TitleKey = "settings.nav.widgets",
-                Tint = Gradient("#FF33B5F5", "#FF0A7AFF"), Icon = WidgetsIcon(), Create = () => new WidgetsPage(),
+                Tint = Gradient("#FF33B5F5", "#FF0A7AFF"), Glyph = "\uF034", Create = () => new WidgetsPage(),
             },
             new()
             {
                 Id = "desktop", TitleKey = "settings.nav.desktop",
-                Tint = Gradient("#FF5AC8FA", "#FF2F7BFF"), Icon = ScreenCornersIcon(), Create = () => new DesktopPage(),
+                Tint = Gradient("#FF5AC8FA", "#FF2F7BFF"), Glyph = "\uE7C4", Create = () => new DesktopPage(),
             },
             new()
             {
                 Id = "icons", TitleKey = "settings.nav.icons",
-                Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Icon = AppGridIcon(), Create = () => new AppIconsPage(),
+                Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Glyph = "\uED35", Create = () => new AppIconsPage(),
             },
             new()
             {
                 Id = "general", TitleKey = "settings.nav.general",
-                Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Icon = SlidersIcon(), Create = () => new GeneralPage(),
+                Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Glyph = "\uE713", Create = () => new GeneralPage(),
             },
             new()
             {
                 Id = "exclusions", TitleKey = "settings.nav.exclusions",
-                Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Icon = BlockedIcon(), Create = () => new ExclusionsPage(),
+                Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Glyph = "\uE733", Create = () => new ExclusionsPage(),
             },
             new()
             {
                 Id = "privacy", TitleKey = "settings.nav.privacy",
-                Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Icon = HandIcon(), Create = () => new PrivacyPage(),
+                Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Glyph = "\uEA18", Create = () => new PrivacyPage(),
             },
             new()
             {
                 Id = "tweaks", TitleKey = "settings.nav.tweaks",
-                Tint = Gradient("#FF8E8E93", "#FF48484A"), Icon = WrenchIcon(), Create = () => new PrivacyPage(SwitchSet.Tweaks),
+                Tint = Gradient("#FF8E8E93", "#FF48484A"), Glyph = "\uEC7A", Create = () => new PrivacyPage(SwitchSet.Tweaks),
             },
             new()
             {
                 Id = "about", TitleKey = "settings.nav.about",
-                Tint = Gradient("#FF7D7AFF", "#FF5856D6"), Icon = InfoIcon(), Create = () => new AboutPage(),
+                Tint = Gradient("#FF7D7AFF", "#FF5856D6"), Glyph = "\uE946", Create = () => new AboutPage(),
             },
         };
         _view = CollectionViewSource.GetDefaultView(_items);
@@ -441,91 +442,5 @@ public partial class MainWindow : Window
                                         (Color)ColorConverter.ConvertFromString(bottom), 90);
         b.Freeze();
         return b;
-    }
-
-    private static Geometry GenieIcon() => Geometry.Parse(
-        "M3,2 H13 A1.5,1.5 0 0 1 14.5,3.5 V7 H1.5 V3.5 A1.5,1.5 0 0 1 3,2 Z " +
-        "M1.5,8.2 H14.5 C13,10.3 13.2,12.4 15,14.6 H12.6 C10,12.6 6.2,10 1.5,8.2 Z");
-
-    // A window outline with one strongly rounded corner (top left).
-    private static Geometry CornersIcon() => Geometry.Parse(
-        "M8,2 H14 V14 H2 V8 A6,6 0 0 1 8,2 Z M8,3.6 A4.4,4.4 0 0 0 3.6,8 V12.4 H12.4 V3.6 Z");
-
-    // Two small widgets above a wide one.
-    private static Geometry WidgetsIcon()
-    {
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        g.Children.Add(new RectangleGeometry(new Rect(1.5, 1.5, 5.8, 5.8), 1.7, 1.7));
-        g.Children.Add(new RectangleGeometry(new Rect(8.7, 1.5, 5.8, 5.8), 1.7, 1.7));
-        g.Children.Add(new RectangleGeometry(new Rect(1.5, 8.7, 13, 5.8), 1.7, 1.7));
-        return g;
-    }
-
-    // A screen with its four corners lit, like the hot corners.
-    private static Geometry ScreenCornersIcon()
-    {
-        var frame = new CombinedGeometry(GeometryCombineMode.Exclude,
-                                         new RectangleGeometry(new Rect(1, 2, 14, 10.5), 2, 2),
-                                         new RectangleGeometry(new Rect(2.4, 3.4, 11.2, 7.7), 1, 1));
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        g.Children.Add(frame);
-        foreach (var (x, y) in new[] { (4.6, 5.6), (11.4, 5.6), (4.6, 8.9), (11.4, 8.9) })
-            g.Children.Add(new EllipseGeometry(new Point(x, y), 1.1, 1.1));
-        g.Children.Add(new RectangleGeometry(new Rect(5.5, 13.4, 5, 1.4), 0.7, 0.7));
-        return g;
-    }
-
-    private static Geometry WrenchIcon() => Geometry.Parse(
-        "M10.6,1.2 C12.9,0.7 15.1,2.6 14.8,5 L12.6,7.2 C12.1,7.7 11.3,7.7 10.8,7.2 L10.1,6.5 L11.9,4.7 " +
-        "L11.2,4 L9.4,5.8 L8.7,5.1 C8.2,4.6 8.2,3.8 8.7,3.3 Z M7.9,6.4 L9.6,8.1 L3.4,14.3 " +
-        "C2.9,14.8 2.1,14.8 1.7,14.3 C1.2,13.9 1.2,13.1 1.7,12.6 Z");
-
-    // Four app icons in a grid.
-    private static Geometry AppGridIcon()
-    {
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        foreach (var (x, y) in new[] { (1.5, 1.5), (8.7, 1.5), (1.5, 8.7), (8.7, 8.7) })
-            g.Children.Add(new RectangleGeometry(new Rect(x, y, 5.8, 5.8), 1.9, 1.9));
-        return g;
-    }
-
-    private static Geometry SlidersIcon()
-    {
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        g.Children.Add(Geometry.Parse("M1,3.3 H15 V4.7 H1 Z M1,7.3 H15 V8.7 H1 Z M1,11.3 H15 V12.7 H1 Z"));
-        g.Children.Add(new EllipseGeometry(new Point(5, 4), 2.3, 2.3));
-        g.Children.Add(new EllipseGeometry(new Point(11, 8), 2.3, 2.3));
-        g.Children.Add(new EllipseGeometry(new Point(7, 12), 2.3, 2.3));
-        return g;
-    }
-
-    private static Geometry BlockedIcon()
-    {
-        var ring = new CombinedGeometry(GeometryCombineMode.Exclude,
-                                        new EllipseGeometry(new Point(8, 8), 7, 7),
-                                        new EllipseGeometry(new Point(8, 8), 5.1, 5.1));
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        g.Children.Add(ring);
-        g.Children.Add(Geometry.Parse("M3.7,4.9 L4.9,3.7 L12.3,11.1 L11.1,12.3 Z"));
-        return g;
-    }
-
-    // A raised hand, like the privacy icon of macOS: four fingers, the thumb, the palm.
-    private static Geometry HandIcon()
-    {
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        foreach (var (x, top) in new[] { (4.1, 3.6), (6.5, 1.6), (8.9, 1.2), (11.3, 2.6) })
-            g.Children.Add(new RectangleGeometry(new Rect(x, top, 2.1, 9 - top), 1.05, 1.05));
-        g.Children.Add(Geometry.Parse("M4.1,8 H13.4 V10.6 C13.4,13.2 11.6,15 9,15 H8.4 C6.6,15 5.4,14.2 4.5,12.8 " +
-                                      "L1.6,8.6 C1.1,7.9 1.6,7 2.4,7 C2.9,7 3.3,7.3 3.6,7.7 L4.1,8.4 Z"));
-        return g;
-    }
-
-    private static Geometry InfoIcon()
-    {
-        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
-        g.Children.Add(new EllipseGeometry(new Point(8, 3.4), 1.7, 1.7));
-        g.Children.Add(new RectangleGeometry(new Rect(6.5, 6.4, 3, 8.4), 1.2, 1.2));
-        return g;
     }
 }

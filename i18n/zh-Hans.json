@@ -559,6 +559,8 @@
   "host.widgets.network.up": "上传",
   "host.widgets.network.kb": "{0} KB/s",
   "host.widgets.network.mb": "{0} MB/s",
+  "host.widgets.network.gbit": "{0} Gb/s",
+  "host.widgets.network.mbit": "{0} Mb/s",
   "host.widgets.notes.empty": "请在 Lampwin 设置的“小组件”中写下便签。",
   "host.widgets.countdown.title": "倒数日",
   "host.widgets.countdown.empty": "请在 Lampwin 设置的“小组件”中选择日期。",

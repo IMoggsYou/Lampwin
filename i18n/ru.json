@@ -559,6 +559,8 @@
   "host.widgets.network.up": "Отдача",
   "host.widgets.network.kb": "{0} КБ/с",
   "host.widgets.network.mb": "{0} МБ/с",
+  "host.widgets.network.gbit": "{0} Гбит/с",
+  "host.widgets.network.mbit": "{0} Мбит/с",
   "host.widgets.notes.empty": "Напишите заметку в параметрах Lampwin, в разделе «Виджеты».",
   "host.widgets.countdown.title": "Обратный отсчёт",
   "host.widgets.countdown.empty": "Выберите день в параметрах Lampwin, в разделе «Виджеты».",

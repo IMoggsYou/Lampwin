@@ -9,6 +9,15 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Changed
+
+- The settings window's sidebar has new icons: Windows 11's own symbols on macOS-style
+  tiles, sharp at any display scaling.
+- The Network widget counts only the connection your internet goes through (Wi-Fi,
+  Ethernet or a VPN), so nothing is counted twice, and shows that connection's speed
+  (such as 1 Gb/s) beside its title. The speeds below are what goes through it right now:
+  a few KB/s is normal while nothing downloads.
+
 ### Fixed
 
 - The window overview closed again at once, so **Show** (Settings → Desktop), the shortcut
