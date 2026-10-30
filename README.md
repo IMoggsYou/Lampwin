@@ -44,8 +44,9 @@ little quieter about your data. Light, free and open source.
 - ⬛ **Squircle corners** — the macOS shape (100% smoothing) or the Windows 11 rounding,
   for the animation, the settings window and apps that draw their own title bar
   (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a matching shadow.
-- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, a note, a
-  photo, a countdown to a day of your choice and what's playing now, light or dark. They
+- 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, the battery,
+  the network's speed, a note, a photo, a countdown to a day of your choice and what's
+  playing now, light or dark. They
   stay on the desktop under your windows and snap to a grid like on macOS, down to the
   taskbar; drag them anywhere, right-click for size and look.
 - 🎨 **App icons** — give any program an icon of your own: on its windows, in Alt+Tab, on
@@ -54,6 +55,16 @@ little quieter about your data. Light, free and open source.
   the program from the file name. A set of macOS-style icons comes included. Save your
   setup as an **icon set**, switch back to the **Windows icons** in one click, or remove
   everything.
+- 🪄 **Window overview and hot corners** — every window side by side like Exposé
+  (**Ctrl+Alt+↑**, the tray or a hot corner); push the pointer into a corner of the screen
+  to show the desktop, Task view, Start or the notifications, lock the PC or turn off the
+  display.
+- 🌗 **Light by day, dark by night** — Windows switches to dark mode at sunset and back at
+  sunrise (or at times you pick), with a day and a night wallpaper if you like. The sun's
+  times are worked out on your PC.
+- 🛠️ **Tweaks** — file extensions, hidden files, This PC in File Explorer, taskbar icons on
+  the left, seconds in the clock, End task on the taskbar and more: Windows' own settings,
+  backed up and restorable, no administrator rights needed.
 - 🔒 **Privacy switches** — turn off Windows telemetry, the advertising ID, ads and tips in
   Start and on the lock screen, web results in search, Copilot, Recall and more. Every value
   is backed up first and **Restore** undoes it all; Windows Update, Defender, SmartScreen
@@ -172,7 +183,9 @@ Lampwin collects nothing. It goes online for two things only:
   and there is no account or key. Windows' own location switch
   (**Settings → Privacy & security → Location**) turns the location part off.
 
-App icons, the Privacy page and the other widgets work entirely on your PC. The Now playing
+App icons, the Privacy and Tweaks pages, hot corners, the window overview, the light / dark
+schedule (sunrise and sunset are worked out on your PC) and the other widgets work entirely
+on your PC. The Now playing
 widget shows what Windows' own media controls show (the song, the artist, the app); it reads
 that on your PC, only while the widget is on the desktop.
 

@@ -84,6 +84,7 @@
         </Grid>
 
         <c:UpdateSheet x:Name="UpdateSheet" Grid.ColumnSpan="2"/>
+        <c:WelcomeSheet x:Name="WelcomeSheet" Grid.ColumnSpan="2"/>
 
         <!-- Hairline along the squircle edge (Root's clip keeps its inner half). -->
         <Path x:Name="Outline" Grid.ColumnSpan="2" StrokeThickness="2" IsHitTestVisible="False"

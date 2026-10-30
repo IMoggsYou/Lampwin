@@ -44,8 +44,9 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 - ⬛ **Rogi squircle** — kształt z macOS (wygładzenie 100%) albo zaokrąglenie Windows 11,
   dla animacji, okna ustawień i programów, które same rysują pasek tytułu (Chrome, Edge,
   Brave, Discord, VS Code, Spotify…), z dopasowanym cieniem.
-- 🗓️ **Widżety na pulpicie** — zegar, kalendarz, pogoda, wskaźniki systemu, notatka,
-  zdjęcie, odliczanie do wybranego dnia i to, co teraz gra, jasne albo ciemne. Leżą na
+- 🗓️ **Widżety na pulpicie** — zegar, kalendarz, pogoda, wskaźniki systemu, bateria,
+  szybkość sieci, notatka, zdjęcie, odliczanie do wybranego dnia i to, co teraz gra, jasne
+  albo ciemne. Leżą na
   pulpicie pod oknami i układają się w siatce jak w macOS, aż do paska zadań; przeciągnij je
   w dowolne miejsce, prawy przycisk zmienia rozmiar i wygląd.
 - 🎨 **Ikony aplikacji** — daj dowolnemu programowi własną ikonę: na jego oknach, w Alt+Tab,
@@ -54,6 +55,17 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
   znajduje program po nazwie pliku. Zestaw ikon w stylu macOS jest w komplecie. Zapisz
   swoje ustawienie jako **zestaw ikon**, wróć do **ikon Windows** jednym kliknięciem albo
   usuń wszystko.
+- 🪄 **Przegląd okien i gorące narożniki** — wszystkie okna obok siebie jak w Exposé
+  (**Ctrl+Alt+↑**, menu w zasobniku albo gorący narożnik); wsuń wskaźnik w narożnik
+  ekranu, żeby pokazać pulpit, widok zadań, menu Start albo powiadomienia, zablokować
+  komputer lub wyłączyć ekran.
+- 🌗 **Jasno w dzień, ciemno w nocy** — Windows przechodzi w tryb ciemny o zachodzie słońca
+  i wraca do jasnego o wschodzie (albo o wybranych godzinach), z osobną tapetą na dzień i na
+  noc, jeśli chcesz. Godziny słońca są liczone na Twoim komputerze.
+- 🛠️ **Ulepszenia** — rozszerzenia plików, ukryte pliki, Ten komputer w Eksploratorze,
+  ikony paska zadań po lewej, sekundy w zegarze, Zakończ zadanie na pasku zadań i więcej:
+  własne ustawienia Windows, z kopią zapasową i przywracaniem, bez uprawnień
+  administratora.
 - 🔒 **Przełączniki prywatności** — wyłącz telemetrię Windows, identyfikator reklamowy,
   reklamy i porady w menu Start i na ekranie blokady, wyniki z internetu w wyszukiwaniu,
   Copilota, Recall i więcej. Każda wartość jest najpierw zapisywana, a **Przywróć** cofa
@@ -175,7 +187,9 @@ Lampwin niczego nie zbiera. Łączy się z internetem tylko w dwóch sprawach:
   nie jest wysyłane i nie trzeba żadnego konta ani klucza. Część z lokalizacją wyłącza
   przełącznik w Windows (**Ustawienia → Prywatność i zabezpieczenia → Lokalizacja**).
 
-Ikony aplikacji, strona Prywatność i pozostałe widżety działają w całości na Twoim komputerze.
+Ikony aplikacji, strony Prywatność i Ulepszenia, gorące narożniki, przegląd okien,
+harmonogram jasny / ciemny (wschód i zachód słońca są liczone na Twoim komputerze) i
+pozostałe widżety działają w całości na Twoim komputerze.
 Widżet Teraz gra pokazuje to samo co przyciski multimediów Windows (utwór, wykonawcę,
 aplikację); odczytuje to na Twoim komputerze i tylko wtedy, gdy widżet jest na pulpicie.
 

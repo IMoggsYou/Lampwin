@@ -22,6 +22,8 @@ struct GenieSettings {
     bool multiMonitor = false;
     // Windows' "Animation effects" off = no window animations from MacWin either.
     bool followSystemMotion = true;
+    // Windows' energy saver (or battery saver) on = no window animations either.
+    bool followEnergySaver = true;
     bool unhideTaskbar = true;
     int unhideDurationMs = 450;
     int meshQuality = 48;
@@ -39,6 +41,39 @@ struct GenieSettings {
 // app's default (settings-app/Services/SettingsStore.cs).
 std::vector<std::wstring> DefaultNoInject();
 
+// What a hot corner does when the pointer stays in it (settings.json names in
+// settings_store.cpp, the same as the settings app's).
+enum class CornerAction { None, Overview, Desktop, TaskView, Start, Notifications, Lock, DisplayOff, ScreenSaver, Count };
+enum Corner { kTopLeft, kTopRight, kBottomLeft, kBottomRight, kCornerCount };
+
+struct DesktopSettings {
+    CornerAction corners[kCornerCount] = {CornerAction::None, CornerAction::None, CornerAction::None,
+                                          CornerAction::None};
+    // Ctrl+Alt+Up shows the window overview (like Ctrl+Up on a Mac).
+    bool overviewHotkey = false;
+
+    bool AnyCorner() const {
+        for (CornerAction a : corners) {
+            if (a != CornerAction::None) return true;
+        }
+        return false;
+    }
+};
+
+// Light by day, dark by night: Windows' colour mode and the wallpaper follow the sun (or
+// two times of day).
+struct AppearanceSettings {
+    bool darkMode = false;
+    bool wallpaper = false;
+    std::wstring dayWallpaper, nightWallpaper;
+    // Sunrise and sunset where the PC is; else (or when that isn't known) these two times.
+    bool followSun = true;
+    int dayStartMinutes = 7 * 60;
+    int nightStartMinutes = 19 * 60;
+
+    bool Any() const { return darkMode || wallpaper; }
+};
+
 struct HostSettings {
     bool enabled = true;
     // Test mode: the DLL only loads into the programs on devAllowlist.
@@ -54,6 +89,8 @@ struct HostSettings {
     bool appIcons = true;
     GenieSettings genie;
     widgets::Config widgets;
+    DesktopSettings desktop;
+    AppearanceSettings appearance;
 };
 
 // settings.json (%APPDATA%\MacWin) <-> HostSettings <-> shared section read by the DLLs.
@@ -76,8 +113,13 @@ public:
     // Windows' animation effects (SPI_GETCLIENTAREAANIMATION), read at start and when they
     // change; publish afterwards.
     void SetSystemAnimations(bool on) { systemAnimations_ = on; }
-    // No window animations now: Windows' are off and the settings say to follow them.
-    bool ReduceMotion() const { return s_.genie.followSystemMotion && !systemAnimations_; }
+    // Windows' energy saver, read at start and when it changes; publish afterwards.
+    void SetEnergySaver(bool on) { energySaver_ = on; }
+    // No window animations now: Windows' are off (or its energy saver is on) and the
+    // settings say to follow that.
+    bool ReduceMotion() const {
+        return (s_.genie.followSystemMotion && !systemAnimations_) || (s_.genie.followEnergySaver && energySaver_);
+    }
     const std::wstring& Path() const { return path_; }
     uint32_t Instance() const { return instance_; }
 
@@ -92,4 +134,5 @@ private:
     uint32_t instance_ = 0;
     uint64_t ipcHwnd_ = 0;
     bool systemAnimations_ = true;
+    bool energySaver_ = false;
 };

@@ -24,11 +24,14 @@ public static class SettingsTransfer
         ("settingsVersion", JsonValueKind.Number), ("enabled", JsonValueKind.True), ("devMode", JsonValueKind.True),
         ("devAllowlist", JsonValueKind.Array), ("noInject", JsonValueKind.Array), ("language", JsonValueKind.String),
         ("updates", JsonValueKind.Object), ("genie", JsonValueKind.Object), ("widgets", JsonValueKind.Object),
+        ("desktop", JsonValueKind.Object), ("appearance", JsonValueKind.Object),
     ];
 
-    // What "Restore defaults" takes back: animations, corners, updates and the programs left
-    // out. Widgets, app icons and the language stay (the Privacy page keeps its own backup).
-    private static readonly string[] Resettable = ["enabled", "devMode", "devAllowlist", "noInject", "updates", "genie"];
+    // What "Restore defaults" takes back: animations, corners, updates, the programs left
+    // out, hot corners and the light / dark schedule. Widgets, app icons and the language
+    // stay (the Privacy and Tweaks pages keep their own backups).
+    private static readonly string[] Resettable =
+        ["enabled", "devMode", "devAllowlist", "noInject", "updates", "genie", "desktop", "appearance"];
 
     private static readonly JsonSerializerOptions WriteOptions = new()
     {

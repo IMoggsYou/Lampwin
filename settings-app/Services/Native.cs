@@ -30,6 +30,21 @@ internal static class Native
     [DllImport("shell32.dll")]
     internal static extern void SHChangeNotify(int eventId, uint flags, IntPtr item1, IntPtr item2);
 
+    private const int HWND_BROADCAST = 0xFFFF, WM_SETTINGCHANGE = 0x001A, SMTO_ABORTIFHUNG = 0x0002;
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern IntPtr SendMessageTimeout(IntPtr hwnd, int msg, IntPtr wParam, string lParam, int flags,
+                                                    int timeoutMs, out IntPtr result);
+
+    /// <summary>File Explorer and the taskbar read their settings again (the Tweaks page).
+    /// Waits for every window that answers: call it off the UI thread.</summary>
+    internal static void NotifyShellSettingsChanged()
+    {
+        foreach (string area in new[] { "TraySettings", "ShellState" })
+            SendMessageTimeout((IntPtr)HWND_BROADCAST, WM_SETTINGCHANGE, IntPtr.Zero, area, SMTO_ABORTIFHUNG, 1000, out _);
+        SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
+    }
+
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     internal static extern uint RegisterWindowMessage(string name);
 

@@ -53,14 +53,15 @@ public sealed record TaskAction(string Path) : PrivacyAction
     public override bool NeedsAdmin => true;
 }
 
-/// <summary>One switch of the Privacy page. Its texts are settings.privacy.&lt;id&gt;.title and
-/// .description. <see cref="Service"/>: a service that is stopped when the switch is turned
-/// off and started again when it is turned back on.</summary>
-public sealed record PrivacyTweak(string Id, string Group, PrivacyAction[] Actions, string? Service = null)
+/// <summary>One switch of the Privacy page (or of the Tweaks page). Its texts are
+/// settings.&lt;texts&gt;.&lt;id&gt;.title and .description. <see cref="Service"/>: a service that is
+/// stopped when the switch is turned off and started again when it is turned back on.</summary>
+public sealed record PrivacyTweak(string Id, string Group, PrivacyAction[] Actions, string? Service = null,
+                                  string Texts = "privacy")
 {
-    public string TitleKey => $"settings.privacy.{Id}.title";
+    public string TitleKey => $"settings.{Texts}.{Id}.title";
 
-    public string DescriptionKey => $"settings.privacy.{Id}.description";
+    public string DescriptionKey => $"settings.{Texts}.{Id}.description";
 
     public bool NeedsAdmin => Actions.Any(a => a.NeedsAdmin);
 }

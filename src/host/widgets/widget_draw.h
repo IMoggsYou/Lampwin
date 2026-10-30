@@ -16,12 +16,21 @@ namespace widgets {
 // The host's texts the widgets use ("host.widgets.*"), in the UI language.
 typedef std::unordered_map<std::wstring, std::wstring> Texts;
 
+// The Network widget's chart: the last samples, oldest first.
+const int kNetworkHistory = 30;
+
 struct SystemStats {
     int cpu = 0;        // percent
     int memory = 0;
     int disk = 0;       // the Windows drive, used space
     int battery = -1;   // percent, -1 = no battery
     bool charging = false;
+    int batteryMinutes = -1;   // left on battery, as Windows estimates it; -1 = unknown
+    bool pluggedIn = false;
+    // Bytes per second over every connected adapter, since the previous sample.
+    double down = 0, up = 0;
+    float downHistory[kNetworkHistory] = {};
+    float upHistory[kNetworkHistory] = {};
 };
 
 // NoPlace: neither "my location" nor a chosen place; LocationOff: Windows won't tell where

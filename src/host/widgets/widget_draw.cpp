@@ -778,6 +778,199 @@ void DrawSystem(Ctx& c) {
 }
 
 // ---------------------------------------------------------------------------
+// Battery
+// ---------------------------------------------------------------------------
+
+UINT32 BatteryColor(const SystemStats& st) {
+    return st.charging || st.pluggedIn ? 0x30D158 : st.battery <= 10 ? 0xFF453A : st.battery <= 20 ? 0xFF9F0A : 0x30D158;
+}
+
+// A lightning bolt `h` high, centered on (cx, cy).
+void Bolt(Ctx& c, float cx, float cy, float h, const D2D1_COLOR_F& color) {
+    ComPtr<ID2D1Factory> f;
+    c.rt->GetFactory(f.put());
+    ComPtr<ID2D1PathGeometry> bolt;
+    ComPtr<ID2D1GeometrySink> sink;
+    if (FAILED(f->CreatePathGeometry(bolt.put())) || FAILED(bolt->Open(sink.put()))) return;
+    const float u = h / 10;
+    const D2D1_POINT_2F points[] = {{cx + 1.2f * u, cy - 5 * u}, {cx - 3 * u, cy + 0.8f * u}, {cx - 0.2f * u, cy + 0.8f * u},
+                                    {cx - 1.2f * u, cy + 5 * u}, {cx + 3 * u, cy - 0.8f * u}, {cx + 0.2f * u, cy - 0.8f * u}};
+    sink->BeginFigure(points[0], D2D1_FIGURE_BEGIN_FILLED);
+    sink->AddLines(points + 1, ARRAYSIZE(points) - 1);
+    sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+    sink->Close();
+    c.rt->FillGeometry(bolt.get(), c.Brush(color).get());
+}
+
+// A battery outline filled to its level, `w` wide, centered on (cx, cy).
+void BatteryGlyph(Ctx& c, float cx, float cy, float w, const SystemStats& st) {
+    const float h = w * 0.5f, x = cx - w / 2, y = cy - h / 2;
+    c.rt->DrawRoundedRectangle(D2D1::RoundedRect({x, y, x + w, y + h}, h * 0.3f, h * 0.3f), c.Brush(c.p.secondary).get(),
+                               1.4f);
+    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x + w + 1.2f, cy - h * 0.2f, x + w + 2.8f, cy + h * 0.2f}, 0.8f, 0.8f),
+                               c.Brush(c.p.secondary).get());
+    const float level = std::clamp(st.battery, 0, 100) / 100.0f;
+    if (level > 0) {
+        c.rt->FillRoundedRectangle(
+            D2D1::RoundedRect({x + 2.2f, y + 2.2f, x + 2.2f + (w - 4.4f) * level, y + h - 2.2f}, h * 0.18f, h * 0.18f),
+            c.Brush(Rgb(BatteryColor(st))).get());
+    }
+    if (st.charging) Bolt(c, cx, cy, h * 0.95f, c.p.text);
+}
+
+// What the battery does now: charging, plugged in, or the time it has left.
+std::wstring BatteryState(Ctx& c, const SystemStats& st) {
+    if (st.charging) return c.T(L"host.widgets.system.charging");
+    if (st.pluggedIn) return c.T(L"host.widgets.battery.pluggedIn");
+    if (st.batteryMinutes >= 0) {
+        return Fill(c.T(L"host.widgets.battery.left"), std::to_wstring(st.batteryMinutes / 60),
+                    std::to_wstring(st.batteryMinutes % 60));
+    }
+    return c.T(L"host.widgets.battery.onBattery");
+}
+
+void DrawBattery(Ctx& c) {
+    const Palette& p = c.p;
+    const SystemStats& st = c.s.stats;
+    FillCard(c, p.top, p.bottom);
+    TextOptions center;
+    center.align = DWRITE_TEXT_ALIGNMENT_CENTER;
+    center.valign = DWRITE_PARAGRAPH_ALIGNMENT_CENTER;
+    TextOptions wrap;
+    wrap.wrap = true;
+    const std::wstring& title = c.T(L"host.widgets.battery.title");
+    if (st.battery < 0) {
+        BatteryGlyph(c, kPad + 14, kPad + 10, 26, st);
+        c.Text(title, c.Font(13, kSemibold), {kPad, kPad + 30, c.W - kPad, kPad + 50}, p.text);
+        c.Text(c.T(L"host.widgets.battery.none"), c.Font(12, kRegular), {kPad, kPad + 52, c.W - kPad, c.H - kPad},
+               p.secondary, wrap);
+        return;
+    }
+    const bool small = c.s.size == Size::Small;
+    const float r = small ? 42 : 50, width = small ? 9 : 10;
+    const float cx = small ? c.W / 2 : kPad + r + 8, cy = small ? 66 : c.H / 2;
+    Ring(c, cx, cy, r, width, st.battery / 100.0f, Rgb(BatteryColor(st)));
+    BatteryGlyph(c, cx, cy - 10, 24, st);
+    c.Text(Percent(st.battery), c.Font(small ? 17 : 19, kSemibold, true), {cx - r, cy + 2, cx + r, cy + 24}, p.text,
+           center);
+    const std::wstring state = BatteryState(c, st);
+    if (small) {
+        c.Text(state, c.Fit(state, 12, 9, c.W - 2 * kPad, kSemibold), {kPad, c.H - kPad - 18, c.W - kPad, c.H - kPad},
+               p.secondary, center);
+        return;
+    }
+    const float left = cx + r + 22;
+    c.Text(title, c.Font(13, kSemibold), {left, cy - 44, c.W - kPad, cy - 24}, p.secondary);
+    c.Text(Percent(st.battery), c.Font(40, kLight, true), {left, cy - 26, c.W - kPad, cy + 22}, p.text);
+    c.Text(state, c.Fit(state, 13, 10, c.W - kPad - left, kSemibold), {left, cy + 24, c.W - kPad, cy + 44},
+           Rgb(BatteryColor(st)));
+}
+
+// ---------------------------------------------------------------------------
+// Network
+// ---------------------------------------------------------------------------
+
+// "850 KB/s", "12.3 MB/s": decimal units, the decimal separator of the UI language.
+std::wstring Speed(Ctx& c, double bytesPerSecond) {
+    const double kb = bytesPerSecond / 1000, mb = kb / 1000;
+    wchar_t number[32];
+    const bool megabytes = mb >= 1;
+    const double v = megabytes ? mb : kb;
+    swprintf(number, ARRAYSIZE(number), v < 10 ? L"%.1f" : L"%.0f", v);
+    wchar_t separator[8] = L".";
+    if (GetLocaleInfoEx(c.s.locale.c_str(), LOCALE_SDECIMAL, separator, ARRAYSIZE(separator)) > 1) {
+        for (wchar_t* ch = number; *ch; ++ch) {
+            if (*ch == L'.') *ch = separator[0];
+        }
+    }
+    return Fill(c.T(megabytes ? L"host.widgets.network.mb" : L"host.widgets.network.kb"), number);
+}
+
+// The last minute of a speed, as a filled line over `box`; `scale` is the top of the chart.
+void SpeedChart(Ctx& c, const float* history, float scale, D2D1_RECT_F box, const D2D1_COLOR_F& color) {
+    ComPtr<ID2D1Factory> f;
+    c.rt->GetFactory(f.put());
+    ComPtr<ID2D1PathGeometry> line, area;
+    ComPtr<ID2D1GeometrySink> lineSink, areaSink;
+    if (FAILED(f->CreatePathGeometry(line.put())) || FAILED(line->Open(lineSink.put())) ||
+        FAILED(f->CreatePathGeometry(area.put())) || FAILED(area->Open(areaSink.put()))) {
+        return;
+    }
+    const float w = box.right - box.left, h = box.bottom - box.top;
+    auto at = [&](int i) {
+        return D2D1::Point2F(box.left + w * i / (kNetworkHistory - 1),
+                             box.bottom - h * std::clamp(history[i] / scale, 0.0f, 1.0f));
+    };
+    lineSink->BeginFigure(at(0), D2D1_FIGURE_BEGIN_HOLLOW);
+    areaSink->BeginFigure({box.left, box.bottom}, D2D1_FIGURE_BEGIN_FILLED);
+    areaSink->AddLine(at(0));
+    for (int i = 1; i < kNetworkHistory; ++i) {
+        lineSink->AddLine(at(i));
+        areaSink->AddLine(at(i));
+    }
+    areaSink->AddLine({box.right, box.bottom});
+    lineSink->EndFigure(D2D1_FIGURE_END_OPEN);
+    areaSink->EndFigure(D2D1_FIGURE_END_CLOSED);
+    lineSink->Close();
+    areaSink->Close();
+    D2D1_COLOR_F faint = color;
+    faint.a = 0.18f;
+    c.rt->FillGeometry(area.get(), c.Brush(faint).get());
+    c.rt->DrawGeometry(line.get(), c.Brush(color).get(), 1.8f, c.Round());
+}
+
+// An arrow down (download) or up (upload) in a coloured circle.
+void SpeedGlyph(Ctx& c, float cx, float cy, bool down, const D2D1_COLOR_F& color) {
+    c.Dot(cx, cy, 9, color);
+    const D2D1_COLOR_F white = Rgb(0xFFFFFF);
+    const float dir = down ? 1 : -1;
+    c.Line(cx, cy - 4.5f * dir, cx, cy + 4.5f * dir, 1.8f, white);
+    c.Line(cx - 3.5f, cy + 1 * dir, cx, cy + 4.5f * dir, 1.8f, white);
+    c.Line(cx + 3.5f, cy + 1 * dir, cx, cy + 4.5f * dir, 1.8f, white);
+}
+
+void DrawNetwork(Ctx& c) {
+    const Palette& p = c.p;
+    const SystemStats& st = c.s.stats;
+    FillCard(c, p.top, p.bottom);
+    const D2D1_COLOR_F blue = Rgb(0x0A84FF), purple = Rgb(0xBF5AF2);
+    const bool small = c.s.size == Size::Small;
+    // A chart that doesn't blow a trickle up into mountains: at least 100 KB/s high.
+    float scale = 100000;
+    for (int i = 0; i < kNetworkHistory; ++i) scale = std::max({scale, st.downHistory[i], st.upHistory[i]});
+    scale *= 1.15f;
+
+    const std::wstring& title = c.T(L"host.widgets.network.title");
+    c.Text(title, c.Font(13, kSemibold), {kPad, kPad - 2, c.W - kPad, kPad + 16}, p.secondary);
+    const float textRight = small ? c.W - kPad : c.W * 0.46f;
+    const std::wstring down = Speed(c, st.down), up = Speed(c, st.up);
+    const float rowH = small ? 34 : 44;
+    struct Row {
+        bool down;
+        const std::wstring& value;
+        const wchar_t* label;
+        D2D1_COLOR_F color;
+    } rows[] = {{true, down, L"host.widgets.network.down", blue}, {false, up, L"host.widgets.network.up", purple}};
+    for (int i = 0; i < 2; ++i) {
+        const float top = kPad + 24 + i * rowH;
+        SpeedGlyph(c, kPad + 9, top + (small ? 11 : 14), rows[i].down, rows[i].color);
+        const float left = kPad + 26;
+        if (!small) {
+            const std::wstring& label = c.T(rows[i].label);
+            c.Text(label, c.Fit(label, 11, 9, textRight - left, kSemibold), {left, top - 2, textRight, top + 12},
+                   p.secondary);
+        }
+        c.Text(rows[i].value, c.Fit(rows[i].value, small ? 18 : 22, 11, textRight - left, kSemibold, true),
+               {left, small ? top : top + 10, textRight, small ? top + 24 : top + 38}, p.text);
+    }
+    const D2D1_RECT_F chart = small ? D2D1::RectF(kPad, c.H - kPad - 34, c.W - kPad, c.H - kPad)
+                                    : D2D1::RectF(c.W * 0.52f, kPad + 22, c.W - kPad, c.H - kPad);
+    c.rt->DrawLine({chart.left, chart.bottom}, {chart.right, chart.bottom}, c.Brush(p.track).get(), 1);
+    SpeedChart(c, st.upHistory, scale, chart, purple);
+    SpeedChart(c, st.downHistory, scale, chart, blue);
+}
+
+// ---------------------------------------------------------------------------
 // Countdown
 // ---------------------------------------------------------------------------
 
@@ -1048,6 +1241,8 @@ void DrawCard(Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float unit, in
         case Kind::Notes: DrawNotes(c); break;
         case Kind::Countdown: DrawCountdown(c); break;
         case Kind::NowPlaying: DrawNowPlaying(c); break;
+        case Kind::Battery: DrawBattery(c); break;
+        case Kind::Network: DrawNetwork(c); break;
         case Kind::Photo:
             DrawPhoto(c);
             edge = Rgb(0x000000, 0.12f);

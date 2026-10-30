@@ -9,7 +9,8 @@ namespace widgets {
 
 namespace {
 
-const wchar_t* const kKindNames[] = {L"clock", L"calendar", L"weather", L"system", L"notes", L"photo", L"countdown", L"nowPlaying"};
+const wchar_t* const kKindNames[] = {L"clock",     L"calendar",   L"weather", L"system",  L"notes",
+                                     L"photo",     L"countdown",  L"nowPlaying", L"battery", L"network"};
 static_assert(ARRAYSIZE(kKindNames) == (int)Kind::Count, "one name per kind");
 
 }  // namespace
@@ -45,7 +46,8 @@ Look LookFromName(const std::wstring& name) {
 }
 
 bool Supports(Kind k, Size s) {
-    return s != Size::Large || (k != Kind::Clock && k != Kind::System && k != Kind::Countdown && k != Kind::NowPlaying);
+    return s != Size::Large || (k != Kind::Clock && k != Kind::System && k != Kind::Countdown && k != Kind::NowPlaying &&
+                                k != Kind::Battery && k != Kind::Network);
 }
 
 bool ParseDay(const std::wstring& iso, SYSTEMTIME* out) {

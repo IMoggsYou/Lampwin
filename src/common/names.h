@@ -33,6 +33,9 @@
 // Posted to top-level windows: wParam 0 = re-cut the corners to the current settings,
 // 1 = remove MacWin's corners. The hook DLL answers it in DefWindowProc.
 #define MACWIN_CORNERS_MESSAGE    L"MacWin_" MACWIN_NS L"Corners_v1"          // RegisterWindowMessage
+// Shows (or hides) the window overview; `MacWin.exe --overview` posts it, so a mouse button
+// or a shortcut of another program can open the overview.
+#define MACWIN_OVERVIEW_MESSAGE   L"MacWin_" MACWIN_NS L"Overview_v1"         // RegisterWindowMessage
 #define MACWIN_TASK_NAME          L"MacWin"                     // scheduled task (elevated start)
 // The name people see (since 1.5.0). Every name above stays MacWin: installed copies,
 // their settings and the programs that talk to them must keep finding each other.

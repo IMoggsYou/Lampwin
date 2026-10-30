@@ -2,6 +2,7 @@
 // MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 #include "host/settings_store.h"
+#include <stdio.h>
 #include <wctype.h>
 #include "common/names.h"
 #include "host/json.h"
@@ -75,6 +76,35 @@ int StyleFromJson(const json::Value* v, int fallback) {
         if (v->str == kStyleNames[i]) return i;
     }
     return fallback;
+}
+
+// settings.json names of CornerAction and of the corners.
+const wchar_t* const kCornerActionNames[(int)CornerAction::Count] = {
+    L"none", L"overview", L"desktop", L"taskView", L"start", L"notifications", L"lock", L"displayOff", L"screenSaver"};
+const wchar_t* const kCornerNames[kCornerCount] = {L"topLeft", L"topRight", L"bottomLeft", L"bottomRight"};
+
+CornerAction CornerActionFromJson(const json::Value* v) {
+    if (!v || v->type != json::Value::String) return CornerAction::None;
+    for (int i = 0; i < (int)CornerAction::Count; ++i) {
+        if (v->str == kCornerActionNames[i]) return (CornerAction)i;
+    }
+    return CornerAction::None;
+}
+
+// "07:30" -> minutes after midnight; `fallback` for anything else.
+int MinutesFromJson(const json::Value* v, int fallback) {
+    int h = 0, m = 0;
+    if (!v || v->type != json::Value::String || swscanf(v->str.c_str(), L"%d:%d", &h, &m) != 2 || h < 0 || h > 23 ||
+        m < 0 || m > 59) {
+        return fallback;
+    }
+    return h * 60 + m;
+}
+
+json::Value MinutesToJson(int minutes) {
+    wchar_t text[8];
+    swprintf(text, ARRAYSIZE(text), L"%02d:%02d", minutes / 60, minutes % 60);
+    return json::String(text);
 }
 
 // settings.json layout version: 2 added the game folders to noInject.
@@ -239,6 +269,9 @@ void SettingsStore::Load() {
     std::wstring text;
     if (!ReadUtf8File(path_, &text)) {
         s_ = d;
+        // A new install: the settings window greets the user once (and removes this).
+        root_ = json::Object();
+        json::Set(&root_, L"welcome", json::Bool(true));
         Save();
         Log(L"settings: no file, defaults written to %ls", path_.c_str());
         return;
@@ -274,6 +307,7 @@ void SettingsStore::Load() {
     s_.genie.closeDurationMs = Clamp(g->GetInt(L"closeDurationMs", d.genie.closeDurationMs), 100, 1500);
     s_.genie.multiMonitor = g->GetBool(L"multiMonitor", d.genie.multiMonitor);
     s_.genie.followSystemMotion = g->GetBool(L"followSystemMotion", d.genie.followSystemMotion);
+    s_.genie.followEnergySaver = g->GetBool(L"followEnergySaver", d.genie.followEnergySaver);
     s_.genie.unhideTaskbar = g->GetBool(L"unhideTaskbar", d.genie.unhideTaskbar);
     s_.genie.unhideDurationMs = Clamp(g->GetInt(L"unhideDurationMs", d.genie.unhideDurationMs), 0, 5000);
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
@@ -284,6 +318,22 @@ void SettingsStore::Load() {
     s_.appIcons = icons ? icons->GetBool(L"enabled", d.appIcons) : d.appIcons;
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
     s_.widgets = LoadWidgets(root.Get(L"widgets"));
+    s_.desktop = d.desktop;
+    if (const json::Value* desk = Typed(&root, L"desktop", json::Value::Object)) {
+        const json::Value* corners = Typed(desk, L"hotCorners", json::Value::Object);
+        for (int i = 0; corners && i < kCornerCount; ++i) s_.desktop.corners[i] = CornerActionFromJson(corners->Get(kCornerNames[i]));
+        s_.desktop.overviewHotkey = desk->GetBool(L"overviewHotkey", d.desktop.overviewHotkey);
+    }
+    s_.appearance = d.appearance;
+    if (const json::Value* a = Typed(&root, L"appearance", json::Value::Object)) {
+        s_.appearance.darkMode = a->GetBool(L"darkMode", d.appearance.darkMode);
+        s_.appearance.wallpaper = a->GetBool(L"wallpaper", d.appearance.wallpaper);
+        s_.appearance.dayWallpaper = Str(a, L"dayWallpaper");
+        s_.appearance.nightWallpaper = Str(a, L"nightWallpaper");
+        s_.appearance.followSun = Str(a, L"schedule") != L"times";
+        s_.appearance.dayStartMinutes = MinutesFromJson(a->Get(L"dayStart"), d.appearance.dayStartMinutes);
+        s_.appearance.nightStartMinutes = MinutesFromJson(a->Get(L"nightStart"), d.appearance.nightStartMinutes);
+    }
     Log(L"settings: loaded %ls", path_.c_str());
 
     // An older file: new default protections are added to what the user has.
@@ -323,6 +373,7 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"closeDurationMs", json::Number(s.genie.closeDurationMs));
     json::Set(&g, L"multiMonitor", json::Bool(s.genie.multiMonitor));
     json::Set(&g, L"followSystemMotion", json::Bool(s.genie.followSystemMotion));
+    json::Set(&g, L"followEnergySaver", json::Bool(s.genie.followEnergySaver));
     json::Set(&g, L"unhideTaskbar", json::Bool(s.genie.unhideTaskbar));
     json::Set(&g, L"unhideDurationMs", json::Number(s.genie.unhideDurationMs));
     json::Set(&g, L"meshQuality", json::Number(s.genie.meshQuality));
@@ -336,6 +387,25 @@ bool SettingsStore::Save() const {
     json::Set(&icons, L"enabled", json::Bool(s.appIcons));
     json::Set(&root, L"appIcons", icons);
     json::Set(&root, L"widgets", SaveWidgets(s.widgets, root.Get(L"widgets")));
+    const json::Value* oldDesktop = Typed(&root, L"desktop", json::Value::Object);
+    json::Value desk = oldDesktop ? *oldDesktop : json::Object();
+    json::Value corners = json::Object();
+    for (int i = 0; i < kCornerCount; ++i) {
+        json::Set(&corners, kCornerNames[i], json::String(kCornerActionNames[(int)s.desktop.corners[i]]));
+    }
+    json::Set(&desk, L"hotCorners", corners);
+    json::Set(&desk, L"overviewHotkey", json::Bool(s.desktop.overviewHotkey));
+    json::Set(&root, L"desktop", desk);
+    const json::Value* oldAppearance = Typed(&root, L"appearance", json::Value::Object);
+    json::Value a = oldAppearance ? *oldAppearance : json::Object();
+    json::Set(&a, L"darkMode", json::Bool(s.appearance.darkMode));
+    json::Set(&a, L"wallpaper", json::Bool(s.appearance.wallpaper));
+    json::Set(&a, L"dayWallpaper", json::String(s.appearance.dayWallpaper));
+    json::Set(&a, L"nightWallpaper", json::String(s.appearance.nightWallpaper));
+    json::Set(&a, L"schedule", json::String(s.appearance.followSun ? L"sun" : L"times"));
+    json::Set(&a, L"dayStart", MinutesToJson(s.appearance.dayStartMinutes));
+    json::Set(&a, L"nightStart", MinutesToJson(s.appearance.nightStartMinutes));
+    json::Set(&root, L"appearance", a);
     std::wstring t = json::Serialize(root) + L"\n";
 
     int n = WideCharToMultiByte(CP_UTF8, 0, t.c_str(), (int)t.size(), nullptr, 0, nullptr, nullptr);

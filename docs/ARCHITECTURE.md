@@ -72,8 +72,8 @@ antialiased edge, and a transparent "grip" so the resize border still works.
 
 ## Desktop widgets
 
-`src/host/widgets/` puts widgets (clock, calendar, weather, system gauges, note, photo) on
-the desktop. The settings app adds and configures them in `settings.json` (`widgets`);
+`src/host/widgets/` puts widgets (clock, calendar, weather, system gauges, battery,
+network, note, photo, countdown, now playing) on the desktop. The settings app adds and configures them in `settings.json` (`widgets`);
 the host places them and saves where they are dragged (`monitor`, `col`, `row`), and the
 settings app never writes those.
 
@@ -98,6 +98,30 @@ settings app never writes those.
   Nominatim when the PC moved more than 3 km, then the Open-Meteo forecast. The last answer
   is kept in `%LOCALAPPDATA%\MacWin\weather.json` (shown right after a restart), and what
   the location lookup found in `location.json` for the settings window.
+
+## Desktop: hot corners, the overview, light and dark
+
+`src/host/desktop/` runs in the host and touches no other program.
+
+- **Hot corners** (`hot_corners.cpp`): only while a corner has an action, a thread of its
+  own with a low-level mouse hook. The hook does a few comparisons per move; a corner the
+  pointer stays in for 220 ms (no click, no button held, only outer corners of the
+  desktop) is posted to the main window, which ignores it while something runs full
+  screen.
+- **Window overview** (`overview.cpp`): a topmost window over the monitor the pointer is
+  on, showing a blurred, darkened capture of it and a DWM thumbnail of every Alt+Tab
+  window. The thumbnails glide between where the windows are and a grid on a timer of the
+  main thread, only during the animation. Ctrl+Alt+Up (a setting), the tray menu, a hot
+  corner and `MacWin.exe --overview` (`MACWIN_OVERVIEW_MESSAGE`) open it.
+- **Light and dark** (`appearance.cpp`, `sun.cpp`): one timer set to the next sunrise or
+  sunset (NOAA's formulas, on the PC) or to the next chosen time, checked again on resume
+  and on clock changes. Windows' location is asked on a worker thread (rounded to 0.01°,
+  no network); a worker writes `AppsUseLightTheme` / `SystemUsesLightTheme` and the
+  wallpaper, then tells every window.
+
+The settings app's **Tweaks** page uses the Privacy page's engine (`PrivacyEngine`) with
+its own catalogue (`TweaksCatalog.cs`, user settings only) and its own backup
+(`%LOCALAPPDATA%\MacWin\privacy\tweaks.json`).
 
 ## Settings and languages
 

@@ -71,6 +71,27 @@ jobs:
       - name: Tests
         run: ctest --test-dir build/x64 --output-on-failure
 
+      # Pictures of every settings page and widget, to look at in a pull request (Lampwin
+      # isn't running here: the settings window and the widgets draw sample data).
+      - name: Snapshots (settings window, widgets)
+        continue-on-error: true
+        timeout-minutes: 6
+        shell: pwsh
+        run: |
+          $bin = "build/x64/bin"
+          Start-Process "$bin/MacWin.Settings.exe" -ArgumentList '--snapshot', 'build/snapshots/settings-en', '--lang', 'en' -Wait
+          Start-Process "$bin/MacWin.Settings.exe" -ArgumentList '--snapshot', 'build/snapshots/settings-pl', '--lang', 'pl', '--theme', 'dark' -Wait
+          Start-Process "$bin/MacWin.exe" -ArgumentList '--widget-snapshot', 'build/snapshots/widgets-light', '--lang', 'en' -Wait
+          Start-Process "$bin/MacWin.exe" -ArgumentList '--widget-snapshot', 'build/snapshots/widgets-dark', '--lang', 'pl', '--theme', 'dark' -Wait
+
+      - name: Upload snapshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshots
+          path: build/snapshots
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Installer (builds the x86 part too)
         run: cmake --build --preset x64 --target MacWinSetup
 

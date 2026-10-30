@@ -97,6 +97,10 @@ if(MACWIN_BITS EQUAL 64)
     ${CMAKE_BINARY_DIR}/gen/host.rc
     src/host/app_icon.cpp
     src/host/crash.cpp
+    src/host/desktop/appearance.cpp
+    src/host/desktop/hot_corners.cpp
+    src/host/desktop/overview.cpp
+    src/host/desktop/sun.cpp
     src/host/i18n.cpp
     src/host/log.cpp
     src/host/json.cpp
@@ -124,7 +128,7 @@ if(MACWIN_BITS EQUAL 64)
   target_link_options(MacWin PRIVATE -municode)
   target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
                         shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32
-                        d2d1 dwrite windowscodecs runtimeobject)
+                        d2d1 dwrite windowscodecs runtimeobject iphlpapi)
   add_dependencies(MacWin MacWinHook)
   macwin_version_resource(MacWin "Lampwin - macOS-style window animations" MacWin.exe VFT_APP)
 
@@ -184,7 +188,7 @@ if(MACWIN_BITS EQUAL 64)
                  src/host/i18n.cpp src/host/log.cpp src/host/widgets/location.cpp src/host/widgets/media.cpp
                  src/host/widgets/weather.cpp
                  src/host/widgets/widget_config.cpp src/host/widgets/widget_layout.cpp
-                 src/host/render/genie_effect.cpp)
+                 src/host/render/genie_effect.cpp src/host/desktop/sun.cpp)
   target_include_directories(MacWinTests PRIVATE src ${CMAKE_BINARY_DIR}/gen)
   target_link_options(MacWinTests PRIVATE -municode)
   target_link_libraries(MacWinTests PRIVATE winhttp bcrypt shell32 ole32 runtimeobject shcore)

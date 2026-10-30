@@ -19,7 +19,7 @@ public sealed class WidgetEntry : INotifyPropertyChanged
 {
     /// <summary>The kinds, in the order the gallery shows them (the host's names).</summary>
     public static readonly string[] Kinds =
-        ["clock", "calendar", "weather", "system", "notes", "photo", "countdown", "nowPlaying"];
+        ["clock", "calendar", "weather", "system", "battery", "network", "notes", "photo", "countdown", "nowPlaying"];
     public static readonly string[] SizeNames = ["small", "medium", "large"];
     public static readonly string[] ThemeNames = ["auto", "light", "dark"];
 
@@ -30,10 +30,10 @@ public sealed class WidgetEntry : INotifyPropertyChanged
     public required string Id { get; init; }
     public required string Kind { get; init; }
 
-    /// <summary>A clock, the system gauges, a countdown and now playing come in two sizes only (like the
-    /// host's Supports).</summary>
+    /// <summary>A clock, the system gauges, a countdown, now playing, the battery and the network come in
+    /// two sizes only (like the host's Supports).</summary>
     public static bool Supports(string kind, string size) =>
-        size != "large" || kind is not ("clock" or "system" or "countdown" or "nowPlaying");
+        size != "large" || kind is not ("clock" or "system" or "countdown" or "nowPlaying" or "battery" or "network");
 
     public static string NewId() => "w" + Guid.NewGuid().ToString("N")[..10];
 

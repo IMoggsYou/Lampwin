@@ -887,6 +887,8 @@ void Host::Schedule() {
                 delay = std::min<UINT>(delay, (60 - now.wSecond) * 1000 - now.wMilliseconds + 2);
                 break;
             case Kind::System:
+            case Kind::Battery:
+            case Kind::Network:
                 delay = std::min<UINT>(delay, kSystemEveryMs);
                 break;
             default:
@@ -919,6 +921,8 @@ void Host::Tick() {
             case Kind::Calendar:
             case Kind::Countdown: redraw = w->drawnDay != now.wDay || w->drawnMinute > minute; break;
             case Kind::System:
+            case Kind::Battery:
+            case Kind::Network:
                 if (!sampled && t - statsAt_ >= kSystemEveryMs - 100) {
                     stats_ = sampler_.Sample();
                     statsAt_ = t;
@@ -1255,6 +1259,8 @@ void Host::Click(Widget* w) {
             target = std::wstring(dir, n) + L"\\Taskmgr.exe";
             break;
         }
+        case Kind::Battery: target = L"ms-settings:batterysaver"; break;
+        case Kind::Network: target = L"ms-settings:network-status"; break;
         case Kind::Photo:
             if (!w->item.path.empty() && GetFileAttributesW(w->item.path.c_str()) != INVALID_FILE_ATTRIBUTES) {
                 target = w->item.path;

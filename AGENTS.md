@@ -26,6 +26,7 @@ how old copies still find the releases). In code use `MACWIN_DISPLAY_NAME` (C++)
 | Hook DLL `MacWinHook64.dll` / `MacWinHook32.dll` | `src/hook/` | Loaded into **other programs**; MinHook detours of `ShowWindow`, `DefWindowProc`, `SetWindowPos`, … capture a snapshot and ask the host to animate; cuts window corners |
 | `MacWinHelper32.exe` | `src/helper32/` | Puts the 32-bit DLL into 32-bit programs (thread-specific hooks) |
 | Shared contracts | `src/common/` | `SharedSettings` (named section), `AnimRequest` (WM_COPYDATA), object names (`names.h`) |
+| Desktop features | `src/host/desktop/` | Hot corners (low-level mouse hook on its own thread), the window overview (DWM thumbnails), light / dark by sunrise and sunset |
 | Desktop widgets | `src/host/widgets/` | Run inside the host on their own thread (only while a widget is shown): Direct2D on the CPU into layered windows owned by the desktop, grid layout, drag and drop, weather from Open-Meteo |
 | Settings app | `settings-app/` (C# / WPF, .NET 10) | The window users see; edits `%APPDATA%\MacWin\settings.json`, tells the host to reload |
 | Installer | `installer/` (Inno Setup 6) | Program Files install, scheduled task (elevated autostart), .NET runtime, 11 languages |

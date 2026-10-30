@@ -24,7 +24,7 @@
                 </c:SettingRow>
             </StackPanel>
         </Border>
-        <TextBlock Style="{StaticResource Text.Footnote}" Text="{l:Tr settings.privacy.footnote}"/>
+        <TextBlock x:Name="Footnote" Style="{StaticResource Text.Footnote}"/>
 
         <!-- One group per PrivacyCatalog.Groups, built from the catalogue -->
         <StackPanel x:Name="Groups"/>

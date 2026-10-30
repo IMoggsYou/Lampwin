@@ -235,6 +235,125 @@ public sealed class SettingsModel : INotifyPropertyChanged
     /// <summary>Windows' animation effects off = no window animations from MacWin.</summary>
     public bool FollowSystemMotion { get => _followSystemMotion; set => Set(ref _followSystemMotion, value); }
 
+    private bool _followEnergySaver = true;
+    /// <summary>Windows' energy saver on = no window animations from MacWin.</summary>
+    public bool FollowEnergySaver { get => _followEnergySaver; set => Set(ref _followEnergySaver, value); }
+
+    /// <summary>settings.json names of the hot corner actions, in list order (the host's CornerAction).</summary>
+    public static readonly string[] CornerActionNames =
+        ["none", "overview", "desktop", "taskView", "start", "notifications", "lock", "displayOff", "screenSaver"];
+    /// <summary>settings.json names of the corners: top left, top right, bottom left, bottom right.</summary>
+    public static readonly string[] CornerNames = ["topLeft", "topRight", "bottomLeft", "bottomRight"];
+
+    private int _cornerTopLeft, _cornerTopRight, _cornerBottomLeft, _cornerBottomRight;
+    /// <summary>What each hot corner does: an index into <see cref="CornerActionNames"/>.</summary>
+    public int CornerTopLeft { get => _cornerTopLeft; set => SetCorner(ref _cornerTopLeft, value); }
+    public int CornerTopRight { get => _cornerTopRight; set => SetCorner(ref _cornerTopRight, value); }
+    public int CornerBottomLeft { get => _cornerBottomLeft; set => SetCorner(ref _cornerBottomLeft, value); }
+    public int CornerBottomRight { get => _cornerBottomRight; set => SetCorner(ref _cornerBottomRight, value); }
+
+    /// <summary>The four corners in <see cref="CornerNames"/> order.</summary>
+    public int[] Corners
+    {
+        get => [_cornerTopLeft, _cornerTopRight, _cornerBottomLeft, _cornerBottomRight];
+        set
+        {
+            CornerTopLeft = value[0];
+            CornerTopRight = value[1];
+            CornerBottomLeft = value[2];
+            CornerBottomRight = value[3];
+        }
+    }
+
+    private bool SetCorner(ref int field, int value, [CallerMemberName] string? name = null) =>
+        Set(ref field, Math.Clamp(value, 0, CornerActionNames.Length - 1), name);
+
+    private bool _overviewHotkey;
+    /// <summary>Ctrl+Alt+Up shows the window overview.</summary>
+    public bool OverviewHotkey { get => _overviewHotkey; set => Set(ref _overviewHotkey, value); }
+
+    private bool _darkModeSchedule;
+    /// <summary>Windows switches to dark mode at night and back to light mode in the morning.</summary>
+    public bool DarkModeSchedule
+    {
+        get => _darkModeSchedule;
+        set
+        {
+            if (Set(ref _darkModeSchedule, value)) Raise(nameof(HasSchedule));
+        }
+    }
+
+    private bool _wallpaperSchedule;
+    /// <summary>The wallpaper changes between <see cref="DayWallpaper"/> and <see cref="NightWallpaper"/>.</summary>
+    public bool WallpaperSchedule
+    {
+        get => _wallpaperSchedule;
+        set
+        {
+            if (Set(ref _wallpaperSchedule, value)) Raise(nameof(HasSchedule));
+        }
+    }
+
+    public bool HasSchedule => _darkModeSchedule || _wallpaperSchedule;
+
+    private string _dayWallpaper = "";
+    public string DayWallpaper
+    {
+        get => _dayWallpaper;
+        set
+        {
+            if (Set(ref _dayWallpaper, value ?? "")) Raise(nameof(DayWallpaperName));
+        }
+    }
+
+    private string _nightWallpaper = "";
+    public string NightWallpaper
+    {
+        get => _nightWallpaper;
+        set
+        {
+            if (Set(ref _nightWallpaper, value ?? "")) Raise(nameof(NightWallpaperName));
+        }
+    }
+
+    public string DayWallpaperName => WallpaperName(_dayWallpaper);
+    public string NightWallpaperName => WallpaperName(_nightWallpaper);
+
+    private static string WallpaperName(string path) =>
+        path.Length > 0 ? System.IO.Path.GetFileName(path) : Loc.T("settings.desktop.wallpaper.none");
+
+    private bool _followSun = true;
+    /// <summary>Sunrise and sunset where the PC is (else <see cref="DayStart"/> and <see cref="NightStart"/>).</summary>
+    public bool FollowSun
+    {
+        get => _followSun;
+        set
+        {
+            if (Set(ref _followSun, value))
+            {
+                Raise(nameof(ScheduleIndex));
+                Raise(nameof(UsesTimes));
+            }
+        }
+    }
+    /// <summary>0 = sunrise and sunset, 1 = two times of day (the segmented control).</summary>
+    public int ScheduleIndex { get => _followSun ? 0 : 1; set => FollowSun = value == 0; }
+    public bool UsesTimes => !_followSun;
+
+    private string _dayStart = "07:00";
+    /// <summary>"HH:mm": the day starts (with <see cref="FollowSun"/> off, or where the PC isn't known).</summary>
+    public string DayStart { get => _dayStart; set => Set(ref _dayStart, NormalizeTime(value, _dayStart)); }
+
+    private string _nightStart = "19:00";
+    public string NightStart { get => _nightStart; set => Set(ref _nightStart, NormalizeTime(value, _nightStart)); }
+
+    /// <summary>"7:5" or "07:05" -> "07:05"; anything else keeps <paramref name="fallback"/>.</summary>
+    public static string NormalizeTime(string? text, string fallback) =>
+        TimeOnly.TryParseExact(text?.Trim() ?? "", ["H:m", "HH:mm", "H:mm"], System.Globalization.CultureInfo.InvariantCulture,
+                               System.Globalization.DateTimeStyles.None, out var t)
+            ? t.ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture)
+            : fallback;
+
     private bool _unhideTaskbar = true;
     public bool UnhideTaskbar { get => _unhideTaskbar; set => Set(ref _unhideTaskbar, value); }
 

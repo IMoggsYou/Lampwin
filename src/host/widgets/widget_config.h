@@ -10,7 +10,7 @@
 // configures them; the host places them, and writes back where the user dragged them.
 namespace widgets {
 
-enum class Kind { Clock, Calendar, Weather, System, Notes, Photo, Countdown, NowPlaying, Count };
+enum class Kind { Clock, Calendar, Weather, System, Notes, Photo, Countdown, NowPlaying, Battery, Network, Count };
 enum class Size { Small, Medium, Large };
 // "theme": the Windows app mode, or always light / dark.
 enum class Look { Auto, Light, Dark };
@@ -65,8 +65,8 @@ const wchar_t* SizeName(Size s);
 Size SizeFromName(const std::wstring& name);
 const wchar_t* LookName(Look l);
 Look LookFromName(const std::wstring& name);
-// The sizes a kind comes in (a clock, the system gauges, a countdown and now playing have
-// no large one).
+// The sizes a kind comes in (a clock, the system gauges, a countdown, now playing, the
+// battery and the network have no large one).
 bool Supports(Kind k, Size s);
 
 // A Countdown's day: "2026-12-24" (wYear, wMonth, wDay and wDayOfWeek set); false when it

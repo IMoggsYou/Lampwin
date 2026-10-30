@@ -10,9 +10,10 @@ using MacWin.Settings.Controls;
 namespace MacWin.Settings.Pages;
 
 /// <summary>
-/// Windows' privacy settings (PrivacyCatalog). A switch shows what the PC does now, read
-/// every time the page is shown; turning switches only marks them, and Apply changes them
-/// all at once (one administrator prompt), backed up first (PrivacyEngine).
+/// Windows' privacy settings (PrivacyCatalog), or the Tweaks page's (TweaksCatalog): the same
+/// page for both. A switch shows what the PC does now, read every time the page is shown;
+/// turning switches only marks them, and Apply changes them all at once (one administrator
+/// prompt), backed up first (PrivacyEngine).
 /// </summary>
 public partial class PrivacyPage : UserControl
 {
@@ -26,6 +27,9 @@ public partial class PrivacyPage : UserControl
 
         /// <summary>What the user turned the switch to, while that isn't applied yet (true: on).</summary>
         public bool? Desired { get; set; }
+
+        /// <summary>The switch is on: Windows does it (Privacy), or the change is made (Tweaks).</summary>
+        public bool IsOn(SwitchSet set) => set.OnMeansChanged ? State == TweakState.Off : State == TweakState.On;
     }
 
     private readonly List<Row> _rows = new();
@@ -33,10 +37,17 @@ public partial class PrivacyPage : UserControl
     private string? _work;       // the status while reading or changing; null when idle
     private string? _message;    // what the last change did, until a switch is turned
     private bool _hasBackup;
+    private readonly SwitchSet _set;
 
-    public PrivacyPage()
+    public PrivacyPage() : this(SwitchSet.Privacy)
     {
+    }
+
+    public PrivacyPage(SwitchSet set)
+    {
+        _set = set;
         InitializeComponent();
+        Footnote.Text = Text("footnote");
         BuildRows();
         UpdateUi();
         Loaded += async (_, _) =>
@@ -47,12 +58,12 @@ public partial class PrivacyPage : UserControl
 
     private void BuildRows()
     {
-        foreach (string group in PrivacyCatalog.Groups)
+        foreach (string group in _set.Groups)
         {
-            var header = new TextBlock { Text = Loc.T($"settings.privacy.group.{group}") };
+            var header = new TextBlock { Text = Text($"group.{group}") };
             header.SetResourceReference(StyleProperty, "Text.GroupHeader");
             var list = new StackPanel();
-            foreach (var tweak in PrivacyCatalog.All.Where(t => t.Group == group))
+            foreach (var tweak in _set.All.Where(t => t.Group == group))
             {
                 if (list.Children.Count > 0)
                 {
@@ -91,7 +102,7 @@ public partial class PrivacyPage : UserControl
     private void Toggle_Click(Row row)
     {
         bool on = row.Toggle.IsChecked == true;
-        row.Desired = on == (row.State == TweakState.On) ? null : on;
+        row.Desired = on == row.IsOn(_set) ? null : on;
         _message = null;
         UpdateUi();
     }
@@ -104,11 +115,11 @@ public partial class PrivacyPage : UserControl
         UpdateUi();
         try
         {
-            var (states, hasBackup) = await Task.Run(() => (PrivacyRunner.ReadStates(), PrivacyRunner.HasBackup()));
+            var (states, hasBackup) = await Task.Run(() => (PrivacyRunner.ReadStates(_set), PrivacyRunner.HasBackup(_set)));
             foreach (var row in _rows)
             {
                 row.State = states.GetValueOrDefault(row.Tweak.Id, TweakState.Unavailable);
-                if (row.State == TweakState.Unavailable || row.Desired == (row.State == TweakState.On)) row.Desired = null;
+                if (row.State == TweakState.Unavailable || row.Desired == row.IsOn(_set)) row.Desired = null;
             }
             _hasBackup = hasBackup;
             _read = true;
@@ -132,19 +143,19 @@ public partial class PrivacyPage : UserControl
             bool available = row.State != TweakState.Unavailable;
             row.Setting.IsEnabled = !busy && available;
             row.Setting.Description = _read && !available ? Loc.T("settings.privacy.unavailable") : Loc.T(row.Tweak.DescriptionKey);
-            row.Toggle.IsChecked = row.Desired ?? row.State == TweakState.On;
+            row.Toggle.IsChecked = row.Desired ?? row.IsOn(_set);
             row.Pending.Visibility = row.Desired is null ? Visibility.Collapsed : Visibility.Visible;
         }
 
         int pending = _rows.Count(r => r.Desired is not null);
         SummaryRow.Description = _work ?? (pending > 0 ? Loc.F("settings.privacy.status.pending", pending)
-                                                       : _message ?? Loc.T("settings.privacy.status.ready"));
+                                                       : _message ?? Text("status.ready"));
         var waiting = pending > 0 ? Visibility.Visible : Visibility.Collapsed;
         ApplyButton.Visibility = DiscardButton.Visibility = BottomBar.Visibility = waiting;
         BottomRow.Description = SummaryRow.Description;
         ApplyButton.IsEnabled = DiscardButton.IsEnabled = BottomApplyButton.IsEnabled = BottomDiscardButton.IsEnabled = !busy;
 
-        RestoreRow.Description = Loc.T(_hasBackup ? "settings.privacy.restore.description" : "settings.privacy.restore.none");
+        RestoreRow.Description = Text(_hasBackup ? "restore.description" : "restore.none");
         RestoreButton.IsEnabled = _hasBackup && !busy;
     }
 
@@ -156,15 +167,16 @@ public partial class PrivacyPage : UserControl
 
     private async void Apply_Click(object sender, RoutedEventArgs e)
     {
+        // "Off" in the catalogues is the change: on the Tweaks page that is a switch turned on.
         var changes = _rows.Where(r => r.Desired is not null)
-                           .Select(r => new PrivacyChange(r.Tweak, TurnOff: r.Desired == false)).ToList();
+                           .Select(r => new PrivacyChange(r.Tweak, TurnOff: r.Desired == _set.OnMeansChanged)).ToList();
         if (changes.Count == 0 || _work is not null) return;
         _work = Loc.T("settings.privacy.status.applying");
         UpdateUi();
         IReadOnlyList<PrivacyResult> results = [];
         try
         {
-            results = await PrivacyRunner.ApplyAsync(changes);
+            results = await PrivacyRunner.ApplyAsync(_set, changes);
         }
         catch (Exception ex)
         {
@@ -175,26 +187,26 @@ public partial class PrivacyPage : UserControl
         {
             foreach (var row in _rows) row.Desired = null;
         }
-        _message = Summary(results, "settings.privacy.status.applied");
+        _message = Summary(results, "status.applied");
         await RefreshAsync();
     }
 
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
-        if (_work is not null || !Ask(Loc.T("settings.privacy.restore.confirm"))) return;
+        if (_work is not null || !Ask(Text("restore.confirm"))) return;
         foreach (var row in _rows) row.Desired = null;
         _work = Loc.T("settings.privacy.status.restoring");
         UpdateUi();
         IReadOnlyList<PrivacyResult> results = [];
         try
         {
-            results = await PrivacyRunner.RestoreAsync();
+            results = await PrivacyRunner.RestoreAsync(_set);
         }
         catch (Exception ex)
         {
             App.Report(ex);
         }
-        _message = Summary(results, "settings.privacy.status.restored");
+        _message = Summary(results, "status.restored");
         await RefreshAsync();
     }
 
@@ -202,13 +214,24 @@ public partial class PrivacyPage : UserControl
     private string? Summary(IReadOnlyList<PrivacyResult> results, string doneKey)
     {
         if (results.Count == 0) return null;
-        if (results.All(r => r.Ok)) return Loc.T(doneKey);
+        if (results.All(r => r.Ok)) return Text(doneKey);
         if (results.Any(r => r.Error == PrivacyErrors.Cancelled)) return Loc.T("settings.privacy.status.cancelled");
         if (results.Any(r => r.Error == PrivacyErrors.Backup)) return Loc.T("settings.privacy.status.backupFailed");
-        var names = results.Where(r => !r.Ok && PrivacyCatalog.Find(r.Id) is not null)
-                           .Select(r => Loc.T(PrivacyCatalog.Find(r.Id)!.TitleKey));
+        var names = results.Where(r => !r.Ok && _set.Find(r.Id) is not null)
+                           .Select(r => Loc.T(_set.Find(r.Id)!.TitleKey));
         return Loc.F("settings.privacy.status.failed", string.Join(Loc.T("settings.privacy.listSeparator"), names));
     }
+
+    // The texts that say what this page's switches mean are its own (settings.tweaks.*); the
+    // rest (Apply, the progress) are the Privacy page's.
+    private static readonly string[] OwnTexts =
+        ["footnote", "status.ready", "status.applied", "status.restored", "restore.description", "restore.none",
+         "restore.confirm"];
+
+    private string Text(string key) =>
+        Loc.T(key.StartsWith("group.", StringComparison.Ordinal) || OwnTexts.Contains(key)
+                  ? $"settings.{_set.Texts}.{key}"
+                  : $"settings.privacy.{key}");
 
     private bool Ask(string question) =>
         MessageBox.Show(Window.GetWindow(this) ?? Application.Current.MainWindow!, question, Project.Name,

@@ -24,6 +24,8 @@ internal static class Program
             Run(nameof(CatalogIsSound), CatalogIsSound);
             Run(nameof(CatalogNeverTouchesSecurity), CatalogNeverTouchesSecurity);
             Run(nameof(EveryTweakHasTexts), () => EveryTweakHasTexts(repo));
+            Run(nameof(TweaksAreTheUsersOwn), TweaksAreTheUsersOwn);
+            Run(nameof(TweaksTurnOnAndBack), TweaksTurnOnAndBack);
             Run(nameof(DefaultPcShowsOn), DefaultPcShowsOn);
             Run(nameof(TurnOffBacksUpThenWrites), TurnOffBacksUpThenWrites);
             Run(nameof(TurnBackOnRestoresExactly), TurnBackOnRestoresExactly);
@@ -129,6 +131,52 @@ internal static class Program
         }
         foreach (string group in PrivacyCatalog.Groups)
             Check(en.ContainsKey($"settings.privacy.group.{group}"), "missing group text " + group);
+        foreach (var tweak in TweaksCatalog.All)
+        {
+            Check(en.ContainsKey(tweak.TitleKey), "missing " + tweak.TitleKey);
+            Check(en.ContainsKey(tweak.DescriptionKey), "missing " + tweak.DescriptionKey);
+        }
+        foreach (string group in TweaksCatalog.Groups)
+            Check(en.ContainsKey($"settings.tweaks.group.{group}"), "missing group text " + group);
+    }
+
+    // The Tweaks page: the signed-in user's own settings, never an administrator prompt,
+    // never a value the Privacy page changes too, never anything that keeps the PC safe.
+    private static void TweaksAreTheUsersOwn()
+    {
+        var all = TweaksCatalog.All;
+        Check(all.Select(t => t.Id).Distinct().Count() == all.Count, "tweak ids are unique");
+        Check(all.All(t => TweaksCatalog.Groups.Contains(t.Group)), "every tweak is in a known group");
+        Check(TweaksCatalog.Groups.All(g => all.Any(t => t.Group == g)), "no empty tweak group");
+        Check(all.All(t => !t.NeedsAdmin && t.Service is null), "tweaks need no administrator rights");
+        Check(all.All(t => t.TitleKey.StartsWith("settings.tweaks.", StringComparison.Ordinal)), "tweaks have their own texts");
+        var keys = all.SelectMany(t => t.Actions).Select(a => a.BackupKey).ToList();
+        var privacyKeys = PrivacyCatalog.All.SelectMany(t => t.Actions).Select(a => a.BackupKey).ToHashSet();
+        Check(keys.Distinct().Count() == keys.Count, "no two tweaks change the same value");
+        Check(!keys.Any(privacyKeys.Contains), "no tweak changes a privacy value");
+        foreach (var reg in all.SelectMany(t => t.Actions).OfType<RegistryAction>())
+        {
+            Check(reg.Hive == PrivacyHive.User && !reg.Key.StartsWith(@"Software\Policies\", StringComparison.OrdinalIgnoreCase),
+                  $"{reg.BackupKey}: a user setting, not a policy");
+            Check(reg.On != reg.Off, $"{reg.BackupKey}: on and off differ");
+        }
+        foreach (string word in new[] { "Defender", "SmartScreen", "WindowsUpdate", "Firewall", "EnableLUA" })
+            Check(!keys.Any(k => k.Contains(word, StringComparison.OrdinalIgnoreCase)), "a tweak touches " + word);
+    }
+
+    // A tweak is made and taken back exactly like a privacy switch ("Off" is the change).
+    private static void TweaksTurnOnAndBack()
+    {
+        var (pc, engine, backup) = NewPc();
+        var tweak = TweaksCatalog.Find("showExtensions")!;
+        var value = (RegistryAction)tweak.Actions[0];
+        pc.WriteValue(value.Hive, value.Key, value.Name, RegData.Dword(1));
+        Check(engine.GetState(tweak) == TweakState.On, "extensions hidden: the tweak isn't made");
+        Check(engine.Apply([new PrivacyChange(tweak, TurnOff: true)]).All(r => r.Ok), "the tweak is made");
+        Check(pc.ReadValue(value.Hive, value.Key, value.Name) == RegData.Dword(0), "HideFileExt is 0");
+        Check(engine.RestoreAll(TweaksCatalog.All).All(r => r.Ok), "the tweak is taken back");
+        Check(pc.ReadValue(value.Hive, value.Key, value.Name) == RegData.Dword(1), "HideFileExt is 1 again");
+        Check(!backup.HasEntries(), "nothing left in the backup");
     }
 
     // --- reading and changing ---
