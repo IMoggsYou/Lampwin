@@ -27,8 +27,10 @@ struct SystemStats {
     bool charging = false;
     int batteryMinutes = -1;   // left on battery, as Windows estimates it; -1 = unknown
     bool pluggedIn = false;
-    // Bytes per second over every connected adapter, since the previous sample.
+    // Bytes per second through the adapter the internet goes through, since the previous
+    // sample, and that adapter's link speed (bits per second, 0 = unknown).
     double down = 0, up = 0;
+    ULONGLONG link = 0;
     float downHistory[kNetworkHistory] = {};
     float upHistory[kNetworkHistory] = {};
 };

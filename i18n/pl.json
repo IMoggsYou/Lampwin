@@ -559,6 +559,8 @@
   "host.widgets.network.up": "Wysyłanie",
   "host.widgets.network.kb": "{0} KB/s",
   "host.widgets.network.mb": "{0} MB/s",
+  "host.widgets.network.gbit": "{0} Gb/s",
+  "host.widgets.network.mbit": "{0} Mb/s",
   "host.widgets.notes.empty": "Napisz notatkę w ustawieniach Lampwin, w sekcji Widżety.",
   "host.widgets.countdown.title": "Odliczanie",
   "host.widgets.countdown.empty": "Wybierz dzień w ustawieniach Lampwin, w sekcji Widżety.",

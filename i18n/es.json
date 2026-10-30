@@ -559,6 +559,8 @@
   "host.widgets.network.up": "Subida",
   "host.widgets.network.kb": "{0} KB/s",
   "host.widgets.network.mb": "{0} MB/s",
+  "host.widgets.network.gbit": "{0} Gb/s",
+  "host.widgets.network.mbit": "{0} Mb/s",
   "host.widgets.notes.empty": "Escribe tu nota en la configuración de Lampwin, en Widgets.",
   "host.widgets.countdown.title": "Cuenta atrás",
   "host.widgets.countdown.empty": "Elige el día en la configuración de Lampwin, en Widgets.",

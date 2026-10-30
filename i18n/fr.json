@@ -559,6 +559,8 @@
   "host.widgets.network.up": "Envoi",
   "host.widgets.network.kb": "{0} Ko/s",
   "host.widgets.network.mb": "{0} Mo/s",
+  "host.widgets.network.gbit": "{0} Gb/s",
+  "host.widgets.network.mbit": "{0} Mb/s",
   "host.widgets.notes.empty": "Écrivez votre note dans les paramètres de Lampwin, sous Widgets.",
   "host.widgets.countdown.title": "Compte à rebours",
   "host.widgets.countdown.empty": "Choisissez le jour dans les paramètres de Lampwin, sous Widgets.",

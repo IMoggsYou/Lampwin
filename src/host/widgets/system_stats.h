@@ -19,6 +19,7 @@ private:
 
     ULONGLONG idle_ = 0, total_ = 0;
     int cpu_ = 0;
+    ULONG interface_ = 0;   // the adapter the counters below belong to
     ULONGLONG received_ = 0, sent_ = 0, networkAt_ = 0;
     float downHistory_[kNetworkHistory] = {};
     float upHistory_[kNetworkHistory] = {};

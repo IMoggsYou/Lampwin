@@ -67,5 +67,8 @@ private:
     HBITMAP frame_ = nullptr; // each frame is put together here, then shown at once
     HFONT font_ = nullptr;
     bool wasActive_ = false;
+    // While the overview takes the focus, Windows deactivates and activates it: not a
+    // reason to close.
+    bool settling_ = false;
     bool animate_ = true;
 };

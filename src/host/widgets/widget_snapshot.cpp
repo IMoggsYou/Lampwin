@@ -115,6 +115,7 @@ SystemStats SampleStats() {
         st.downHistory[i] = (float)(1.2e6 + 9e5 * sin(i * 0.45) + i * 2.2e5);
         st.upHistory[i] = (float)(2.4e5 + 1.1e5 * sin(i * 0.7 + 1));
     }
+    st.link = 1000000000ULL;
     st.down = st.downHistory[kNetworkHistory - 1];
     st.up = st.upHistory[kNetworkHistory - 1];
     return st;

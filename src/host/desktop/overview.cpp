@@ -166,6 +166,7 @@ void Overview::Toggle(bool animate) {
     }
     Layout();
     Place(0);
+    settling_ = true;
     ShowWindow(hwnd_, SW_SHOW);
     // A hot corner or a hotkey isn't a click on us: Windows only lets a program that is
     // being used take the focus, so borrow the foreground window's input for a moment.
@@ -175,7 +176,9 @@ void Overview::Toggle(bool animate) {
     SetForegroundWindow(hwnd_);
     SetFocus(hwnd_);
     if (attached) AttachThreadInput(me, fgThread, FALSE);
-    Log(L"overview: %zu windows", items_.size());
+    settling_ = false;
+    wasActive_ = GetForegroundWindow() == hwnd_;
+    Log(L"overview: %zu windows%ls", items_.size(), wasActive_ ? L"" : L" (no focus: Esc and the arrows won't work)");
     StartPhase(Phase::Opening);
 }
 
@@ -316,6 +319,7 @@ void Overview::CaptureBackground() {
 }
 
 void Overview::StartPhase(Phase phase) {
+    if (!hwnd_) return;
     phase_ = phase;
     from_ = progress_;
     QueryPerformanceCounter(&start_);
@@ -584,6 +588,7 @@ LRESULT Overview::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             }
             return 0;
         case WM_ACTIVATE:
+            if (settling_) return 0;
             if (LOWORD(wp) != WA_INACTIVE) {
                 wasActive_ = true;
             } else if (wasActive_ && phase_ != Phase::Closing) {

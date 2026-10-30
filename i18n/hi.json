@@ -559,6 +559,8 @@
   "host.widgets.network.up": "अपलोड",
   "host.widgets.network.kb": "{0} KB/s",
   "host.widgets.network.mb": "{0} MB/s",
+  "host.widgets.network.gbit": "{0} Gb/s",
+  "host.widgets.network.mbit": "{0} Mb/s",
   "host.widgets.notes.empty": "Lampwin सेटिंग्स में, विजेट के अंतर्गत अपना नोट लिखें।",
   "host.widgets.countdown.title": "उलटी गिनती",
   "host.widgets.countdown.empty": "Lampwin सेटिंग्स में, विजेट के अंतर्गत इसका दिन चुनें।",
