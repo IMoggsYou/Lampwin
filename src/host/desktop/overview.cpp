@@ -81,7 +81,7 @@ HBITMAP CreateDib(HDC dc, int w, int h, uint32_t** bits) {
     return bmp;
 }
 
-// Three box blurs in a row look like a Gaussian; on a small picture this is quick.
+// Three box blurs in a row look like a Gaussian; on a shrunk picture this is quick.
 void BoxBlur(uint32_t* px, int w, int h, int radius) {
     std::vector<uint32_t> tmp((size_t)w * h);
     for (int pass = 0; pass < 3; ++pass) {
@@ -265,28 +265,28 @@ void Overview::CaptureBackground() {
     HGDIOBJ old = SelectObject(dc, sharp_);
     BitBlt(dc, 0, 0, w, h, screen, screen_.left, screen_.top, SRCCOPY | CAPTUREBLT);
 
-    // Shrink, blur and darken a small copy, then stretch it back up smoothly.
+    // Shrink, blur and darken a shrunk copy, then stretch it back up smoothly.
     const int sw = std::max(1, w / 12), sh = std::max(1, h / 12);
-    uint32_t* small = nullptr;
-    HBITMAP smallBmp = CreateDib(screen, sw, sh, &small);
+    uint32_t* shrunk = nullptr;
+    HBITMAP shrunkBmp = CreateDib(screen, sw, sh, &shrunk);
     HDC sdc = CreateCompatibleDC(screen);
-    HGDIOBJ oldSmall = SelectObject(sdc, smallBmp);
+    HGDIOBJ oldShrunk = SelectObject(sdc, shrunkBmp);
     SetStretchBltMode(sdc, HALFTONE);
     SetBrushOrgEx(sdc, 0, 0, nullptr);
     StretchBlt(sdc, 0, 0, sw, sh, dc, 0, 0, w, h, SRCCOPY);
     GdiFlush();
-    if (small) {
-        BoxBlur(small, sw, sh, 2);
+    if (shrunk) {
+        BoxBlur(shrunk, sw, sh, 2);
         for (int i = 0; i < sw * sh; ++i) {
-            const uint32_t c = small[i];
-            small[i] = (((c & 0xFF) * 45 / 100) | ((((c >> 8) & 0xFF) * 45 / 100) << 8) |
+            const uint32_t c = shrunk[i];
+            shrunk[i] = (((c & 0xFF) * 45 / 100) | ((((c >> 8) & 0xFF) * 45 / 100) << 8) |
                         ((((c >> 16) & 0xFF) * 45 / 100) << 16));
         }
     }
     uint32_t* big = nullptr;
     soft_ = CreateDib(screen, w, h, &big);
-    if (big && small) {
-        // Bilinear: GDI's own stretching would show the small copy's pixels as squares.
+    if (big && shrunk) {
+        // Bilinear: GDI's own stretching would show the shrunk copy's pixels as squares.
         for (int y = 0; y < h; ++y) {
             const double fy = std::max(0.0, (y + 0.5) * sh / h - 0.5);
             const int y0 = std::min((int)fy, sh - 1), y1 = std::min(y0 + 1, sh - 1);
@@ -295,8 +295,8 @@ void Overview::CaptureBackground() {
                 const double fx = std::max(0.0, (x + 0.5) * sw / w - 0.5);
                 const int x0 = std::min((int)fx, sw - 1), x1 = std::min(x0 + 1, sw - 1);
                 const double tx = fx - x0;
-                const uint32_t a = small[y0 * sw + x0], b = small[y0 * sw + x1];
-                const uint32_t c = small[y1 * sw + x0], d = small[y1 * sw + x1];
+                const uint32_t a = shrunk[y0 * sw + x0], b = shrunk[y0 * sw + x1];
+                const uint32_t c = shrunk[y1 * sw + x0], d = shrunk[y1 * sw + x1];
                 uint32_t out = 0;
                 for (int shift = 0; shift < 24; shift += 8) {
                     const double top = Lerp((a >> shift) & 0xFF, (b >> shift) & 0xFF, tx);
@@ -307,9 +307,9 @@ void Overview::CaptureBackground() {
             }
         }
     }
-    SelectObject(sdc, oldSmall);
+    SelectObject(sdc, oldShrunk);
     DeleteDC(sdc);
-    DeleteObject(smallBmp);
+    DeleteObject(shrunkBmp);
     SelectObject(dc, old);
     DeleteDC(dc);
     ReleaseDC(nullptr, screen);
