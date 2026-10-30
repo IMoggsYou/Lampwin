@@ -9,6 +9,11 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Fixed
+
+- The window overview closed again at once, so **Show** (Settings → Desktop), the shortcut
+  and the hot corner seemed to do nothing.
+
 ## [1.6.0] - 2026-10-30
 
 ### Added
