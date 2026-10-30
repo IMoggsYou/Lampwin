@@ -81,7 +81,7 @@ HBITMAP CreateDib(HDC dc, int w, int h, uint32_t** bits) {
     return bmp;
 }
 
-// Three box blurs in a row look like a Gaussian; on a shrunk picture this is quick.
+// Three box blurs in a row look like a Gaussian; on a small picture this is quick.
 void BoxBlur(uint32_t* px, int w, int h, int radius) {
     std::vector<uint32_t> tmp((size_t)w * h);
     for (int pass = 0; pass < 3; ++pass) {
@@ -265,7 +265,7 @@ void Overview::CaptureBackground() {
     HGDIOBJ old = SelectObject(dc, sharp_);
     BitBlt(dc, 0, 0, w, h, screen, screen_.left, screen_.top, SRCCOPY | CAPTUREBLT);
 
-    // Shrink, blur and darken a shrunk copy, then stretch it back up smoothly.
+    // Shrink, blur and darken a small copy, then stretch it back up smoothly.
     const int sw = std::max(1, w / 12), sh = std::max(1, h / 12);
     uint32_t* shrunk = nullptr;
     HBITMAP shrunkBmp = CreateDib(screen, sw, sh, &shrunk);
