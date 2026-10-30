@@ -10,6 +10,9 @@ name: Release
 on:
   push:
     tags: ['v*.*.*']
+  # Run by hand on main (Actions → Release → Run workflow): releases the version in VERSION
+  # and creates its tag on that commit, for when a tag can't be pushed from a PC.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -60,13 +63,26 @@ jobs:
 
       - name: Tag matches VERSION
         id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version="$(tr -d '[:space:]' < VERSION)"
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            # By hand: only main, and only a version that has no tag yet.
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Run the release on main, not $GITHUB_REF_NAME"
+              exit 1
+            fi
+            if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$version" > /dev/null 2>&1; then
+              echo "::error::v$version is already tagged: put the new version in VERSION first"
+              exit 1
+            fi
+          elif [ "v$version" != "$GITHUB_REF_NAME" ]; then
             echo "::error::Tag $GITHUB_REF_NAME does not match VERSION ($version)"
             exit 1
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Download the installer
         if: needs.sign.result != 'success'
@@ -116,5 +132,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" dist/MacWinSetup-*.exe dist/SHA256SUMS.txt \
-            --title "Lampwin ${{ steps.version.outputs.version }}" --notes-file notes.md --verify-tag
+          tag="${{ steps.version.outputs.tag }}"
+          # A pushed tag must exist; by hand, the release creates it on the commit that was built.
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            target=(--target "$GITHUB_SHA")
+          else
+            target=(--verify-tag)
+          fi
+          gh release create "$tag" dist/MacWinSetup-*.exe dist/SHA256SUMS.txt \
+            --title "Lampwin ${{ steps.version.outputs.version }}" --notes-file notes.md "${target[@]}"

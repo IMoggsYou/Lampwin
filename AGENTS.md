@@ -158,7 +158,9 @@ Removed, Security). Write it for users, not for developers.
 4. In `CHANGELOG.md` rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`, add a new empty
    `## [Unreleased]` above it, update the compare links at the bottom.
 5. Commit (`Release X.Y.Z`), then tag and push:
-   `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+   `git tag vX.Y.Z && git push origin main vX.Y.Z`. Where tags can't be pushed (a cloud
+   session), merge the release commit through a PR and run **Actions → Release → Run
+   workflow** on `main`: it releases the version in `VERSION` and creates its tag.
 6. `.github/workflows/release.yml` builds, tests, attaches `MacWinSetup-X.Y.Z.exe` and
    `SHA256SUMS.txt` and publishes the release with that changelog section. Installed copies
    find it within a day (the updater needs exactly those two file names).
