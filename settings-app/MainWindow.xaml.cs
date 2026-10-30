@@ -74,6 +74,11 @@ public partial class MainWindow : Window
             },
             new()
             {
+                Id = "desktop", TitleKey = "settings.nav.desktop",
+                Tint = Gradient("#FF5AC8FA", "#FF2F7BFF"), Icon = ScreenCornersIcon(), Create = () => new DesktopPage(),
+            },
+            new()
+            {
                 Id = "icons", TitleKey = "settings.nav.icons",
                 Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Icon = AppGridIcon(), Create = () => new AppIconsPage(),
             },
@@ -91,6 +96,11 @@ public partial class MainWindow : Window
             {
                 Id = "privacy", TitleKey = "settings.nav.privacy",
                 Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Icon = HandIcon(), Create = () => new PrivacyPage(),
+            },
+            new()
+            {
+                Id = "tweaks", TitleKey = "settings.nav.tweaks",
+                Tint = Gradient("#FF8E8E93", "#FF48484A"), Icon = WrenchIcon(), Create = () => new PrivacyPage(SwitchSet.Tweaks),
             },
             new()
             {
@@ -146,7 +156,8 @@ public partial class MainWindow : Window
                 return;
             }
             await Task.Delay(450);   // after the window's own opening animation
-            OfferUpdate();
+            if (_store.WelcomePending) WelcomeSheet.Show();
+            else OfferUpdate();
             // Icons that came with MacWin (or with an update of it) go to their programs.
             _ = AppIconActions.EnsureBundledAsync(_store.Model);
         };
@@ -157,6 +168,11 @@ public partial class MainWindow : Window
             // The General page shows the download and the installation.
             Search.Clear();
             Nav.SelectedIndex = PageIndex("general");
+        };
+        WelcomeSheet.Finished += () =>
+        {
+            _store.FinishWelcome();
+            OfferUpdate();
         };
         Closing += (_, _) => _store.Flush();
 
@@ -249,7 +265,7 @@ public partial class MainWindow : Window
     private void OfferUpdate()
     {
         var m = _store.Model;
-        if (_updateOffered || _snapshotDir is not null || !m.UpdateCheck || m.UpdateAutoInstall || !m.UpdatePrompt ||
+        if (_updateOffered || _snapshotDir is not null || WelcomeSheet.IsOpen || !m.UpdateCheck || m.UpdateAutoInstall || !m.UpdatePrompt ||
             !HostControl.IsRunning)
             return;
         DateTime stamp;
@@ -360,6 +376,11 @@ public partial class MainWindow : Window
         UpdateSheet.ShowNotes();
         await Task.Delay(700);
         await Capture(dir, "update-notes.png");
+        // The welcome sheet of a new install (closed without a choice: nothing is saved).
+        UpdateSheet.Visibility = Visibility.Collapsed;
+        WelcomeSheet.Show();
+        await Task.Delay(700);
+        await Capture(dir, "welcome.png");
         Close();
     }
 
@@ -439,6 +460,25 @@ public partial class MainWindow : Window
         g.Children.Add(new RectangleGeometry(new Rect(1.5, 8.7, 13, 5.8), 1.7, 1.7));
         return g;
     }
+
+    // A screen with its four corners lit, like the hot corners.
+    private static Geometry ScreenCornersIcon()
+    {
+        var frame = new CombinedGeometry(GeometryCombineMode.Exclude,
+                                         new RectangleGeometry(new Rect(1, 2, 14, 10.5), 2, 2),
+                                         new RectangleGeometry(new Rect(2.4, 3.4, 11.2, 7.7), 1, 1));
+        var g = new GeometryGroup { FillRule = FillRule.Nonzero };
+        g.Children.Add(frame);
+        foreach (var (x, y) in new[] { (4.6, 5.6), (11.4, 5.6), (4.6, 8.9), (11.4, 8.9) })
+            g.Children.Add(new EllipseGeometry(new Point(x, y), 1.1, 1.1));
+        g.Children.Add(new RectangleGeometry(new Rect(5.5, 13.4, 5, 1.4), 0.7, 0.7));
+        return g;
+    }
+
+    private static Geometry WrenchIcon() => Geometry.Parse(
+        "M10.6,1.2 C12.9,0.7 15.1,2.6 14.8,5 L12.6,7.2 C12.1,7.7 11.3,7.7 10.8,7.2 L10.1,6.5 L11.9,4.7 " +
+        "L11.2,4 L9.4,5.8 L8.7,5.1 C8.2,4.6 8.2,3.8 8.7,3.3 Z M7.9,6.4 L9.6,8.1 L3.4,14.3 " +
+        "C2.9,14.8 2.1,14.8 1.7,14.3 C1.2,13.9 1.2,13.1 1.7,12.6 Z");
 
     // Four app icons in a grid.
     private static Geometry AppGridIcon()

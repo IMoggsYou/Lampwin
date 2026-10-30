@@ -167,6 +167,8 @@ internal static class PrivacyRunner
 
     public static string BackupPath { get; } = Path.Combine(Folder, "backup.json");
 
+    private static string BackupOf(SwitchSet set) => Path.Combine(Folder, set.BackupName);
+
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private const int ErrorCancelled = 1223;
 
@@ -181,12 +183,12 @@ internal static class PrivacyRunner
 
     /// <summary>Every switch's state; a switch that can't be read counts as not on this PC.
     /// Slow-ish (schtasks): call off the UI thread.</summary>
-    public static Dictionary<string, TweakState> ReadStates()
+    public static Dictionary<string, TweakState> ReadStates(SwitchSet set)
     {
         using var system = new WindowsPrivacySystem();
-        var engine = new PrivacyEngine(system, new PrivacyBackupFile(BackupPath));
+        var engine = new PrivacyEngine(system, new PrivacyBackupFile(BackupOf(set)));
         var states = new Dictionary<string, TweakState>();
-        foreach (var tweak in PrivacyCatalog.All)
+        foreach (var tweak in set.All)
         {
             try
             {
@@ -202,17 +204,26 @@ internal static class PrivacyRunner
         return states;
     }
 
-    public static bool HasBackup() => new PrivacyBackupFile(BackupPath).HasEntries();
+    public static bool HasBackup(SwitchSet set) => new PrivacyBackupFile(BackupOf(set)).HasEntries();
 
-    public static Task<IReadOnlyList<PrivacyResult>> ApplyAsync(IReadOnlyList<PrivacyChange> changes) => Task.Run(() =>
-        changes.Any(c => c.Tweak.NeedsAdmin) && !IsElevated
+    // Only the Privacy page's switches ever need administrator rights (tests/settings checks
+    // that the Tweaks page's don't); the helper takes nothing but those.
+    public static Task<IReadOnlyList<PrivacyResult>> ApplyAsync(SwitchSet set, IReadOnlyList<PrivacyChange> changes) =>
+        Task.Run(() => AfterChange(set, set == SwitchSet.Privacy && changes.Any(c => c.Tweak.NeedsAdmin) && !IsElevated
             ? RunElevated("apply", PrivacyCatalog.FormatChanges(changes), changes.Select(c => c.Tweak.Id))
-            : Here(engine => engine.Apply(changes)));
+            : Here(set, engine => engine.Apply(changes))));
 
-    public static Task<IReadOnlyList<PrivacyResult>> RestoreAsync() => Task.Run(() =>
-        NeedsAdminToRestore() && !IsElevated
+    public static Task<IReadOnlyList<PrivacyResult>> RestoreAsync(SwitchSet set) =>
+        Task.Run(() => AfterChange(set, set == SwitchSet.Privacy && NeedsAdminToRestore() && !IsElevated
             ? RunElevated("restore", null, [""])
-            : Here(engine => engine.RestoreAll(PrivacyCatalog.All)));
+            : Here(set, engine => engine.RestoreAll(set.All))));
+
+    // Explorer reads the Tweaks page's values when it is told that settings changed.
+    private static IReadOnlyList<PrivacyResult> AfterChange(SwitchSet set, IReadOnlyList<PrivacyResult> results)
+    {
+        if (set.OnMeansChanged && results.Any(r => r.Ok)) Native.NotifyShellSettingsChanged();
+        return results;
+    }
 
     // Machine-wide originals in the backup (or a backup that can't be read: the helper reports it).
     private static bool NeedsAdminToRestore()
@@ -228,10 +239,10 @@ internal static class PrivacyRunner
         }
     }
 
-    private static IReadOnlyList<PrivacyResult> Here(Func<PrivacyEngine, IReadOnlyList<PrivacyResult>> work)
+    private static IReadOnlyList<PrivacyResult> Here(SwitchSet set, Func<PrivacyEngine, IReadOnlyList<PrivacyResult>> work)
     {
         using var system = new WindowsPrivacySystem();
-        return Log(work(new PrivacyEngine(system, new PrivacyBackupFile(BackupPath))));
+        return Log(work(new PrivacyEngine(system, new PrivacyBackupFile(BackupOf(set)))));
     }
 
     private static IReadOnlyList<PrivacyResult> RunElevated(string mode, string? changes, IEnumerable<string> ids)

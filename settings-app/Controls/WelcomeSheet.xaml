@@ -1,0 +1,103 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin -->
+
+<UserControl x:Class="MacWin.Settings.Controls.WelcomeSheet"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings"
+             Visibility="Collapsed" Focusable="False" KeyboardNavigation.TabNavigation="Cycle"
+             PreviewKeyDown="Sheet_PreviewKeyDown">
+    <UserControl.Resources>
+        <!-- One look to pick: a card that lights up when chosen (Tag = its preset). -->
+        <Style x:Key="Choice" TargetType="RadioButton">
+            <Setter Property="GroupName" Value="Preset"/>
+            <Setter Property="Focusable" Value="True"/>
+            <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Card" CornerRadius="10" Padding="12,10" Margin="0,0,0,8" Cursor="Hand"
+                                Background="{DynamicResource Brush.Group}" BorderThickness="2"
+                                BorderBrush="{DynamicResource Brush.GroupBorder}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Brush.Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Card" Property="BorderBrush" Value="{DynamicResource Brush.FocusRing}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid>
+        <Rectangle x:Name="Dim" Fill="Black" Opacity="0"/>
+        <Grid x:Name="Sheet" Width="452" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,58,0,0"
+              RenderTransformOrigin="0.5,0">
+            <Grid.RenderTransform>
+                <TransformGroup>
+                    <ScaleTransform x:Name="SheetScale"/>
+                    <TranslateTransform x:Name="SheetShift"/>
+                </TransformGroup>
+            </Grid.RenderTransform>
+            <Border CornerRadius="13" Background="{DynamicResource Brush.WindowBg}">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="44" ShadowDepth="14" Direction="270" Opacity="0.28"/>
+                </Border.Effect>
+            </Border>
+            <Border CornerRadius="13" Background="{DynamicResource Brush.WindowBg}"
+                    BorderBrush="{DynamicResource Brush.GroupBorder}" BorderThickness="1">
+                <StackPanel Margin="22,20,22,18">
+                    <DockPanel>
+                        <c:AppIcon Width="58" Height="58" VerticalAlignment="Top" Margin="0,0,14,0"/>
+                        <StackPanel VerticalAlignment="Center">
+                            <TextBlock FontFamily="{DynamicResource Font.Display}" FontSize="16" FontWeight="SemiBold"
+                                       TextWrapping="Wrap" Text="{l:Tr settings.welcome.title}"/>
+                            <TextBlock Style="{StaticResource Text.Secondary}" FontSize="12" Margin="0,3,0,0"
+                                       TextWrapping="Wrap" Text="{l:Tr settings.welcome.subtitle}"/>
+                        </StackPanel>
+                    </DockPanel>
+
+                    <StackPanel Margin="0,16,0,0">
+                        <RadioButton x:Name="MacChoice" Style="{StaticResource Choice}" IsChecked="True">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="{l:Tr settings.welcome.mac.title}"/>
+                                <TextBlock Style="{StaticResource Text.Secondary}" FontSize="12" TextWrapping="Wrap"
+                                           Margin="0,2,0,0" Text="{l:Tr settings.welcome.mac.description}"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="CalmChoice" Style="{StaticResource Choice}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="{l:Tr settings.welcome.calm.title}"/>
+                                <TextBlock Style="{StaticResource Text.Secondary}" FontSize="12" TextWrapping="Wrap"
+                                           Margin="0,2,0,0" Text="{l:Tr settings.welcome.calm.description}"/>
+                            </StackPanel>
+                        </RadioButton>
+                        <RadioButton x:Name="KeepChoice" Style="{StaticResource Choice}">
+                            <StackPanel>
+                                <TextBlock FontWeight="SemiBold" Text="{l:Tr settings.welcome.keep.title}"/>
+                                <TextBlock Style="{StaticResource Text.Secondary}" FontSize="12" TextWrapping="Wrap"
+                                           Margin="0,2,0,0" Text="{l:Tr settings.welcome.keep.description}"/>
+                            </StackPanel>
+                        </RadioButton>
+                    </StackPanel>
+
+                    <CheckBox x:Name="AddWidgets" Style="{StaticResource MacCheckBox}" Margin="2,6,0,0" IsChecked="True">
+                        <TextBlock Text="{l:Tr settings.welcome.widgets}" TextWrapping="Wrap"/>
+                    </CheckBox>
+
+                    <StackPanel Margin="0,18,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button x:Name="StartButton" Style="{StaticResource MacPrimaryButton}"
+                                Content="{l:Tr settings.welcome.start}" Click="Start_Click"/>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

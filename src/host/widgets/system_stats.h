@@ -7,15 +7,21 @@
 
 namespace widgets {
 
-// Processor, memory, Windows drive and battery for the System widget.
+// Processor, memory, Windows drive and battery for the System and Battery widgets, and
+// the network's speed for the Network widget.
 class SystemSampler {
 public:
-    // The processor load is the average since the previous call.
+    // The processor load and the network speed are the averages since the previous call.
     SystemStats Sample();
 
 private:
+    void SampleNetwork(SystemStats* s);
+
     ULONGLONG idle_ = 0, total_ = 0;
     int cpu_ = 0;
+    ULONGLONG received_ = 0, sent_ = 0, networkAt_ = 0;
+    float downHistory_[kNetworkHistory] = {};
+    float upHistory_[kNetworkHistory] = {};
 };
 
 }  // namespace widgets

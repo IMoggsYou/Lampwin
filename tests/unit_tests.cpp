@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "common/strutil.h"
+#include "host/desktop/sun.h"
 #include "host/i18n.h"
 #include "host/render/genie_effect.h"
 #include "host/json.h"
@@ -411,6 +412,27 @@ void TestGenieCurves() {
     }
 }
 
+// Sunrise and sunset against published times (minutes after 00:00 UTC, within 3 minutes).
+void TestSun() {
+    auto within = [](double got, double want) { return fabs(got - want) <= 3; };
+    double rise = 0, set = 0;
+    // Warsaw, midsummer: 04:14 and 21:01 summer time.
+    CHECK(sun::Times(52.23, 21.01, 2026, 6, 21, &rise, &set) == sun::Day::Normal);
+    CHECK(within(rise, 2 * 60 + 14) && within(set, 19 * 60 + 1));
+    // Warsaw, midwinter: 07:43 and 15:25 winter time.
+    CHECK(sun::Times(52.23, 21.01, 2026, 12, 21, &rise, &set) == sun::Day::Normal);
+    CHECK(within(rise, 6 * 60 + 43) && within(set, 14 * 60 + 25));
+    // Sydney in January: 06:01 and 20:10 summer time, so it rises on the UTC day before.
+    CHECK(sun::Times(-33.87, 151.21, 2026, 1, 15, &rise, &set) == sun::Day::Normal);
+    CHECK(within(rise, -(4 * 60 + 59)) && within(set, 9 * 60 + 10));
+    // Los Angeles: it sets after midnight UTC.
+    CHECK(sun::Times(34.05, -118.24, 2026, 3, 20, &rise, &set) == sun::Day::Normal);
+    CHECK(within(rise, 13 * 60 + 57) && within(set, 26 * 60 + 5));
+    // Tromsø: midnight sun and polar night.
+    CHECK(sun::Times(69.65, 18.96, 2026, 6, 21, &rise, &set) == sun::Day::PolarDay);
+    CHECK(sun::Times(69.65, 18.96, 2026, 12, 21, &rise, &set) == sun::Day::PolarNight);
+}
+
 }  // namespace
 
 int wmain() {
@@ -429,6 +451,7 @@ int wmain() {
     TestForecast();
     TestLocation();
     TestGenieCurves();
+    TestSun();
     if (g_failures) {
         fprintf(stderr, "%d check(s) failed\n", g_failures);
         return 1;

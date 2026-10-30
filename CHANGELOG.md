@@ -9,6 +9,39 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- **Window overview** (Settings → Desktop): every window on the screen glides into a grid
+  over a dimmed, blurred desktop, like Exposé on a Mac. Click one to bring it to the front,
+  or use the arrow keys and Enter; Esc goes back. Open it with **Ctrl+Alt+↑** (turn the
+  shortcut on first), a hot corner, the tray menu or `MacWin.exe --overview`.
+- **Hot corners**: push the pointer into a corner of the screen and Lampwin shows the
+  window overview, the desktop, Task view, Start or the notifications, locks the PC, turns
+  the display off or starts the screen saver. Corners stay quiet while a game or a video
+  runs full screen, and a click in a corner (a maximized window's close button) never
+  triggers them.
+- **Light and dark by the time of day**: Windows switches to dark mode at sunset and back
+  at sunrise, and the desktop can show a day and a night wallpaper. Sunrise and sunset are
+  worked out on your PC from Windows' location (or the Weather widget's place); set times
+  work too.
+- A **Tweaks** page: show file extensions and hidden files, the full path in File
+  Explorer, open File Explorer to This PC, a compact view, taskbar icons on the left, no
+  search box or Task view button, seconds in the clock, End task on the taskbar and more
+  pins in Start. They are the settings Windows itself has, need no administrator rights,
+  are backed up first and **Restore** puts them back.
+- Two new widgets: **Battery** (its charge, whether it charges and the time left) and
+  **Network** (download and upload speed, with the last minute as a chart). Both read
+  everything on your PC.
+- A **welcome** the first time the settings open after installing: pick a look to start
+  with (like a Mac, calm, or the defaults) and, if you like, a clock and a calendar on the
+  desktop.
+- The tray menu turns the window corners on and off and opens the window overview.
+
+### Changed
+
+- While Windows' energy saver is on, windows open, close and minimize without animations,
+  to save battery. A switch on the Animations page turns this off.
+
 ## [1.5.1] - 2026-10-27
 
 ### Changed

@@ -81,6 +81,8 @@ public sealed class WidgetPreview : FrameworkElement
                 else if (Kind == "system") Gauges(dc, p);
                 else if (Kind == "countdown") Countdown(dc, p);
                 else if (Kind == "nowPlaying") NowPlaying(dc, p);
+                else if (Kind == "battery") Battery(dc, p);
+                else if (Kind == "network") Network(dc, p);
                 else Notes(dc, p);
                 break;
         }
@@ -221,6 +223,51 @@ public sealed class WidgetPreview : FrameworkElement
         var line = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
         dc.DrawRoundedRectangle(line, null, new Rect(12, 79, 46, 5), 2.5, 2.5);
         dc.DrawRoundedRectangle(line, null, new Rect(12, 88, 26, 4), 2, 2);
+    }
+
+    // One big ring, charging, with the battery inside (DrawBattery).
+    private static void Battery(DrawingContext dc, Palette p)
+    {
+        var green = Hex(0x30D158);
+        var c = new Point(50, 46);
+        const double r = 27, value = 0.81;
+        dc.DrawEllipse(null, new Pen(new SolidColorBrush(p.Track), 7), c, r, r);
+        double a = value * 2 * Math.PI;
+        var arc = new StreamGeometry();
+        using (var ctx = arc.Open())
+        {
+            ctx.BeginFigure(new Point(c.X, c.Y - r), false, false);
+            ctx.ArcTo(new Point(c.X + r * Math.Sin(a), c.Y - r * Math.Cos(a)), new Size(r, r), 0, value > 0.5,
+                      SweepDirection.Clockwise, true, false);
+        }
+        dc.DrawGeometry(null, RoundPen(green, 7), arc);
+        dc.DrawRoundedRectangle(null, new Pen(new SolidColorBrush(p.Secondary), 1.3), new Rect(40, 39.5, 18, 10), 3, 3);
+        dc.DrawRoundedRectangle(new SolidColorBrush(p.Secondary), null, new Rect(58.6, 42.5, 1.6, 4), 0.8, 0.8);
+        dc.DrawRoundedRectangle(new SolidColorBrush(green), null, new Rect(41.8, 41.3, 11.6, 6.4), 1.8, 1.8);
+        var line = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
+        dc.DrawRoundedRectangle(new SolidColorBrush(p.Text), null, new Rect(38, 80, 24, 6), 3, 3);
+        dc.DrawRoundedRectangle(line, null, new Rect(32, 89, 36, 4), 2, 2);
+    }
+
+    // Download and upload with a minute of each as a chart (DrawNetwork).
+    private static void Network(DrawingContext dc, Palette p)
+    {
+        Color blue = Hex(0x0A84FF), purple = Hex(0xBF5AF2);
+        var line = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
+        dc.DrawRoundedRectangle(line, null, new Rect(12, 11, 34, 5), 2.5, 2.5);
+        foreach (var (y, color, width) in new[] { (26.0, blue, 50.0), (44.0, purple, 38.0) })
+        {
+            dc.DrawEllipse(new SolidColorBrush(color), null, new Point(17, y + 4), 5, 5);
+            dc.DrawRoundedRectangle(new SolidColorBrush(p.Text), null, new Rect(26, y + 1, width, 7), 3.5, 3.5);
+        }
+        foreach (var (color, points) in new[]
+                 {
+                     (purple, "M12,90 L24,86 L36,88 L48,84 L60,87 L72,83 L88,85"),
+                     (blue, "M12,84 L24,78 L36,81 L48,72 L60,75 L72,66 L88,62"),
+                 })
+        {
+            dc.DrawGeometry(null, RoundPen(color, 1.8), Geometry.Parse(points));
+        }
     }
 
     private static void Photo(DrawingContext dc)

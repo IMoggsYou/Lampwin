@@ -35,6 +35,9 @@ public sealed class SettingsStore
 
     public SettingsModel Model { get; } = new();
 
+    /// <summary>MacWin made a new settings file (a new install): the welcome sheet shows once.</summary>
+    public bool WelcomePending { get; private set; }
+
     public SettingsStore()
     {
         _saveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
@@ -83,6 +86,7 @@ public sealed class SettingsStore
         try
         {
             _root = ReadRoot();
+            WelcomePending = Bool(_root, "welcome", false);
             var m = Model;
             m.Enabled = Bool(_root, "enabled", true);
             m.DevMode = Bool(_root, "devMode", false);
@@ -105,6 +109,7 @@ public sealed class SettingsStore
             m.CloseDurationMs = Num(genie, "closeDurationMs", 400);
             m.MultiMonitor = Bool(genie, "multiMonitor", false);
             m.FollowSystemMotion = Bool(genie, "followSystemMotion", true);
+            m.FollowEnergySaver = Bool(genie, "followEnergySaver", true);
             m.UnhideTaskbar = Bool(genie, "unhideTaskbar", true);
             m.UnhideDurationMs = Num(genie, "unhideDurationMs", 450);
             m.MeshQuality = Num(genie, "meshQuality", 48);
@@ -133,12 +138,35 @@ public sealed class SettingsStore
             bool hasPlace = Str(place, "name", "").Length > 0 && Math.Abs(lat) <= 90 && Math.Abs(lon) <= 180;
             m.SetPlace(hasPlace ? Str(place, "name", "") : "", hasPlace ? lat : 0, hasPlace ? lon : 0);
             SyncWidgets(m.Widgets, widgets["items"] as JsonArray);
+            var desktop = _root["desktop"] as JsonObject ?? new JsonObject();
+            var corners = desktop["hotCorners"] as JsonObject ?? new JsonObject();
+            m.Corners = SettingsModel.CornerNames
+                .Select(c => Math.Max(0, System.Array.IndexOf(SettingsModel.CornerActionNames, Str(corners, c, "none"))))
+                .ToArray();
+            m.OverviewHotkey = Bool(desktop, "overviewHotkey", false);
+            var appearance = _root["appearance"] as JsonObject ?? new JsonObject();
+            m.DarkModeSchedule = Bool(appearance, "darkMode", false);
+            m.WallpaperSchedule = Bool(appearance, "wallpaper", false);
+            m.DayWallpaper = Str(appearance, "dayWallpaper", "");
+            m.NightWallpaper = Str(appearance, "nightWallpaper", "");
+            m.FollowSun = Str(appearance, "schedule", "sun") != "times";
+            m.DayStart = Str(appearance, "dayStart", "07:00");
+            m.NightStart = Str(appearance, "nightStart", "19:00");
         }
         finally
         {
             Model.SuppressSideEffects = false;
             _loading = false;
         }
+    }
+
+    /// <summary>The welcome sheet was answered: it doesn't show again.</summary>
+    public void FinishWelcome()
+    {
+        _root.Remove("welcome");
+        WelcomePending = false;
+        _saveTimer.Stop();
+        Save();
     }
 
     /// <summary>Writes a pending change right away (window closing).</summary>
@@ -173,6 +201,7 @@ public sealed class SettingsStore
         genie["closeDurationMs"] = (int)m.CloseDurationMs;
         genie["multiMonitor"] = m.MultiMonitor;
         genie["followSystemMotion"] = m.FollowSystemMotion;
+        genie["followEnergySaver"] = m.FollowEnergySaver;
         genie["unhideTaskbar"] = m.UnhideTaskbar;
         genie["unhideDurationMs"] = (int)m.UnhideDurationMs;
         genie["meshQuality"] = (int)m.MeshQuality;
@@ -188,6 +217,22 @@ public sealed class SettingsStore
         icons["apps"] = apps;
         _root["appIcons"] = icons;
         _root["widgets"] = SaveWidgets(m, _root["widgets"] as JsonObject ?? new JsonObject());
+        var desktop = _root["desktop"] as JsonObject ?? new JsonObject();
+        var corners = new JsonObject();
+        for (int i = 0; i < SettingsModel.CornerNames.Length; i++)
+            corners[SettingsModel.CornerNames[i]] = SettingsModel.CornerActionNames[m.Corners[i]];
+        desktop["hotCorners"] = corners;
+        desktop["overviewHotkey"] = m.OverviewHotkey;
+        _root["desktop"] = desktop;
+        var appearance = _root["appearance"] as JsonObject ?? new JsonObject();
+        appearance["darkMode"] = m.DarkModeSchedule;
+        appearance["wallpaper"] = m.WallpaperSchedule;
+        appearance["dayWallpaper"] = m.DayWallpaper;
+        appearance["nightWallpaper"] = m.NightWallpaper;
+        appearance["schedule"] = m.FollowSun ? "sun" : "times";
+        appearance["dayStart"] = m.DayStart;
+        appearance["nightStart"] = m.NightStart;
+        _root["appearance"] = appearance;
 
         try
         {

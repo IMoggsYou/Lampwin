@@ -135,6 +135,11 @@
                               Description="{l:Tr settings.animations.followSystem.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding FollowSystemMotion}"/>
                 </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.animations.energySaver.title}"
+                              Description="{l:Tr settings.animations.energySaver.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding FollowEnergySaver}"/>
+                </c:SettingRow>
             </StackPanel>
         </Border>
 

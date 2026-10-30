@@ -103,6 +103,23 @@ bool SavePng(Graphics& g, const BYTE* bits, int w, int h, const std::wstring& pa
            SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
 }
 
+// Gauges, a battery on its way up and a minute of a download that speeds up.
+SystemStats SampleStats() {
+    SystemStats st;
+    st.cpu = 37;
+    st.memory = 62;
+    st.disk = 48;
+    st.battery = 81;
+    st.charging = st.pluggedIn = true;
+    for (int i = 0; i < kNetworkHistory; ++i) {
+        st.downHistory[i] = (float)(1.2e6 + 9e5 * sin(i * 0.45) + i * 2.2e5);
+        st.upHistory[i] = (float)(2.4e5 + 1.1e5 * sin(i * 0.7 + 1));
+    }
+    st.down = st.downHistory[kNetworkHistory - 1];
+    st.up = st.upHistory[kNetworkHistory - 1];
+    return st;
+}
+
 }  // namespace
 
 int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool dark) {
@@ -119,7 +136,8 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
         {Kind::Weather, Size::Large},     {Kind::Notes, Size::Large},       {Kind::Notes, Size::Small},
         {Kind::Photo, Size::Small},       {Kind::Notes, Size::Medium},      {Kind::Photo, Size::Medium},
         {Kind::Countdown, Size::Small},   {Kind::Countdown, Size::Medium},  {Kind::NowPlaying, Size::Small},
-        {Kind::NowPlaying, Size::Medium},
+        {Kind::NowPlaying, Size::Medium}, {Kind::Battery, Size::Small},     {Kind::Battery, Size::Medium},
+        {Kind::Network, Size::Small},     {Kind::Network, Size::Medium},
     };
     const Icon icons[] = {Icon::Moon, Icon::SunCloud, Icon::MoonCloud, Icon::Cloud, Icon::Fog, Icon::Drizzle,
                           Icon::Rain, Icon::Sleet, Icon::Snow, Icon::Storm};
@@ -215,7 +233,7 @@ int WidgetSnapshot(const std::wstring& dir, const std::wstring& language, bool d
         scene.weather = p.s.weather;
         scene.forecast = &forecast;
         scene.place = L"San Francisco";   // sample data only: users pick their own place
-        scene.stats = {37, 62, 48, 81, true};
+        scene.stats = SampleStats();
         if (p.s.kind == Kind::Notes && p.s.size != Size::Small) {
             scene.text = L"Shopping\nMilk, bread, coffee beans\nCall the dentist on Monday\nPick up the parcel\n"
                          L"Book train tickets for the weekend trip to the mountains\nWater the plants";

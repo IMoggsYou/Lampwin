@@ -12,6 +12,9 @@
 #include "common/names.h"
 #include "host/app_icon.h"
 #include "host/crash.h"
+#include "host/desktop/appearance.h"
+#include "host/desktop/hot_corners.h"
+#include "host/desktop/overview.h"
 #include "host/elevation.h"
 #include "host/helper32.h"
 #include "host/i18n.h"
@@ -33,14 +36,23 @@ const UINT WM_APP_TRAY = WM_APP + 1;
 const UINT WM_APP_HELPER_EXITED = WM_APP + 3;
 const UINT WM_APP_UPDATE = WM_APP + 4;
 const UINT WM_APP_WIDGETS = WM_APP + 5;
+const UINT WM_APP_HOT_CORNER = WM_APP + 6;
+const UINT WM_APP_LOCATED = WM_APP + 7;
 const UINT_PTR kPreloadTimer = 1;
 const UINT_PTR kUpdateTimer = 2;
+const UINT_PTR kAppearanceTimer = 3;
 const UINT kFirstUpdateCheckMs = 60 * 1000;           // after start: let the session settle
 const UINT kUpdateCheckEveryMs = 3 * 60 * 60 * 1000;  // the updater checks at most once a day
 const int kHotkeyQuit = 1;
+const int kHotkeyOverview = 2;
 // Settings app -> host (src/common/names.h has the rest): wParam 1 = check now, 2 = install.
 const wchar_t kUpdateMessage[] = L"MacWin_" MACWIN_NS L"Update_v1";
 const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/Lampwin/releases";
+
+// Windows 11's energy saver (its status: 0 off, 1 on, 2 on with more savings) and the
+// battery saver of older versions (1 on). Windows sends the current value when we register.
+const GUID kEnergySaverStatus = {0x550e8400, 0xe29b, 0x41d4, {0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00}};
+const GUID kPowerSavingStatus = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0xcc, 0xed, 0x2e, 0xee, 0xa5}};
 
 // Windows' "Animation effects" (Settings > Accessibility > Visual effects).
 bool SystemAnimationsOn() {
@@ -52,6 +64,8 @@ enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
     ID_WIDGETS,
+    ID_CORNERS,
+    ID_OVERVIEW,
     ID_DEVMODE,
     ID_OPEN_LOG,
     ID_UPDATE,
@@ -79,6 +93,10 @@ private:
     void RunInstaller();
     void ApplySettings(bool save);
     void ApplyWidgets();
+    void ApplyDesktop();
+    void ToggleOverview();
+    void OnHotCorner(CornerAction action, POINT pt);
+    void OnPowerSetting(const POWERBROADCAST_SETTING* setting);
     void OnWidgetRequest(WPARAM request, LPARAM lp);
     void RefreshWindowCorners();
     void ReloadSettings();
@@ -93,6 +111,9 @@ private:
     UINT quitMsg_ = 0;
     UINT cornersMsg_ = 0;
     UINT updateMsg_ = 0;
+    UINT overviewMsg_ = 0;
+    HPOWERNOTIFY powerNotify_[2] = {};
+    bool energySaver_ = false, batterySaver_ = false;
     bool elevated_ = false;
     BalloonAction balloon_ = BalloonAction::None;
     bool installAfterDownload_ = false;
@@ -111,6 +132,9 @@ private:
     Updater updater_;
     IpcServer ipc_{renderer_, settings_, locator_};
     widgets::WidgetHost widgets_;
+    HotCorners hotCorners_;
+    Overview overview_;
+    Appearance appearance_;
 };
 
 
@@ -172,6 +196,7 @@ bool App::Init(HINSTANCE hInst) {
     quitMsg_ = RegisterWindowMessageW(MACWIN_QUIT_MESSAGE);
     cornersMsg_ = RegisterWindowMessageW(MACWIN_CORNERS_MESSAGE);
     updateMsg_ = RegisterWindowMessageW(kUpdateMessage);
+    overviewMsg_ = RegisterWindowMessageW(MACWIN_OVERVIEW_MESSAGE);
     // Lower-integrity senders (every DLL, the settings app, Explorer's tray callbacks)
     // are blocked by UIPI while we are elevated, unless let through explicitly.
     ChangeWindowMessageFilterEx(hwnd_, WM_COPYDATA, MSGFLT_ALLOW, nullptr);
@@ -180,10 +205,13 @@ bool App::Init(HINSTANCE hInst) {
     ChangeWindowMessageFilterEx(hwnd_, quitMsg_, MSGFLT_ALLOW, nullptr);
     ChangeWindowMessageFilterEx(hwnd_, taskbarCreatedMsg_, MSGFLT_ALLOW, nullptr);
     ChangeWindowMessageFilterEx(hwnd_, updateMsg_, MSGFLT_ALLOW, nullptr);
+    ChangeWindowMessageFilterEx(hwnd_, overviewMsg_, MSGFLT_ALLOW, nullptr);
 
     settings_.SetIpcWindow(hwnd_);
     settings_.SetSystemAnimations(SystemAnimationsOn());
     settings_.Publish();
+    powerNotify_[0] = RegisterPowerSettingNotification(hwnd_, &kEnergySaverStatus, DEVICE_NOTIFY_WINDOW_HANDLE);
+    powerNotify_[1] = RegisterPowerSettingNotification(hwnd_, &kPowerSavingStatus, DEVICE_NOTIFY_WINDOW_HANDLE);
 
     if (!renderer_.Start()) {
         i18n::Message(nullptr, i18n::T(L"host.error.renderer"), MB_ICONERROR);
@@ -215,6 +243,10 @@ bool App::Init(HINSTANCE hInst) {
 
     widgets_.Init(hwnd_, WM_APP_WIDGETS);
     ApplyWidgets();
+    overview_.Init(hInst);
+    hotCorners_.Init(hwnd_, WM_APP_HOT_CORNER);
+    appearance_.Init(hwnd_, kAppearanceTimer, WM_APP_LOCATED);
+    ApplyDesktop();
 
     updater_.Start(hwnd_, WM_APP_UPDATE);
     SetTimer(hwnd_, kUpdateTimer, kFirstUpdateCheckMs, nullptr);
@@ -229,6 +261,13 @@ bool App::Init(HINSTANCE hInst) {
 }
 
 void App::Shutdown() {
+    overview_.Close();
+    hotCorners_.Stop();
+    appearance_.Stop();
+    for (HPOWERNOTIFY& h : powerNotify_) {
+        if (h) UnregisterPowerSettingNotification(h);
+        h = nullptr;
+    }
     widgets_.Stop();
     updater_.Stop();
     Log(L"shutting down");
@@ -399,6 +438,45 @@ void App::ApplyWidgets() {
     widgets_.Apply(settings_.Get().widgets, i18n::All(L"host.widgets."), i18n::LocaleName(), i18n::IsRightToLeft());
 }
 
+// Hot corners, the overview's shortcut and the appearance schedule follow the settings.
+void App::ApplyDesktop() {
+    const HostSettings& s = settings_.Get();
+    hotCorners_.Apply(s.desktop);
+    UnregisterHotKey(hwnd_, kHotkeyOverview);
+    if (s.desktop.overviewHotkey &&
+        !RegisterHotKey(hwnd_, kHotkeyOverview, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_UP)) {
+        Log(L"hotkey Ctrl+Alt+Up unavailable: %lu", GetLastError());
+    }
+    appearance_.Apply(s.appearance, s.widgets.place);
+}
+
+void App::ToggleOverview() {
+    overview_.Toggle(!settings_.ReduceMotion());
+}
+
+void App::OnHotCorner(CornerAction action, POINT pt) {
+    // A game or a video full screen: its pointer in a corner means nothing to us.
+    if (HotCorners::FullScreenAppRunning(pt)) return;
+    if (action == CornerAction::Overview) {
+        ToggleOverview();
+        return;
+    }
+    overview_.Close();
+    HotCorners::Perform(action, hwnd_);
+}
+
+void App::OnPowerSetting(const POWERBROADCAST_SETTING* setting) {
+    if (setting->DataLength < sizeof(DWORD)) return;
+    const DWORD value = *(const DWORD*)setting->Data;
+    if (IsEqualGUID(setting->PowerSetting, kEnergySaverStatus)) energySaver_ = value != 0;
+    else if (IsEqualGUID(setting->PowerSetting, kPowerSavingStatus)) batterySaver_ = value != 0;
+    else return;
+    const bool on = energySaver_ || batterySaver_;
+    Log(L"settings: Windows energy saver %ls", on ? L"on" : L"off");
+    settings_.SetEnergySaver(on);
+    settings_.Publish();
+}
+
 void App::OnWidgetRequest(WPARAM request, LPARAM lp) {
     switch (request) {
         case widgets::kEdited: {
@@ -479,6 +557,7 @@ void App::ReloadSettings() {
     if (after.language != before.language) i18n::Init(after.language);
     ApplySettings(false);
     ApplyWidgets();
+    ApplyDesktop();
     if (after.updateCheck && !before.updateCheck) updater_.Check(false);
     // Switched to automatic installs while a found version waits: get it now.
     if (after.updateAutoInstall && !before.updateAutoInstall) OnUpdateEvent(Updater::kStateChanged);
@@ -504,10 +583,15 @@ void App::ShowMenu() {
     }
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | rtl | (s.enabled ? MF_CHECKED : 0), ID_ENABLED, i18n::T(L"host.menu.enabled").c_str());
+    AppendMenuW(menu, MF_STRING | rtl | (s.genie.windowCorners ? MF_CHECKED : 0), ID_CORNERS,
+                i18n::T(L"host.menu.corners").c_str());
     if (!s.widgets.items.empty()) {
         AppendMenuW(menu, MF_STRING | rtl | (s.widgets.show ? MF_CHECKED : 0), ID_WIDGETS,
                     i18n::T(L"host.menu.widgets").c_str());
     }
+    std::wstring overview = i18n::T(L"host.menu.overview");
+    if (s.desktop.overviewHotkey) overview += L"\tCtrl+Alt+\x2191";
+    AppendMenuW(menu, MF_STRING | rtl, ID_OVERVIEW, overview.c_str());
     AppendMenuW(menu, MF_STRING | rtl | (s.devMode ? MF_CHECKED : 0), ID_DEVMODE, i18n::T(L"host.menu.testMode").c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | rtl, ID_OPEN_LOG, i18n::T(L"host.menu.openLog").c_str());
@@ -536,6 +620,13 @@ void App::ShowMenu() {
             m.widgets.show = !m.widgets.show;
             settings_.Save();
             ApplyWidgets();
+            break;
+        case ID_CORNERS:
+            m.genie.windowCorners = !m.genie.windowCorners;
+            ApplySettings(true);
+            break;
+        case ID_OVERVIEW:
+            ToggleOverview();
             break;
         case ID_DEVMODE:
             m.devMode = !m.devMode;
@@ -584,6 +675,10 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
         DestroyWindow(hwnd_);
         return 0;
     }
+    if (msg == overviewMsg_ && msg) {
+        ToggleOverview();
+        return 0;
+    }
     if (msg == updateMsg_ && msg) {
         if (wp == 1) updater_.Check(true);
         else if (wp == 2) StartUpdate();
@@ -600,6 +695,19 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_APP_WIDGETS:
             OnWidgetRequest(wp, lp);
+            return 0;
+        case WM_APP_HOT_CORNER:
+            OnHotCorner((CornerAction)wp, POINT{(short)LOWORD(lp), (short)HIWORD(lp)});
+            return 0;
+        case WM_APP_LOCATED:
+            appearance_.OnLocated(lp);
+            return 0;
+        case WM_POWERBROADCAST:
+            if (wp == PBT_POWERSETTINGCHANGE) OnPowerSetting((const POWERBROADCAST_SETTING*)lp);
+            else if (wp == PBT_APMRESUMEAUTOMATIC) appearance_.Check();   // timers don't run while asleep
+            return TRUE;
+        case WM_TIMECHANGE:
+            appearance_.Check();
             return 0;
         case WM_APP_TRAY:
             switch (LOWORD(lp)) {
@@ -626,6 +734,8 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == kPreloadTimer) {
                 KillTimer(hwnd_, kPreloadTimer);
                 injector_.EndPreload();
+            } else if (wp == kAppearanceTimer) {
+                appearance_.Check();
             } else if (wp == kUpdateTimer) {
                 SetTimer(hwnd_, kUpdateTimer, kUpdateCheckEveryMs, nullptr);
                 if (settings_.Get().updateCheck) updater_.Check(false);
@@ -635,6 +745,8 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == kHotkeyQuit) {
                 Log(L"emergency hotkey: quitting");
                 DestroyWindow(hwnd_);
+            } else if (wp == kHotkeyOverview) {
+                ToggleOverview();
             }
             return 0;
         case WM_SETTINGCHANGE:
@@ -660,6 +772,7 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_DESTROY:
             UnregisterHotKey(hwnd_, kHotkeyQuit);
+            UnregisterHotKey(hwnd_, kHotkeyOverview);
             PostQuitMessage(0);
             return 0;
     }
@@ -680,6 +793,14 @@ int QuitRunning() {
     } else {
         for (int i = 0; i < 150 && IsWindow(running); ++i) Sleep(100);
         Sleep(500);   // the process finishes its shutdown right after the window goes
+    }
+    return 0;
+}
+
+// --overview: shows (or hides) the running instance's window overview.
+int ShowOverview() {
+    if (HWND running = FindWindowW(MACWIN_HOST_WNDCLASS, nullptr)) {
+        PostMessageW(running, RegisterWindowMessageW(MACWIN_OVERVIEW_MESSAGE), 0, 0);
     }
     return 0;
 }
@@ -739,6 +860,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     };
 
     if (has(L"--quit")) return QuitRunning();
+    if (has(L"--overview")) return ShowOverview();
     if (has(L"--widget-snapshot")) {
         return widgets::WidgetSnapshot(value(L"--widget-snapshot"), value(L"--lang"), value(L"--theme") == L"dark");
     }
