@@ -345,10 +345,35 @@ public partial class MainWindow : Window
 
         // Page transition: fade in while sliding up a few pixels.
         if (!Motion.On) return;
+        BounceIcon(item);
         var ease = new QuinticEase { EasingMode = EasingMode.EaseOut };
         PageHost.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
         PageShift.BeginAnimation(TranslateTransform.YProperty,
                                  new DoubleAnimation(14, 0, TimeSpan.FromMilliseconds(360)) { EasingFunction = ease });
+    }
+
+    // The chosen page's icon gives a little bounce, like an icon tapped on iOS.
+    private void BounceIcon(NavItem item)
+    {
+        if (Nav.ItemContainerGenerator.ContainerFromItem(item) is not ListBoxItem box) return;
+        if (FindTile(box) is not { RenderTransform: ScaleTransform scale }) return;
+        var bounce = new DoubleAnimation(0.78, 1, TimeSpan.FromMilliseconds(420))
+        {
+            EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.7 },
+        };
+        scale.BeginAnimation(ScaleTransform.ScaleXProperty, bounce);
+        scale.BeginAnimation(ScaleTransform.ScaleYProperty, bounce);
+    }
+
+    private static FrameworkElement? FindTile(DependencyObject parent)
+    {
+        for (int i = 0; i < VisualTreeHelper.GetChildrenCount(parent); i++)
+        {
+            var child = VisualTreeHelper.GetChild(parent, i);
+            if (child is FrameworkElement { Name: "Tile" } tile) return tile;
+            if (FindTile(child) is { } found) return found;
+        }
+        return null;
     }
 
     private void Search_TextChanged(object sender, TextChangedEventArgs e)

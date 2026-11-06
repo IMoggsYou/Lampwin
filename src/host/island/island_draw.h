@@ -76,12 +76,29 @@ struct Scene {
     // Sound output
     std::wstring output;
     bool headphones = false;
+    // Motion. Each value rests at its default; with Windows' animation effects off the host
+    // leaves them there.
+    float since = 10;                // seconds this view has been up: its symbols come in
+    float live = 1;                  // how far the level bars move (0: still)
+    Action hover = Action::None;     // the button under the pointer, and how lit it is
+    float hoverAmount = 0;
+    Action press = Action::None;     // the button held down, and how far it is pressed in
+    float pressAmount = 0;
+    float playSwap = 1;              // play and pause trading places, 0 to 1
+    float trackSwap = 1;             // the previous song giving way to this one, 0 to 1
+    IWICBitmapSource* prevArt = nullptr;
+    std::wstring prevTitle, prevBy;
 };
 
 // The size of the island for this scene (without the bubble).
 D2D1_SIZE_F Size(widgets::Graphics& g, const Scene& s);
-// The island of size (w, h) with its top centre at (cx, top): the black shape and, with
-// `content` > 0, what is on it at that opacity. Clickable parts go to `hits`.
+// The black shape of size (w, h) with its top centre at (cx, top).
+void DrawShape(widgets::Graphics& g, ID2D1RenderTarget* rt, float cx, float top, float w, float h);
+// What is on the island: `s` laid out for (cw, ch) from the shape's top centre, clipped to the
+// shape (w, h), at `opacity` and `scale` (about its middle). Clickable parts go to `hits`.
+void DrawContent(widgets::Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float cx, float top, float w, float h,
+                 float cw, float ch, float opacity, float scale, std::vector<Hit>* hits);
+// The shape and, with `content` > 0, what is on it at that opacity.
 void Draw(widgets::Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float cx, float top, float w, float h,
           float content, std::vector<Hit>* hits);
 // The bubble (a second activity), `size` across, centred on (cx, cy).

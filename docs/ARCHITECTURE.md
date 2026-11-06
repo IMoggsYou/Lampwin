@@ -72,8 +72,10 @@ icon (the CapabilityAccessManager consent store) for calls, the display paths fo
 mirroring, airplane mode, the mobile broadband adapter, Core Audio for mute and the default
 output, and the power status; `widgets::MediaWatcher` with details gives the music, its
 cover and timeline. Its buttons press the media keys, mute the default microphone, stop a
-duplicated display or open Windows' settings pages. `MacWin.exe --island-snapshot <dir>`
-draws every view.
+duplicated display or open Windows' settings pages. Springs move its shape; a change of
+view cross-fades, and each view's symbols come in over `Scene::since` (frames run only
+while something moves). `MacWin.exe --island-snapshot <dir>` draws every view, and in
+`island-motion.png` how each one comes in, frame by frame.
 
 ## Safety
 

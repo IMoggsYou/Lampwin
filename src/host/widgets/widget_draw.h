@@ -68,6 +68,8 @@ struct Scene {
     std::wstring date;   // yyyy-MM-dd
     // Now playing
     const MediaInfo* media = nullptr;
+    // Seconds since the widget appeared: its symbols come in (rings and bars fill, icons pop).
+    float since = 10;
 };
 
 // The card's corner (DIPs) and Figma-style smoothing: a continuous corner like the

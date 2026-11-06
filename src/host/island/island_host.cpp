@@ -44,17 +44,18 @@ struct Shared {
     std::atomic<HWND> window{nullptr};
 };
 
-// A spring towards `target`, a little bouncy, like the island on the iPhone.
+// A spring towards `target`, a little bouncy, like the island on the iPhone. `eps` is how
+// close counts as there: a quarter of a DIP for sizes, far less for values from 0 to 1.
 struct Spring {
     float x = 0, v = 0, target = 0;
-    float stiffness = 260, damping = 0.78f;
+    float stiffness = 260, damping = 0.78f, eps = 0.25f;
 
     void Step(float dt) {
         const float c = 2 * sqrtf(stiffness) * damping;
         v += (-stiffness * (x - target) - c * v) * dt;
         x += v * dt;
     }
-    bool Settled() const { return fabsf(x - target) < 0.25f && fabsf(v) < 2; }
+    bool Settled() const { return fabsf(x - target) < eps && fabsf(v) < eps * 8; }
     void Snap() {
         x = target;
         v = 0;
@@ -70,6 +71,26 @@ INT64 FileTimeNow() {
 bool Expandable(View v) {
     return v == View::Music || v == View::Call || v == View::Mirroring;
 }
+
+// What the island shows: a view, small or grown. A change of face cross-fades.
+struct Face {
+    View view = View::None;
+    bool expanded = false;
+    bool operator==(const Face& o) const { return view == o.view && expanded == o.expanded; }
+};
+
+// Actions that are buttons: they light up under the pointer and give when pressed.
+bool IsButton(Action a) {
+    return a != Action::None && a != Action::Toggle && a != Action::ToggleMute;
+}
+
+float Smooth(float t) {
+    t = std::min(std::max(t, 0.0f), 1.0f);
+    return t * t * (3 - 2 * t);
+}
+
+// How long a view's symbols take to come in (the longest: the low battery's blinks).
+const float kIntro = 1.6f;
 
 // A cover's bytes as a premultiplied square picture `side` px across (the middle of it).
 ComPtr<IWICBitmapSource> DecodeCover(IWICImagingFactory* wic, const std::vector<BYTE>& bytes, UINT side) {
@@ -147,8 +168,10 @@ private:
     void Update();
     void Place();
     void Animate();
+    void Wake();
     void Render();
-    Scene SceneFor(View view) const;
+    Scene SceneFor(View view, bool expanded) const;
+    Action ButtonAt(POINT px) const;
     INT64 MusicPosition() const;
     bool BarsLive() const;
     void Click(POINT px);
@@ -191,6 +214,18 @@ private:
     bool suppressed_ = false;   // something to show, but a full-screen app is in front
     Spring w_, h_, presence_, bubbleIn_;
     float time_ = 0;
+
+    // Motion (seconds of time_). Off with Windows' animation effects.
+    bool motion_ = true;
+    Face face_, prevFace_;          // the face now and the one fading out
+    D2D1_SIZE_F prevSize_ = {};     // the size the old face was laid out for
+    float faceStart_ = -10;         // when the face came up
+    float playStart_ = -10;         // when play and pause last traded places
+    float trackStart_ = -10;        // when the last song gave way
+    ComPtr<IWICBitmapSource> prevArt_;
+    std::wstring prevTitle_, prevBy_;
+    Spring live_, hoverAmount_, pressAmount_;
+    Action hover_ = Action::None, lit_ = Action::None, press_ = Action::None;
     LARGE_INTEGER last_ = {};
     UINT frameMs_ = 0;
     float unit_ = 1;
@@ -211,6 +246,15 @@ Island::~Island() {
 
 bool Island::Create() {
     if (!g_.Init(L"en-US")) return false;
+    // Values from 0 to 1: settled when within a fraction of a percent. Hover lights evenly,
+    // a press bounces back.
+    for (Spring* s : {&presence_, &bubbleIn_, &live_, &hoverAmount_, &pressAmount_}) s->eps = 0.004f;
+    hoverAmount_.stiffness = 320;
+    hoverAmount_.damping = 1;
+    pressAmount_.stiffness = 520;
+    pressAmount_.damping = 0.55f;
+    live_.stiffness = 90;
+    live_.damping = 1;
     WNDCLASSEXW wc = {sizeof(wc)};
     wc.lpfnWndProc = Proc;
     wc.hInstance = GetModuleHandleW(nullptr);
@@ -257,6 +301,8 @@ void Island::ReadConfig() {
     texts_ = shared_->texts;
     rtl_ = shared_->rtl;
     ReleaseSRWLockShared(&shared_->lock);
+    BOOL animations = TRUE;
+    motion_ = !SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &animations, 0) || animations;
 }
 
 // The state at start: nothing of it is news, so no note comes up for it.
@@ -278,6 +324,15 @@ void Island::ReadEverything() {
 void Island::OnMedia(widgets::MediaInfo* info) {
     std::unique_ptr<widgets::MediaInfo> owned(info);
     const bool newCover = info->art != music_.art;
+    // Another song: the last one's cover and words fade out under the new ones.
+    const bool newSong = music_.present && (info->title != music_.title || info->artist != music_.artist);
+    if (newSong || (newCover && art_)) {
+        prevArt_ = art_;
+        prevTitle_ = music_.title;
+        prevBy_ = music_.artist.empty() ? music_.app : music_.artist;
+        trackStart_ = time_;
+    }
+    if (music_.present && info->playing != music_.playing) playStart_ = time_;
     music_ = *info;
     if (music_.playing) musicSeen_ = GetTickCount64();
     if (newCover) {
@@ -288,6 +343,8 @@ void Island::OnMedia(widgets::MediaInfo* info) {
 }
 
 void Island::Note(View view, ULONGLONG ms) {
+    // The same note again (muted twice): its symbol plays once more.
+    if (view == note_) faceStart_ = time_;
     note_ = view;
     noteUntil_ = GetTickCount64() + ms;
     Update();
@@ -395,6 +452,13 @@ void Island::Update() {
         shown_ = shown;
     }
     bubble_ = bubble;
+    const Face face = {shown_, expanded_ && Expandable(shown_)};
+    if (!(face == face_)) {
+        prevFace_ = visible_ ? face_ : Face{};
+        prevSize_ = {w_.target, h_.target};
+        face_ = face;
+        faceStart_ = time_;
+    }
     if (appearing) {
         Place();
         visible_ = true;
@@ -402,7 +466,7 @@ void Island::Update() {
         SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
     if (shown_ != View::None) {
-        const D2D1_SIZE_F size = Size(g_, SceneFor(shown_));
+        const D2D1_SIZE_F size = Size(g_, SceneFor(shown_, expanded_));
         w_.target = size.width;
         h_.target = size.height;
         if (appearing) {
@@ -450,10 +514,10 @@ bool Island::BarsLive() const {
     return (shown_ == View::Music && music_.playing) || (shown_ == View::Call && !micMuted_);
 }
 
-Scene Island::SceneFor(View view) const {
+Scene Island::SceneFor(View view, bool expanded) const {
     Scene s;
     s.view = view;
-    s.expanded = expanded_ && Expandable(view);
+    s.expanded = expanded && Expandable(view);
     s.bubble = bubble_;
     s.time = time_;
     s.texts = &texts_;
@@ -470,6 +534,23 @@ Scene Island::SceneFor(View view) const {
     s.battery = battery_;
     s.output = output_;
     s.headphones = headphones_;
+    s.live = std::min(std::max(live_.x, 0.0f), 1.0f);
+    if (motion_) {
+        s.since = time_ - faceStart_;
+        s.hover = lit_;
+        s.hoverAmount = hoverAmount_.x;
+        s.press = press_;
+        s.pressAmount = pressAmount_.x;
+        s.playSwap = std::min((time_ - playStart_) / 0.42f, 1.0f);
+        s.trackSwap = std::min((time_ - trackStart_) / 0.5f, 1.0f);
+        if (s.trackSwap < 1) {
+            s.prevArt = prevArt_.get();
+            s.prevTitle = prevTitle_;
+            s.prevBy = prevBy_;
+        }
+    } else {
+        s.live = BarsLive() ? 1.0f : 0.0f;
+    }
     return s;
 }
 
@@ -483,14 +564,19 @@ void Island::Animate() {
     dt = std::min(dt, 1.0f / 30);
     time_ += dt;
     // A few small steps: the springs stay stable at any frame rate.
+    live_.target = BarsLive() ? 1.0f : 0.0f;
+    hoverAmount_.target = hover_ != Action::None ? 1.0f : 0.0f;
     for (int i = 0; i < 4; ++i) {
-        w_.Step(dt / 4);
-        h_.Step(dt / 4);
-        presence_.Step(dt / 4);
-        bubbleIn_.Step(dt / 4);
+        for (Spring* s : {&w_, &h_, &presence_, &bubbleIn_, &live_, &hoverAmount_, &pressAmount_}) s->Step(dt / 4);
     }
     presence_.x = std::min(std::max(presence_.x, 0.0f), 1.0f);
-    const bool moving = !w_.Settled() || !h_.Settled() || !presence_.Settled() || !bubbleIn_.Settled();
+    hoverAmount_.x = std::min(std::max(hoverAmount_.x, 0.0f), 1.0f);
+    bool moving = !w_.Settled() || !h_.Settled() || !presence_.Settled() || !bubbleIn_.Settled();
+    // Symbols coming in, a song or play state changing, buttons lighting up or springing back.
+    if (motion_) {
+        moving = moving || time_ - faceStart_ < kIntro || time_ - playStart_ < 0.45f || time_ - trackStart_ < 0.55f ||
+                 !live_.Settled() || !hoverAmount_.Settled() || !pressAmount_.Settled();
+    }
     if (!moving && shown_ == View::None && presence_.x < 0.02f) {
         // Gone: nothing to draw, no timers.
         visible_ = false;
@@ -502,14 +588,21 @@ void Island::Animate() {
         return;
     }
     Render();
-    // Smooth while it moves; the level bars need far fewer frames.
-    const UINT pace = moving ? 15 : BarsLive() ? 50 : 0;
+    // Smooth while it moves; the level bars (and the song's progress under them) need fewer.
+    const UINT pace = moving ? 15 : BarsLive() ? 33 : 0;
     if (pace != frameMs_) {
         frameMs_ = pace;
         if (pace) SetTimer(hwnd_, kFrameTimer, pace, nullptr);
         else KillTimer(hwnd_, kFrameTimer);
         if (!pace) last_.QuadPart = 0;
     }
+}
+
+// Something started to move (the pointer, a press): frames until it settles.
+void Island::Wake() {
+    if (!visible_) return;
+    frameMs_ = 0;
+    Animate();
 }
 
 void Island::Render() {
@@ -527,19 +620,33 @@ void Island::Render() {
                                                 D2D1::IdentityMatrix(), p),
                           layer.get());
         }
-        const Scene s = SceneFor(shown_);
+        const Scene s = SceneFor(shown_, expanded_);
         const float w = std::max(w_.x, 24.0f), h = std::max(h_.x, 20.0f);
-        // What is on it shows once the shape is (nearly) where it is going.
-        const float off = fabsf(w - w_.target) + fabsf(h - h_.target);
-        const float content = p * std::min(std::max(1 - off / 36, 0.0f), 1.0f);
         const float cx = kBoxW / 2;
-        Draw(g_, rt, s, cx, kTop, w, h, content, &hits_);
+        // The bubble comes out from under the island's edge.
         if (bubbleIn_.x > 0.01f && bubble_ != View::None) {
-            const float size = kBubble * std::min(std::max(bubbleIn_.x, 0.0f), 1.2f);
-            const float bx = cx + w / 2 + kBubbleGap + kBubble / 2, by = kTop + kBubble / 2;
-            DrawBubble(g_, rt, s, bx, by, size, std::min(std::max(bubbleIn_.x, 0.0f), 1.0f));
+            const float in = std::min(std::max(bubbleIn_.x, 0.0f), 1.2f);
+            const float size = kBubble * in;
+            const float home = cx + w / 2 + kBubbleGap + kBubble / 2, edge = cx + w / 2 - kBubble / 2;
+            const float bx = edge + (home - edge) * std::min(in, 1.0f), by = kTop + kBubble / 2;
+            DrawBubble(g_, rt, s, bx, by, size, std::min(in, 1.0f));
             hits_.push_back({{bx - kBubble / 2, by - kBubble / 2, bx + kBubble / 2, by + kBubble / 2}, Action::Swap});
         }
+        DrawShape(g_, rt, cx, kTop, w, h);
+        // The old face leaves quickly, shrinking a little; the new one comes in as the shape
+        // gets near where it is going, laid out for that size so it does not wobble with it.
+        const float t = motion_ ? time_ - faceStart_ : 10;
+        const float out = 1 - Smooth(t / 0.16f);
+        if (prevFace_.view != View::None && out > 0.01f) {
+            Scene old = SceneFor(prevFace_.view, prevFace_.expanded);
+            old.since = 10;
+            DrawContent(g_, rt, old, cx, kTop, w, h, prevSize_.width, prevSize_.height, out, 1 - 0.06f * (1 - out),
+                        nullptr);
+        }
+        const float off = fabsf(w - w_.target) + fabsf(h - h_.target);
+        const float settle = std::min(std::max(1 - off / 48, 0.0f), 1.0f);
+        const float in = Smooth((t - 0.04f) / 0.26f);
+        DrawContent(g_, rt, s, cx, kTop, w, h, w_.target, h_.target, settle * in, 0.94f + 0.06f * in, &hits_);
         if (faded) rt->PopLayer();
     }
     surface_.End();
@@ -551,6 +658,17 @@ void Island::Render() {
 void Island::Request(const wchar_t* uri) {
     auto* target = new std::wstring(uri);
     if (!PostMessageW(notify_, msg_, kOpen, (LPARAM)target)) delete target;
+}
+
+// The button under a point of the window (px), if any.
+Action Island::ButtonAt(POINT px) const {
+    const D2D1_POINT_2F at = {px.x / unit_, px.y / unit_};
+    for (const Hit& h : hits_) {
+        if (at.x >= h.rect.left && at.x < h.rect.right && at.y >= h.rect.top && at.y < h.rect.bottom) {
+            return IsButton(h.action) ? h.action : Action::None;
+        }
+    }
+    return Action::None;
 }
 
 void Island::Click(POINT px) {
@@ -571,6 +689,7 @@ void Island::Click(POINT px) {
         case Action::PlayPause:
             PressMediaKey(VK_MEDIA_PLAY_PAUSE);
             music_.playing = !music_.playing;   // Windows tells the truth in a moment
+            playStart_ = time_;
             if (music_.playing) musicSeen_ = GetTickCount64();
             break;
         case Action::Next: PressMediaKey(VK_MEDIA_NEXT_TRACK); break;
@@ -665,7 +784,7 @@ LRESULT Island::Handle(UINT m, WPARAM wp, LPARAM lp) {
                 }
             }
             return 0;
-        case WM_MOUSEMOVE:
+        case WM_MOUSEMOVE: {
             if (!tracking_) {
                 TRACKMOUSEEVENT t = {sizeof(t), TME_LEAVE, hwnd_, 0};
                 tracking_ = TrackMouseEvent(&t) != FALSE;
@@ -673,17 +792,41 @@ LRESULT Island::Handle(UINT m, WPARAM wp, LPARAM lp) {
                 KillTimer(hwnd_, kLeaveTimer);
                 if (config_.hoverExpand && Expandable(shown_) && !expanded_) SetTimer(hwnd_, kHoverTimer, 280, nullptr);
             }
+            // The button under the pointer lights up; the one it left fades.
+            const Action a = ButtonAt({(short)LOWORD(lp), (short)HIWORD(lp)});
+            if (a != hover_) {
+                hover_ = a;
+                if (a != Action::None) {
+                    lit_ = a;
+                    hoverAmount_.x = hoverAmount_.v = 0;
+                }
+                Wake();
+            }
+            return 0;
+        }
+        case WM_LBUTTONDOWN:
+            press_ = ButtonAt({(short)LOWORD(lp), (short)HIWORD(lp)});
+            if (press_ != Action::None) {
+                pressAmount_.target = 1;
+                Wake();
+            }
             return 0;
         case WM_MOUSELEAVE:
             tracking_ = false;
             hovering_ = false;
+            hover_ = Action::None;
+            pressAmount_.target = 0;
+            Wake();
             KillTimer(hwnd_, kHoverTimer);
             if (expanded_ && config_.hoverExpand) SetTimer(hwnd_, kLeaveTimer, 450, nullptr);
             // A note the pointer kept up ends now (if its time is over).
             if (note_ != View::None) Update();
             return 0;
         case WM_LBUTTONUP:
+            // The pressed button springs back as its action happens.
+            pressAmount_.target = 0;
             Click({(short)LOWORD(lp), (short)HIWORD(lp)});
+            Wake();
             return 0;
         case WM_MOUSEACTIVATE:
             return MA_NOACTIVATE;
@@ -784,38 +927,47 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
         {View::MobileData, false},
     };
 
-    widgets::Surface surface;
-    if (!surface.Resize(g, (int)(W * unit), (int)(H * unit))) return 1;
-    ID2D1RenderTarget* rt = surface.Begin();
-    if (!rt) return 1;
-    rt->SetTransform(D2D1::Matrix3x2F::Scale(unit, unit));
-    // A wallpaper-like backdrop, so the island's edge shows as it would.
-    ComPtr<ID2D1GradientStopCollection> stops;
-    ComPtr<ID2D1LinearGradientBrush> wallpaper;
-    const D2D1_GRADIENT_STOP gs[] = {{0, widgets::Rgb(0xFF6A3D)}, {0.45f, widgets::Rgb(0xC2185B)},
-                                     {0.75f, widgets::Rgb(0x4A148C)}, {1, widgets::Rgb(0x0D47A1)}};
-    if (SUCCEEDED(rt->CreateGradientStopCollection(gs, 4, stops.put())) &&
-        SUCCEEDED(rt->CreateLinearGradientBrush({{0, 0}, {W, H}}, stops.get(), wallpaper.put()))) {
-        rt->FillRectangle({0, 0, W, H}, wallpaper.get());
-    }
-    float x = 20, y = 20, rowH = 0;
-    for (const Sample& sample : samples) {
+    auto make = [&](View view, bool expanded, View bubble, bool micMuted) {
         Scene s;
-        s.view = sample.view;
-        s.expanded = sample.expanded;
-        s.bubble = sample.bubble;
+        s.view = view;
+        s.expanded = expanded;
+        s.bubble = bubble;
         s.time = 0.7f;
         s.texts = &texts;
         s.rtl = i18n::IsRightToLeft();
         s.media = &media;
         s.position = 50 * 10000000LL;
         s.call = &call;
-        s.micMuted = sample.micMuted;
+        s.micMuted = micMuted;
+        s.live = micMuted ? 0.0f : 1.0f;
         s.callSeconds = 724;
         s.mirror = &mirror;
-        s.battery = sample.view == View::LowBattery ? 10 : 81;
+        s.battery = view == View::LowBattery ? 10 : 81;
         s.output = L"WH-1000XM5";
         s.headphones = true;
+        return s;
+    };
+    // A wallpaper-like backdrop, so the island's edge shows as it would.
+    auto backdrop = [](ID2D1RenderTarget* rt, float w, float h) {
+        ComPtr<ID2D1GradientStopCollection> stops;
+        ComPtr<ID2D1LinearGradientBrush> wallpaper;
+        const D2D1_GRADIENT_STOP gs[] = {{0, widgets::Rgb(0xFF6A3D)}, {0.45f, widgets::Rgb(0xC2185B)},
+                                         {0.75f, widgets::Rgb(0x4A148C)}, {1, widgets::Rgb(0x0D47A1)}};
+        if (SUCCEEDED(rt->CreateGradientStopCollection(gs, 4, stops.put())) &&
+            SUCCEEDED(rt->CreateLinearGradientBrush({{0, 0}, {w, h}}, stops.get(), wallpaper.put()))) {
+            rt->FillRectangle({0, 0, w, h}, wallpaper.get());
+        }
+    };
+
+    widgets::Surface surface;
+    if (!surface.Resize(g, (int)(W * unit), (int)(H * unit))) return 1;
+    ID2D1RenderTarget* rt = surface.Begin();
+    if (!rt) return 1;
+    rt->SetTransform(D2D1::Matrix3x2F::Scale(unit, unit));
+    backdrop(rt, W, H);
+    float x = 20, y = 20, rowH = 0;
+    for (const Sample& sample : samples) {
+        const Scene s = make(sample.view, sample.expanded, sample.bubble, sample.micMuted);
         const D2D1_SIZE_F size = Size(g, s);
         const float total = size.width + (s.bubble != View::None ? kBubbleGap + kBubble : 0);
         if (x + total > W - 20) {
@@ -831,8 +983,37 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
         rowH = std::max(rowH, size.height);
     }
     surface.End();
-    const std::wstring path = dir + L"\\island.png";
-    return widgets::SavePng(g, surface.Bits(), surface.Width(), surface.Height(), path) ? 0 : 1;
+    if (!widgets::SavePng(g, surface.Bits(), surface.Width(), surface.Height(), dir + L"\\island.png")) return 1;
+
+    // island-motion.png: how each view comes in (and play and pause trade places), frame by
+    // frame from 0 to 1.6 s, to check the motion without a desktop.
+    struct Motion {
+        View view;
+        bool expanded;
+        bool swap;   // play and pause instead of the view coming in
+    } motions[] = {{View::Music, false, false}, {View::Music, true, false}, {View::Music, true, true},
+                   {View::Call, false, false},  {View::Call, true, false},  {View::Charging, false, false},
+                   {View::Silent, false, false}, {View::AirplaneOff, false, false}, {View::Output, false, false},
+                   {View::MobileData, false, false}};
+    const float times[] = {0, 0.06f, 0.12f, 0.2f, 0.3f, 0.45f, 0.7f, 1.6f};
+    const float MW = 20 + ARRAYSIZE(times) * 380.0f, MH = 20 + ARRAYSIZE(motions) * 196.0f;
+    widgets::Surface strip;
+    if (!strip.Resize(g, (int)MW, (int)MH) || !(rt = strip.Begin())) return 1;
+    backdrop(rt, MW, MH);
+    y = 20;
+    for (const Motion& m : motions) {
+        Scene s = make(m.view, m.expanded, View::None, false);
+        const D2D1_SIZE_F size = Size(g, s);
+        for (size_t i = 0; i < ARRAYSIZE(times); ++i) {
+            if (m.swap) s.playSwap = std::min(times[i] / 0.42f, 1.0f);
+            else s.since = times[i];
+            s.time = 0.7f + times[i];
+            Draw(g, rt, s, 20 + 380.0f * i + 180, y, size.width, size.height, 1, nullptr);
+        }
+        y += 196;
+    }
+    strip.End();
+    return widgets::SavePng(g, strip.Bits(), strip.Width(), strip.Height(), dir + L"\\island-motion.png") ? 0 : 1;
 }
 
 }  // namespace island

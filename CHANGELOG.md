@@ -26,12 +26,22 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
   WPF, Qt or Java. Full-screen games and videos stay square.
 - **Window borders** (Settings → Window corners): turn off the thin light line around
   every window; windows then only have their shadow.
+- Motion everywhere: the island's views flow into one another (the old one shrinks away
+  as the new one comes in), its symbols come in with their view – the bell shakes when the
+  sound is muted, the phone rings in, the battery fills up as charging starts, the plane
+  flies in – play and pause trade places with a little bounce, a new song's cover and title
+  slide in over the last ones, the level bars rise and settle smoothly, and buttons light
+  up under the pointer and give when pressed. Widgets fade in when they appear, their rings,
+  bars and icons fill up and pop in, and every change on a widget (a new song, the weather,
+  a new reading) fades smoothly instead of switching at once. The page you pick in the
+  settings window gets a little bounce of its icon. With Windows' animation effects off,
+  everything changes at once.
 
 ### Changed
 
 - The settings window's sidebar has Lampwin's own icons – a genie lamp for the animations
   among them – drawn in white on coloured tiles like the settings of iOS, sharp at any
-  display scaling.
+  display scaling and centred on their tiles by their weight.
 - The Now playing widget has a new music tile: two beamed notes drawn cleanly, as on a
   Mac. The weather's temperatures are written in bolder digits.
 - Widgets are laid out anew on one grid: the same margin on every side, words lined up

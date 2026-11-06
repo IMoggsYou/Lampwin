@@ -177,6 +177,19 @@ std::wstring Fill(std::wstring pattern, const std::wstring& a0, const std::wstri
     return pattern;
 }
 
+// Motion when a widget appears (Scene::since): from 0 to 1 over `length` seconds after
+// `delay`, eased out; and a pop that goes a little past its size and back.
+float Grow(const Scene& s, float delay, float length) {
+    const float t = std::clamp((s.since - delay) / length, 0.0f, 1.0f);
+    return 1 - (1 - t) * (1 - t) * (1 - t);
+}
+
+float Pop(const Scene& s, float delay) {
+    const float t = std::clamp((s.since - delay) / 0.45f, 0.0f, 1.0f) - 1;
+    const float c1 = 1.70158f, c3 = c1 + 1;
+    return 0.6f + 0.4f * (1 + c3 * t * t * t + c1 * t * t);
+}
+
 std::wstring Degrees(double t) {
     long v = lround(t);
     // A real minus sign: the hyphen is too short next to the digits. The marks around it
@@ -620,8 +633,13 @@ void DrawIcon(Ctx& c, Icon icon) {
     }
 }
 
+// Icons further down the card pop in a moment later.
 void WeatherIcon(Ctx& c, Icon icon, float x, float y, float size) {
     c.Box(x, y, size);
+    const float k = Pop(c.s, 0.05f + y / 900);
+    D2D1::Matrix3x2F box;
+    c.rt->GetTransform(&box);
+    c.rt->SetTransform(D2D1::Matrix3x2F::Scale(k, k, {0.5f, 0.5f}) * box);
     DrawIcon(c, icon);
     c.Mirrored();
 }
@@ -752,11 +770,12 @@ void DrawWeather(Ctx& c) {
 // System gauges
 // ---------------------------------------------------------------------------
 
+// The ring fills up to its value when the widget appears.
 void Ring(Ctx& c, float cx, float cy, float r, float width, float fraction, const D2D1_COLOR_F& color) {
     c.Unmirrored();
     cx = c.X(cx);
     c.rt->DrawEllipse(D2D1::Ellipse({cx, cy}, r, r), c.Brush(c.p.track).get(), width);
-    fraction = std::clamp(fraction, 0.0f, 1.0f);
+    fraction = std::clamp(fraction, 0.0f, 1.0f) * Grow(c.s, 0.08f, 0.8f);
     if (fraction >= 0.999f) {
         c.rt->DrawEllipse(D2D1::Ellipse({cx, cy}, r, r), c.Brush(color).get(), width);
     } else if (fraction > 0.004f) {
@@ -810,8 +829,8 @@ void DrawSystem(Ctx& c) {
                      p.text, trailing);
             const float x0 = kPad + 2, x1 = c.W - kPad - 2;
             c.Line(x0, bar, x1, bar, 4, p.track);
-            const float fraction = std::clamp(gauges[i].value, 0, 100) / 100.0f;
-            c.Line(x0, bar, x0 + (x1 - x0) * fraction, bar, 4, Rgb(gauges[i].color));
+            const float fraction = std::clamp(gauges[i].value, 0, 100) / 100.0f * Grow(c.s, 0.08f + i * 0.06f, 0.7f);
+            if (fraction > 0.005f) c.Line(x0, bar, x0 + (x1 - x0) * fraction, bar, 4, Rgb(gauges[i].color));
         }
         return;
     }
@@ -862,13 +881,13 @@ void BatteryGlyph(Ctx& c, float cx, float cy, float w, const SystemStats& st) {
                                1.4f);
     c.rt->FillRoundedRectangle(D2D1::RoundedRect({x + w + 1.2f, cy - h * 0.2f, x + w + 2.8f, cy + h * 0.2f}, 0.8f, 0.8f),
                                c.Brush(c.p.secondary).get());
-    const float level = std::clamp(st.battery, 0, 100) / 100.0f;
-    if (level > 0) {
+    const float level = std::clamp(st.battery, 0, 100) / 100.0f * Grow(c.s, 0.08f, 0.8f);
+    if (level > 0.005f) {
         c.rt->FillRoundedRectangle(
             D2D1::RoundedRect({x + 2.2f, y + 2.2f, x + 2.2f + (w - 4.4f) * level, y + h - 2.2f}, h * 0.18f, h * 0.18f),
             c.Brush(Rgb(BatteryColor(st))).get());
     }
-    if (st.charging) Bolt(c, cx, cy, h * 0.95f, c.p.text);
+    if (st.charging) Bolt(c, cx, cy, h * 0.95f * Pop(c.s, 0.3f), c.p.text);
 }
 
 // What the battery does now: charging, plugged in, or the time it has left.
@@ -1133,6 +1152,10 @@ const UINT32 kMusicRed = 0xFA233B;
 void MusicTile(Ctx& c, float x, float y, float size, float radius) {
     c.Unmirrored();
     x = c.s.rtl ? c.W - x - size : x;
+    const float k = Pop(c.s, 0.05f);
+    D2D1::Matrix3x2F plain;
+    c.rt->GetTransform(&plain);
+    c.rt->SetTransform(D2D1::Matrix3x2F::Scale(k, k, {x + size / 2, y + size / 2}) * plain);
     DrawMusicTile(c.rt, {x, y, x + size, y + size}, radius);
     c.Mirrored();
 }
@@ -1146,7 +1169,8 @@ void PlayState(Ctx& c, bool playing) {
         const float heights[] = {0.55f, 1.0f, 0.4f, 0.8f};
         for (int i = 0; i < 4; ++i) {
             float x = right - 16.5f + i * 5;
-            c.Line(x, mid + 8, x, mid + 8 - 16 * heights[i], 2.6f, Rgb(kMusicRed));
+            const float h = std::max(16 * heights[i] * Grow(c.s, 0.15f + i * 0.05f, 0.4f), 2.6f);
+            c.Line(x, mid + 8, x, mid + 8 - h, 2.6f, Rgb(kMusicRed));
         }
     } else {
         c.Line(right - 12, mid - 6, right - 12, mid + 6, 3, c.p.secondary);

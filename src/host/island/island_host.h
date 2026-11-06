@@ -45,7 +45,8 @@ private:
 };
 
 // `MacWin.exe --island-snapshot <dir> [--lang <code>]`: every view of the island with
-// sample data into <dir>\island.png.
+// sample data into <dir>\island.png, and how each comes in, frame by frame, into
+// <dir>\island-motion.png.
 int IslandSnapshot(const std::wstring& dir, const std::wstring& language);
 
 }  // namespace island
