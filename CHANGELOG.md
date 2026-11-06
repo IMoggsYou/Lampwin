@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-06
+
 ### Added
 
 - **Island** (Settings → Island): a black pill at the top of the screen, like the Dynamic
@@ -365,7 +367,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v1.6.1...HEAD
+[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/IMoggsYou/Lampwin/compare/v1.6.1...v2.0.0
 [1.6.1]: https://github.com/IMoggsYou/Lampwin/compare/v1.6.0...v1.6.1
 [1.6.0]: https://github.com/IMoggsYou/Lampwin/compare/v1.5.1...v1.6.0
 [1.5.1]: https://github.com/IMoggsYou/Lampwin/compare/v1.5.0...v1.5.1
