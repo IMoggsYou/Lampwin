@@ -86,7 +86,7 @@ jobs:
           Start-Process "$bin/MacWin.exe" -ArgumentList '--island-snapshot', 'build/snapshots/island', '--lang', 'en' -Wait
 
       - name: Upload snapshots
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: snapshots
           path: build/snapshots
@@ -98,7 +98,7 @@ jobs:
 
       - name: Upload installer
         id: upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: MacWinSetup
           path: build/installer/MacWinSetup-*.exe
