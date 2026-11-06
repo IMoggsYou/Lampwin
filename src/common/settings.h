@@ -64,7 +64,14 @@ struct SharedSettings {
     // Windows' "Animation effects" are off and the user wants MacWin to follow them: no
     // window animations at all. Was reserved: older DLLs see 0, still ask, and the host says no.
     int32_t reduceMotion;
-    int32_t reserved[6];
+    // Window corners drawn by Windows (DWM: anti-aliased, 8 px, in every program, also the
+    // windows Windows leaves square) instead of MacWin's region of cornerRadius /
+    // cornerSmoothing. Was reserved: older DLLs see 0 and cut windows as before.
+    int32_t smoothCorners;
+    // No 1 px border around windows: DWM's is turned off, a cut window's shade draws no
+    // edge. Was reserved: older DLLs see 0 and leave the borders.
+    int32_t hideBorders;
+    int32_t reserved[4];
 
     // Lowercase entries separated by L'\0' and ended by an empty entry. An entry
     // matches a full image path, a file name or a file name without ".exe".

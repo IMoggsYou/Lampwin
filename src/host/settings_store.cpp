@@ -314,6 +314,8 @@ void SettingsStore::Load() {
     s_.genie.cornerRadius = Clamp(g->GetInt(L"cornerRadius", d.genie.cornerRadius), 0, 40);
     s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
     s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
+    s_.genie.smoothCorners = g->GetBool(L"smoothCorners", d.genie.smoothCorners);
+    s_.genie.windowBorders = g->GetBool(L"windowBorders", d.genie.windowBorders);
     const json::Value* icons = Typed(&root, L"appIcons", json::Value::Object);
     s_.appIcons = icons ? icons->GetBool(L"enabled", d.appIcons) : d.appIcons;
     s_.genie.excluded = g->GetStrings(L"excludedPrograms", d.genie.excluded);
@@ -333,6 +335,22 @@ void SettingsStore::Load() {
         s_.appearance.followSun = Str(a, L"schedule") != L"times";
         s_.appearance.dayStartMinutes = MinutesFromJson(a->Get(L"dayStart"), d.appearance.dayStartMinutes);
         s_.appearance.nightStartMinutes = MinutesFromJson(a->Get(L"nightStart"), d.appearance.nightStartMinutes);
+    }
+    s_.island = d.island;
+    if (const json::Value* is = Typed(&root, L"island", json::Value::Object)) {
+        island::Config& i = s_.island;
+        i.enabled = is->GetBool(L"enabled", d.island.enabled);
+        i.music = is->GetBool(L"music", d.island.music);
+        i.calls = is->GetBool(L"calls", d.island.calls);
+        i.mirroring = is->GetBool(L"mirroring", d.island.mirroring);
+        i.charging = is->GetBool(L"charging", d.island.charging);
+        i.lowBattery = is->GetBool(L"lowBattery", d.island.lowBattery);
+        i.airplane = is->GetBool(L"airplane", d.island.airplane);
+        i.mobileData = is->GetBool(L"mobileData", d.island.mobileData);
+        i.silent = is->GetBool(L"silent", d.island.silent);
+        i.output = is->GetBool(L"output", d.island.output);
+        i.hoverExpand = is->GetBool(L"hoverExpand", d.island.hoverExpand);
+        i.followActive = Str(is, L"monitor") == L"active";
     }
     Log(L"settings: loaded %ls", path_.c_str());
 
@@ -380,6 +398,8 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"cornerRadius", json::Number(s.genie.cornerRadius));
     json::Set(&g, L"cornerSmoothing", json::Number(s.genie.cornerSmoothing));
     json::Set(&g, L"windowCorners", json::Bool(s.genie.windowCorners));
+    json::Set(&g, L"smoothCorners", json::Bool(s.genie.smoothCorners));
+    json::Set(&g, L"windowBorders", json::Bool(s.genie.windowBorders));
     json::Set(&g, L"excludedPrograms", json::Strings(s.genie.excluded));
     json::Set(&root, L"genie", g);
     const json::Value* oldIcons = root.Get(L"appIcons");
@@ -406,6 +426,21 @@ bool SettingsStore::Save() const {
     json::Set(&a, L"dayStart", MinutesToJson(s.appearance.dayStartMinutes));
     json::Set(&a, L"nightStart", MinutesToJson(s.appearance.nightStartMinutes));
     json::Set(&root, L"appearance", a);
+    const json::Value* oldIsland = Typed(&root, L"island", json::Value::Object);
+    json::Value is = oldIsland ? *oldIsland : json::Object();
+    json::Set(&is, L"enabled", json::Bool(s.island.enabled));
+    json::Set(&is, L"music", json::Bool(s.island.music));
+    json::Set(&is, L"calls", json::Bool(s.island.calls));
+    json::Set(&is, L"mirroring", json::Bool(s.island.mirroring));
+    json::Set(&is, L"charging", json::Bool(s.island.charging));
+    json::Set(&is, L"lowBattery", json::Bool(s.island.lowBattery));
+    json::Set(&is, L"airplane", json::Bool(s.island.airplane));
+    json::Set(&is, L"mobileData", json::Bool(s.island.mobileData));
+    json::Set(&is, L"silent", json::Bool(s.island.silent));
+    json::Set(&is, L"output", json::Bool(s.island.output));
+    json::Set(&is, L"hoverExpand", json::Bool(s.island.hoverExpand));
+    json::Set(&is, L"monitor", json::String(s.island.followActive ? L"active" : L"main"));
+    json::Set(&root, L"island", is);
     std::wstring t = json::Serialize(root) + L"\n";
 
     int n = WideCharToMultiByte(CP_UTF8, 0, t.c_str(), (int)t.size(), nullptr, 0, nullptr, nullptr);
@@ -450,6 +485,8 @@ void SettingsStore::Write(bool enabled) {
     v->cornerRadius = s_.genie.cornerRadius;
     v->cornerSmoothing = s_.genie.cornerSmoothing;
     v->windowCorners = s_.genie.windowCorners ? 1 : 0;
+    v->smoothCorners = s_.genie.smoothCorners ? 1 : 0;
+    v->hideBorders = s_.genie.windowBorders ? 0 : 1;
     v->appIcons = s_.appIcons ? 1 : 0;
     v->reduceMotion = ReduceMotion() ? 1 : 0;
     WriteList(v->genieExcluded, s_.genie.excluded);

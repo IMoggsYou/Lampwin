@@ -12,6 +12,11 @@
 // Windows 11's corners. Maximized and full-screen windows stay square, and Windows 11's
 // own 8 px circular corner is left to DWM.
 //
+// With smooth corners (the default) nothing is cut: Windows itself draws every corner,
+// anti-aliased, 8 px, and MacWin asks it to round the windows it would leave square
+// (UpdateLook). The region below only gives other radii and the squircle, whose edge is
+// whole pixels. Borders turned off: no DWM border on any window, no edge on the shade.
+//
 // The region is the client area, which a region does not change (DWM's extended frame
 // bounds collapse to the window rect once a region is set). It follows the window from
 // DefWindowProc's WM_WINDOWPOSCHANGED, in the window's own thread, so it is in place
@@ -139,21 +144,53 @@ void SetDwmInt(HWND h, DWORD attr, int value) {
 }
 
 // DWM cannot be asked for a window's border color (DwmGetWindowAttribute refuses
-// DWMWA_BORDER_COLOR), so the one a program sets is noted when it sets it (OverrideSlow),
-// for every window, until it is cut. Under g_lock.
+// DWMWA_BORDER_COLOR), and its corner preference is documented as set-only, so the ones
+// a program sets are noted when it sets them (OverrideSlow), for every window, until it
+// is cut. Under g_lock.
 std::unordered_map<HWND, int> g_programBorder;
+std::unordered_map<HWND, int> g_programCorner;
+
+// What MacWin set on a window it does not cut (UpdateLook): Windows' own smooth rounding
+// where Windows would leave the window square, and no border. Under g_lock.
+struct LookState {
+    bool round = false;      // we set DWMWCP_ROUND
+    bool noBorder = false;   // we set DWMWA_COLOR_NONE
+};
+std::unordered_map<HWND, LookState> g_looks;
+
+int ProgramValue(const std::unordered_map<HWND, int>& map, HWND h, int fallback) {
+    AcquireSRWLockShared(&g_lock);
+    auto it = map.find(h);
+    const int v = it != map.end() ? it->second : fallback;
+    ReleaseSRWLockShared(&g_lock);
+    return v;
+}
+
+// Ends MacWin's look on a window (it is being cut) without touching DWM: what it had.
+LookState TakeLook(HWND h) {
+    LookState look;
+    AcquireSRWLockExclusive(&g_lock);
+    auto it = g_looks.find(h);
+    if (it != g_looks.end()) {
+        look = it->second;
+        g_looks.erase(it);
+    }
+    ReleaseSRWLockExclusive(&g_lock);
+    return look;
+}
 
 void TakeOverrides(HWND h, int* saved) {
+    // Values MacWin's look set are not the program's: those are given back instead.
+    const LookState look = TakeLook(h);
     for (int i = 0; i < 3; ++i) {
+        const DWORD attr = kOverrides[i].attr;
         int v = 0;
-        saved[i] = SUCCEEDED(DwmGetWindowAttribute(h, kOverrides[i].attr, &v, sizeof(v))) ? v : kOverrides[i].fallback;
-        if (kOverrides[i].attr == DWMWA_BORDER_COLOR) {
-            AcquireSRWLockShared(&g_lock);
-            auto it = g_programBorder.find(h);
-            if (it != g_programBorder.end()) saved[i] = it->second;
-            ReleaseSRWLockShared(&g_lock);
+        saved[i] = SUCCEEDED(DwmGetWindowAttribute(h, attr, &v, sizeof(v))) ? v : kOverrides[i].fallback;
+        if (attr == DWMWA_BORDER_COLOR) saved[i] = ProgramValue(g_programBorder, h, saved[i]);
+        if (attr == DWMWA_WINDOW_CORNER_PREFERENCE && look.round) {
+            saved[i] = ProgramValue(g_programCorner, h, DWMWCP_DEFAULT);
         }
-        SetDwmInt(h, kOverrides[i].attr, kOverrides[i].value);
+        SetDwmInt(h, attr, kOverrides[i].value);
     }
 }
 
@@ -272,11 +309,20 @@ HRGN MakeRegion(const RECT& frame, int radius, int smoothing) {
 const wchar_t kShadeClass[] = L"MacWinCornerShade";
 
 // The macOS-like window shadow, edge and hairline (common/shadow_look.h), both
-// anti-aliased. The genie draws the same shadow.
+// anti-aliased. The genie draws the same shadow. Without `lines` (window borders turned
+// off) only the shadow: no dark edge, no light hairline.
 using ShadeLook = mw::ShadowLook;
 
-ShadeLook Look(float scale) {
-    return mw::WindowShadow(scale);
+ShadeLook Look(float scale, bool lines) {
+    ShadeLook l = mw::WindowShadow(scale);
+    if (!lines) l.edge = l.highlight = 0.0f;
+    return l;
+}
+
+// The window borders setting, as the shade draws it.
+bool ShadeLines() {
+    const SharedSettings* s = Settings();
+    return !s || !s->hideBorders;
 }
 
 float Clamp01(float v) {
@@ -348,7 +394,7 @@ uint32_t ShadePixel(float cx, float cy, const ShadeShape& sh, const ShadeLook& l
 // mirrored) and the profiles across the top, bottom and left edges. A resize then only
 // copies them into place instead of evaluating the shadow per pixel.
 struct ShadeTiles {
-    int radius = -1, smoothing = -1;
+    int radius = -1, smoothing = -1, lines = -1;
     UINT dpi = 0;
     int c = 0;                                     // corner block size (px)
     std::vector<uint32_t> topLeft, bottomLeft;     // c x c
@@ -358,10 +404,10 @@ struct ShadeTiles {
 SRWLOCK g_tilesLock = SRWLOCK_INIT;
 ShadeTiles g_tiles;   // the last look used (one radius and scale at a time, as a rule)
 
-void MakeTiles(int radius, int smoothing, UINT dpi) {
+void MakeTiles(int radius, int smoothing, UINT dpi, bool lines) {
     ShadeTiles& t = g_tiles;
-    if (t.radius == radius && t.smoothing == smoothing && t.dpi == dpi) return;
-    const ShadeLook l = Look((float)dpi / 96.0f);
+    if (t.radius == radius && t.smoothing == smoothing && t.dpi == dpi && t.lines == (int)lines) return;
+    const ShadeLook l = Look((float)dpi / 96.0f, lines);
     const float big = 4096.0f;   // half size of the stand-in window
     const ShadeShape sh = MakeShadeShape(big, big, radius, smoothing);
     const int m = l.margin;
@@ -387,6 +433,7 @@ void MakeTiles(int radius, int smoothing, UINT dpi) {
     }
     t.radius = radius;
     t.smoothing = smoothing;
+    t.lines = lines;
     t.dpi = dpi;
 }
 
@@ -416,7 +463,7 @@ void SafeRelease(T*& p) {
 // The tile surfaces for one radius, smoothing and scale: top-left and bottom-left corner
 // blocks (c x c), the top and bottom profiles (1 x c) and the left one (c x 1).
 struct TileSet {
-    int radius = -1, smoothing = -1;
+    int radius = -1, smoothing = -1, lines = -1;
     UINT dpi = 0;
     int c = 0;
     IDCompositionSurface* surface[5] = {};
@@ -444,7 +491,7 @@ struct ShadeVisuals {
     IDCompositionVisual* root = nullptr;
     IDCompositionVisual* part[8] = {};   // corners TL TR BL BR, edges top bottom left right
     IDCompositionSurface* whole = nullptr;   // a window too small for the tiles: one piece
-    int W = 0, H = 0, radius = -1, smoothing = -1;
+    int W = 0, H = 0, radius = -1, smoothing = -1, lines = -1;
     UINT dpi = 0;
 };
 
@@ -531,10 +578,10 @@ IDCompositionSurface* MakeSurface(const uint32_t* px, int w, int h) {
 
 // The tile surfaces for a look, made (from the CPU tiles) when no set has it yet; the
 // least recently used set makes room.
-TileSet* Tiles(int radius, int smoothing, UINT dpi) {
+TileSet* Tiles(int radius, int smoothing, UINT dpi, bool lines) {
     TileSet* slot = &g_gpu.sets[0];
     for (TileSet& t : g_gpu.sets) {
-        if (t.radius == radius && t.smoothing == smoothing && t.dpi == dpi && t.surface[0]) {
+        if (t.radius == radius && t.smoothing == smoothing && t.dpi == dpi && t.lines == (int)lines && t.surface[0]) {
             t.used = GetTickCount64();
             return &t;
         }
@@ -542,7 +589,7 @@ TileSet* Tiles(int radius, int smoothing, UINT dpi) {
     }
     ReleaseTileSet(*slot);
     AcquireSRWLockExclusive(&g_tilesLock);
-    MakeTiles(radius, smoothing, dpi);
+    MakeTiles(radius, smoothing, dpi, lines);
     const ShadeTiles& cpu = g_tiles;
     const int c = cpu.c;
     slot->surface[0] = MakeSurface(cpu.topLeft.data(), c, c);
@@ -559,6 +606,7 @@ TileSet* Tiles(int radius, int smoothing, UINT dpi) {
     }
     slot->radius = radius;
     slot->smoothing = smoothing;
+    slot->lines = lines;
     slot->dpi = dpi;
     slot->c = c;
     slot->used = GetTickCount64();
@@ -601,7 +649,7 @@ D2D_MATRIX_3X2_F Matrix(float sx, float sy, float dx, float dy) {
 
 // Lays the shade out for a W x H shade window (the window plus the margin on each side).
 // g_gpuLock held. False when there is no device: the shade then stays hidden.
-bool LayoutShade(ShadeVisuals* v, HWND shade, int W, int H, int radius, int smoothing, UINT dpi,
+bool LayoutShade(ShadeVisuals* v, HWND shade, int W, int H, int radius, int smoothing, UINT dpi, bool lines,
                  const ShadeLook& l, bool force) {
     if (!EnsureGpu()) return false;
     if (v->generation != g_gpu.generation) {   // new shade, or the device was replaced
@@ -612,10 +660,11 @@ bool LayoutShade(ShadeVisuals* v, HWND shade, int W, int H, int radius, int smoo
         }
         force = true;
     }
-    if (!force && v->W == W && v->H == H && v->radius == radius && v->smoothing == smoothing && v->dpi == dpi) {
+    if (!force && v->W == W && v->H == H && v->radius == radius && v->smoothing == smoothing && v->dpi == dpi &&
+        v->lines == (int)lines) {
         return true;
     }
-    TileSet* t = Tiles(radius, smoothing, dpi);
+    TileSet* t = Tiles(radius, smoothing, dpi, lines);
     if (!t) {
         ReleaseGpu();   // most likely a lost device: rebuilt next time
         return false;
@@ -668,6 +717,7 @@ bool LayoutShade(ShadeVisuals* v, HWND shade, int W, int H, int radius, int smoo
     v->H = H;
     v->radius = radius;
     v->smoothing = smoothing;
+    v->lines = lines;
     v->dpi = dpi;
     return true;
 }
@@ -853,12 +903,13 @@ void PlaceShade(HWND h, bool render) {
         const UINT dpi = GetDpiForWindow(h);
         const int fw = c.frame.right - c.frame.left, fh = c.frame.bottom - c.frame.top;
         const int left = wr.left + c.frame.left, top = wr.top + c.frame.top;
-        const ShadeLook l = Look((float)dpi / 96.0f);
+        const bool lines = ShadeLines();
+        const ShadeLook l = Look((float)dpi / 96.0f, lines);
         const int W = fw + 2 * l.margin, H = fh + 2 * l.margin;
         bool drawn = false;
         if (c.shade) {
             AcquireSRWLockExclusive(&g_gpuLock);
-            drawn = LayoutShade(c.vis, c.shade, W, H, c.radius, c.smoothing, dpi, l, render);
+            drawn = LayoutShade(c.vis, c.shade, W, H, c.radius, c.smoothing, dpi, lines, l, render);
             ReleaseSRWLockExclusive(&g_gpuLock);
         }
         HDWP defer = BeginDeferWindowPos(2);
@@ -919,8 +970,9 @@ void Uncut(HWND h) {
     --t_cutting;
 }
 
-void Update(HWND h) {
-    if (t_cutting) return;
+// MacWin's own corner (a window region, with the shade and the grip): any radius and the
+// squircle, for windows that draw their whole frame themselves; its edge is whole pixels.
+void UpdateCut(HWND h) {
     LONG_PTR style = GetWindowLongPtrW(h, GWL_STYLE);
     // Minimized: the cut stays for the restore (Windows hides the shade with the window).
     // Hidden: the cut stays too, the shade goes.
@@ -936,7 +988,8 @@ void Update(HWND h) {
     bool want = s && s->windowCorners && EffectsActiveHere() && !ExcludedHere(s) && !(style & WS_MAXIMIZE);
     int base = s ? s->cornerRadius : 0, smoothing = s ? s->cornerSmoothing : 0;
     // Windows 11's own corner (circular, 8 px) is DWM's: it keeps the shadow and border.
-    if (want && smoothing == 0 && base == 8) want = false;
+    // Smooth corners leave every window to DWM (UpdateLook rounds the ones it would not).
+    if (want && (s->smoothCorners || (smoothing == 0 && base == 8))) want = false;
     if (!want || (!had && !Eligible(h, style))) {
         if (had && !want) Uncut(h);
         return;
@@ -1011,6 +1064,127 @@ void Update(HWND h) {
     PlaceShade(h, newShape);
 }
 
+// Window classes MacWin never rounds: the shell's own windows, menus, tooltips, its shade
+// and grip.
+const wchar_t* const kNeverRound[] = {L"Progman", L"WorkerW", L"Shell_TrayWnd", L"Shell_SecondaryTrayWnd",
+                                      L"#32768", L"tooltips_class32", kShadeClass, kGripClass};
+
+// A window Windows 11 may leave square that it rounds smoothly when asked (DWMWCP_ROUND):
+// no frame styles, an empty non-client area, a custom shadow made of extra windows -
+// Office-style frames, WPF / Qt / Java windows without a frame, launchers. Only main
+// windows: top-level with a frame or a taskbar button (no menus, drop-downs or tooltips),
+// not a tool window, not shaped by the program itself (per-pixel alpha or a region: DWM
+// cannot round those), no corner the program asked for, not full screen (games, videos).
+// `ours`: MacWin's DWMWCP_ROUND is on it already, so DWM would only report that back.
+bool RoundCandidate(HWND h, LONG_PTR style, bool ours) {
+    // Explorer's shell surfaces (taskbar flyouts, Alt+Tab, ...) look the way Windows draws
+    // them, and File Explorer's own windows are rounded by Windows already.
+    static const bool inExplorer = [] {
+        wchar_t path[MAX_PATH];
+        mw::ImageNames self;
+        const DWORD len = GetModuleFileNameW(nullptr, path, MAX_PATH);
+        return len && len < MAX_PATH && mw::MakeImageNames(path, &self) && wcscmp(self.base, L"explorer.exe") == 0;
+    }();
+    if (inExplorer || GetAncestor(h, GA_ROOT) != h) return false;
+    const LONG_PTR ex = GetWindowLongPtrW(h, GWL_EXSTYLE);
+    if (ex & (WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE)) return false;
+    if ((ex & WS_EX_LAYERED) && !(ex & WS_EX_NOREDIRECTIONBITMAP)) return false;
+    const bool framed = (style & WS_CAPTION) == WS_CAPTION || (style & WS_THICKFRAME);
+    const bool onTaskbar = (ex & WS_EX_APPWINDOW) || !GetWindow(h, GW_OWNER);
+    if (!framed && !onTaskbar) return false;
+    RECT box;
+    if (GetWindowRgnBox(h, &box) != ERROR) return false;
+    wchar_t cls[64];
+    if (GetClassNameW(h, cls, ARRAYSIZE(cls))) {
+        for (const wchar_t* name : kNeverRound) {
+            if (wcscmp(cls, name) == 0) return false;
+        }
+    }
+    int pref = DWMWCP_DEFAULT;
+    if (!ours && FAILED(DwmGetWindowAttribute(h, DWMWA_WINDOW_CORNER_PREFERENCE, &pref, sizeof(pref)))) {
+        pref = DWMWCP_DEFAULT;
+    }
+    if (ProgramValue(g_programCorner, h, pref) != DWMWCP_DEFAULT) return false;
+
+    DPI_AWARENESS_CONTEXT old = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    RECT r;
+    MONITORINFO mi = {sizeof(mi)};
+    bool ok = GetWindowRect(h, &r) && GetMonitorInfoW(MonitorFromWindow(h, MONITOR_DEFAULTTONEAREST), &mi);
+    if (old) SetThreadDpiAwarenessContext(old);
+    const UINT dpi = GetDpiForWindow(h);
+    if (!ok || r.right - r.left < MulDiv(120, (int)dpi, 96) || r.bottom - r.top < MulDiv(80, (int)dpi, 96)) {
+        return false;
+    }
+    const bool fullScreen = r.left <= mi.rcMonitor.left && r.top <= mi.rcMonitor.top &&
+                            r.right >= mi.rcMonitor.right && r.bottom >= mi.rcMonitor.bottom;
+    return !fullScreen;
+}
+
+// Windows' own look on a window MacWin does not cut: its smooth rounding (DWM, 8 px) on
+// windows it would leave square, and no border when borders are off. Both are given back
+// exactly - the program's own values - when the setting or the window changes.
+void UpdateLook(HWND h) {
+    const LONG_PTR style = GetWindowLongPtrW(h, GWL_STYLE);
+    // Minimized or hidden: it keeps its look for when it comes back.
+    if ((style & (WS_CHILD | WS_MINIMIZE)) || !(style & WS_VISIBLE)) return;
+    if (FindCut(h, nullptr)) return;   // a cut window's attributes are the cut's (TakeOverrides)
+    LookState prev;
+    AcquireSRWLockShared(&g_lock);
+    auto it = g_looks.find(h);
+    if (it != g_looks.end()) prev = it->second;
+    ReleaseSRWLockShared(&g_lock);
+
+    const SharedSettings* s = Settings();
+    const bool on = s && EffectsActiveHere() && !ExcludedHere(s);
+    LookState next;
+    next.round = on && s->windowCorners && (s->smoothCorners || s->cornerRadius > 0) &&
+                 RoundCandidate(h, style, prev.round);
+    next.noBorder = on && s->hideBorders && GetAncestor(h, GA_ROOT) == h;
+    if (next.round == prev.round && next.noBorder == prev.noBorder) return;
+
+    ++t_cutting;   // our own attribute changes never re-enter Update
+    if (next.round != prev.round) {
+        SetDwmInt(h, DWMWA_WINDOW_CORNER_PREFERENCE,
+                  next.round ? DWMWCP_ROUND : ProgramValue(g_programCorner, h, DWMWCP_DEFAULT));
+    }
+    if (next.noBorder != prev.noBorder) {
+        SetDwmInt(h, DWMWA_BORDER_COLOR,
+                  next.noBorder ? (int)DWMWA_COLOR_NONE : ProgramValue(g_programBorder, h, (int)DWMWA_COLOR_DEFAULT));
+    }
+    --t_cutting;
+    AcquireSRWLockExclusive(&g_lock);
+    if (next.round || next.noBorder) {
+        g_looks[h] = next;
+    } else {
+        g_looks.erase(h);
+    }
+    ReleaseSRWLockExclusive(&g_lock);
+}
+
+// Gives every window the look its program gave it (MacWin shutting down).
+void GiveBackLooks() {
+    std::unordered_map<HWND, LookState> looks;
+    AcquireSRWLockExclusive(&g_lock);
+    looks.swap(g_looks);
+    ReleaseSRWLockExclusive(&g_lock);
+    for (const auto& kv : looks) {
+        if (!IsWindow(kv.first)) continue;
+        if (kv.second.round) {
+            SetDwmInt(kv.first, DWMWA_WINDOW_CORNER_PREFERENCE,
+                      ProgramValue(g_programCorner, kv.first, DWMWCP_DEFAULT));
+        }
+        if (kv.second.noBorder) {
+            SetDwmInt(kv.first, DWMWA_BORDER_COLOR, ProgramValue(g_programBorder, kv.first, (int)DWMWA_COLOR_DEFAULT));
+        }
+    }
+}
+
+void Update(HWND h) {
+    if (t_cutting) return;
+    UpdateCut(h);
+    UpdateLook(h);
+}
+
 // Snap (snap layouts, Win + arrows, dragging to an edge) puts a window so that its
 // visible frame - DWM's extended frame bounds - fills the zone. A cut window has no
 // such bounds any more (they collapse to the window rect), so the invisible resize
@@ -1080,6 +1254,8 @@ LRESULT CornersDefWindowProc(DefWindowProcFn original, HWND h, UINT msg, WPARAM 
             g_cuts.erase(it);
         }
         g_programBorder.erase(h);
+        g_programCorner.erase(h);
+        g_looks.erase(h);
         ReleaseSRWLockExclusive(&g_lock);
         FreeVisuals(vis);   // the shade window itself goes with its owner
         return original(h, msg, wp, lp);
@@ -1132,6 +1308,8 @@ void CornersOnActivate() {
 // it (in DefWindowProc); if the program never passes the message on, it is done from
 // here - only for a thread that answered, never blocking on a hung one.
 bool CornersOnShutdown() {
+    // DWM attributes can be set from any thread of the window's process.
+    GiveBackLooks();
     std::vector<HWND> windows;
     AcquireSRWLockShared(&g_lock);
     for (const auto& kv : g_cuts) windows.push_back(kv.first);
@@ -1163,6 +1341,8 @@ bool CornersOnShutdown() {
     // Swapped out, not cleared: the memory goes too (a shut-down DLL may stay mapped).
     std::unordered_map<HWND, Cut>().swap(g_cuts);
     std::unordered_map<HWND, int>().swap(g_programBorder);
+    std::unordered_map<HWND, int>().swap(g_programCorner);
+    std::unordered_map<HWND, LookState>().swap(g_looks);
     ReleaseSRWLockExclusive(&g_lock);
     for (ShadeVisuals* v : left) FreeVisuals(v);
     AcquireSRWLockExclusive(&g_gpuLock);
@@ -1178,21 +1358,32 @@ bool CornersOnShutdown() {
 }
 
 // A program setting one of the overridden attributes on a cut window (Chromium sets its
-// backdrop on theme changes): remembered for the uncut, ours stays meanwhile.
+// backdrop on theme changes): remembered for the uncut, ours stays meanwhile. On a window
+// with MacWin's look: a border colour is remembered (no border stays while borders are
+// off); a corner the program asks for itself is its own from then on.
 namespace {
 
 __attribute__((noinline)) HRESULT WINAPI OverrideSlow(HWND h, DWORD attr, LPCVOID data, DWORD size) {
     HookScope scope;
     const int i = OverrideIndex(attr);
     if (i >= 0 && data && size == sizeof(int)) {
+        const int value = *(const int*)data;
+        bool keepNoBorder = false;
         AcquireSRWLockExclusive(&g_lock);
         auto it = g_cuts.find(h);
         bool cut = it != g_cuts.end() && it->second.overridden;
-        if (cut) it->second.saved[i] = *(const int*)data;
-        if (!cut && attr == DWMWA_BORDER_COLOR) g_programBorder[h] = *(const int*)data;
+        if (cut) it->second.saved[i] = value;
+        if (!cut && attr == DWMWA_BORDER_COLOR) g_programBorder[h] = value;
+        if (!cut && attr == DWMWA_WINDOW_CORNER_PREFERENCE) g_programCorner[h] = value;
+        auto look = cut ? g_looks.end() : g_looks.find(h);
+        if (look != g_looks.end()) {
+            if (attr == DWMWA_BORDER_COLOR) keepNoBorder = look->second.noBorder;
+            if (attr == DWMWA_WINDOW_CORNER_PREFERENCE) look->second.round = false;
+            if (!look->second.round && !look->second.noBorder) g_looks.erase(look);
+        }
         ReleaseSRWLockExclusive(&g_lock);
-        if (cut) {
-            int ours = kOverrides[i].value;
+        if (cut || keepNoBorder) {
+            int ours = cut ? kOverrides[i].value : (int)DWMWA_COLOR_NONE;
             return DwmSetWindowAttribute_Original(h, attr, &ours, sizeof(ours));
         }
     }

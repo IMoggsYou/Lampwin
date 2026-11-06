@@ -5,6 +5,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <algorithm>
+#include <map>
+#include <utility>
 #include <vector>
 
 namespace widgets {
@@ -18,6 +20,7 @@ const DWRITE_FONT_WEIGHT kLight = DWRITE_FONT_WEIGHT_LIGHT;
 const DWRITE_FONT_WEIGHT kRegular = DWRITE_FONT_WEIGHT_NORMAL;
 const DWRITE_FONT_WEIGHT kMedium = DWRITE_FONT_WEIGHT_MEDIUM;
 const DWRITE_FONT_WEIGHT kSemibold = DWRITE_FONT_WEIGHT_SEMI_BOLD;
+const DWRITE_FONT_WEIGHT kBold = DWRITE_FONT_WEIGHT_BOLD;
 
 struct Palette {
     D2D1_COLOR_F top, bottom;   // card background
@@ -103,6 +106,33 @@ public:
         DrawText(g, rt, t, f, box, c, o);
         rt->SetTransform(mirrored_);
     }
+    // Where a line of `f` has its baseline below its top, and how tall the line is.
+    void LineOf(IDWriteTextFormat* f, float* baseline, float* height) {
+        auto it = lines_.find(f);
+        if (it == lines_.end()) {
+            float b = f ? f->GetFontSize() : 0, h = b * 1.33f;
+            ComPtr<IDWriteTextLayout> layout;
+            DWRITE_LINE_METRICS m = {};
+            UINT32 count = 0;
+            if (f && SUCCEEDED(g.DWrite()->CreateTextLayout(L"Ag", 2, f, 1000, 1000, layout.put())) &&
+                SUCCEEDED(layout->GetLineMetrics(&m, 1, &count)) && count == 1) {
+                b = m.baseline;
+                h = m.height;
+            }
+            it = lines_.emplace(f, std::make_pair(b, h)).first;
+        }
+        *baseline = it->second.first;
+        *height = it->second.second;
+    }
+    // One line of text whose baseline is at `baseline`: the cards line their words up on
+    // baselines (a 16 DIP margin above the first, below the last).
+    void TextAt(const std::wstring& t, IDWriteTextFormat* f, float left, float right, float baseline,
+                const D2D1_COLOR_F& c, TextOptions o = {}) {
+        float b, h;
+        LineOf(f, &b, &h);
+        o.valign = DWRITE_PARAGRAPH_ALIGNMENT_NEAR;
+        Text(t, f, {left, baseline - b, right, baseline - b + h + 1}, c, o);
+    }
     const std::wstring& T(const wchar_t* key) const {
         static const std::wstring empty;
         if (!s.texts) return empty;
@@ -113,6 +143,7 @@ public:
 private:
     D2D1::Matrix3x2F plain_, mirrored_;
     ComPtr<ID2D1StrokeStyle> round_;
+    std::map<IDWriteTextFormat*, std::pair<float, float>> lines_;
 };
 
 // ---------------------------------------------------------------------------
@@ -144,6 +175,19 @@ std::wstring Fill(std::wstring pattern, const std::wstring& a0, const std::wstri
     at = pattern.find(L"{1}");
     if (at != std::wstring::npos) pattern.replace(at, 3, a1);
     return pattern;
+}
+
+// Motion when a widget appears (Scene::since): from 0 to 1 over `length` seconds after
+// `delay`, eased out; and a pop that goes a little past its size and back.
+float Grow(const Scene& s, float delay, float length) {
+    const float t = std::clamp((s.since - delay) / length, 0.0f, 1.0f);
+    return 1 - (1 - t) * (1 - t) * (1 - t);
+}
+
+float Pop(const Scene& s, float delay) {
+    const float t = std::clamp((s.since - delay) / 0.45f, 0.0f, 1.0f) - 1;
+    const float c1 = 1.70158f, c3 = c1 + 1;
+    return 0.6f + 0.4f * (1 + c3 * t * t * t + c1 * t * t);
 }
 
 std::wstring Degrees(double t) {
@@ -282,35 +326,43 @@ void DialHands(Ctx& c, float cx, float cy, float r) {
     }
 }
 
+// The day and month as Windows writes them for the UI language ("6 listopada", "November 6").
+std::wstring MonthDayText(const Scene& s, const SYSTEMTIME& st) {
+    wchar_t buf[128];
+    int n = GetDateFormatEx(s.locale.c_str(), DATE_MONTHDAY, &st, nullptr, buf, ARRAYSIZE(buf), nullptr);
+    return n > 1 ? std::wstring(buf, (size_t)n - 1) : std::wstring();
+}
+
+// The three lines beside a face or a ring on a medium card (the clock's, the battery's): a
+// red or grey label, a big number and a line under it.
+const float kSideLabel = 57, kSideNumber = 108, kSideNote = 131;
+
 void DrawClock(Ctx& c) {
     const Palette& p = c.p;
     if (c.s.pass != Pass::Hands) FillCard(c, p.top, p.bottom);
+    // Small: the face fills the card. Medium: the same face in the left square, the time
+    // beside it.
+    const float r = c.H / 2 - 11;
     if (c.s.size == Size::Small) {
-        Dial(c, c.W / 2, c.H / 2, c.H / 2 - 13);
+        Dial(c, c.W / 2, c.H / 2, r);
         return;
     }
-    // Medium: the face on the left, the time in words on the right.
-    float r = c.H / 2 - 13;
     Dial(c, c.X(c.H / 2), c.H / 2, r);
     if (c.s.pass == Pass::Face) return;
+    const float left = c.H + 6, right = c.W - kPad;
+    const std::wstring weekday = Upper(c.s, DateText(c.s, c.s.now, L"dddd"));
+    c.TextAt(weekday, c.Fit(weekday, 13, 10, right - left, kSemibold), left, right, kSideLabel, p.red);
     std::wstring marker;
-    std::wstring time = TimeText(c.s, &marker);
-    float left = c.H + 4, right = c.W - kPad;
-    IDWriteTextFormat* big = c.Font(46, kMedium, true);
-    float tw = TextWidth(c.g, time, big);
+    const std::wstring time = TimeText(c.s, &marker);
     IDWriteTextFormat* small = c.Font(17, kMedium, true);
-    float mw = marker.empty() ? 0 : TextWidth(c.g, marker, small) + 5;
-    // Too wide for the space (a long format): smaller digits.
-    if (tw + mw > right - left) {
-        big = c.Font(36, kMedium, true);
-        tw = TextWidth(c.g, time, big);
-    }
-    const float top = 34;
-    c.Text(time, big, {left, top, left + tw + 1, top + 64}, p.text);
-    if (!marker.empty()) c.Text(marker, small, {left + tw + 5, top + 28, right, top + 56}, p.secondary);
-    std::wstring date = DateText(c.s, c.s.now, c.T(L"host.widgets.date.long").c_str());
-    date = Capitalized(c.s, date);
-    c.Text(date, c.Fit(date, 14, 11, right - left, kSemibold), {left, top + 66, right, top + 88}, p.secondary);
+    const float mw = marker.empty() ? 0 : TextWidth(c.g, marker, small) + 5;
+    // A long format (or a 12-hour marker) gets smaller digits.
+    IDWriteTextFormat* big = c.Fit(time, 50, 34, right - left - mw, kMedium, true);
+    const float tw = TextWidth(c.g, time, big);
+    c.TextAt(time, big, left - 2, left + tw + 1, kSideNumber, p.text);
+    if (!marker.empty()) c.TextAt(marker, small, left + tw + 3, right, kSideNumber, p.secondary);
+    const std::wstring date = MonthDayText(c.s, c.s.now);
+    c.TextAt(date, c.Fit(date, 15, 11, right - left, kSemibold), left, right, kSideNote, p.secondary);
 }
 
 // ---------------------------------------------------------------------------
@@ -341,9 +393,10 @@ void MonthGrid(Ctx& c, D2D1_RECT_F box, float numberSize, float headerSize) {
     const int days = DaysInMonth(s.now.wYear, s.now.wMonth);
     const int rows = (offset + days + 6) / 7;
 
+    // Six rows always, so no month changes the spacing; the weeks fill the box from its top.
     const float colW = (box.right - box.left) / 7;
-    const float headerH = headerSize * 1.9f;
-    const float rowH = std::min((box.bottom - box.top - headerH) / rows, numberSize * 3.2f);
+    const float headerH = headerSize * 2;
+    const float rowH = (box.bottom - box.top - headerH) / std::max(rows, 6);
     IDWriteTextFormat* header = c.Font(headerSize, kSemibold);
     IDWriteTextFormat* number = c.Font(numberSize, kMedium);
     IDWriteTextFormat* today = c.Font(numberSize, DWRITE_FONT_WEIGHT_BOLD);
@@ -365,7 +418,7 @@ void MonthGrid(Ctx& c, D2D1_RECT_F box, float numberSize, float headerSize) {
         float x = box.left + col * colW, y = box.top + headerH + row * rowH;
         D2D1_RECT_F r = {x, y, x + colW, y + rowH};
         if (day == s.now.wDay) {
-            float rad = std::min(colW, rowH) * 0.46f;
+            float rad = std::min(colW, rowH) * 0.48f;
             c.Dot((r.left + r.right) / 2, (r.top + r.bottom) / 2, rad, p.red);
             c.Text(std::to_wstring(day), today, r, Rgb(0xFFFFFF), center);
         } else {
@@ -374,16 +427,22 @@ void MonthGrid(Ctx& c, D2D1_RECT_F box, float numberSize, float headerSize) {
     }
 }
 
+// The baselines of a card's first and last line of small text: 16 DIPs from its edges.
+const float kTopLine = 29;
+float BottomLine(const Ctx& c) {
+    return c.H - 18;
+}
+
 // Weekday in red, the day's number, month and year: the left side of the calendar (and a
 // countdown's day).
 void DayColumn(Ctx& c, float left, float right, const SYSTEMTIME& day) {
     const Scene& s = c.s;
     const Palette& p = c.p;
     std::wstring weekday = Upper(s, DateText(s, day, L"dddd"));
-    c.Text(weekday, c.Fit(weekday, 13, 10, right - left, kSemibold), {left, 14, right, 34}, p.red);
-    c.Text(std::to_wstring(day.wDay), c.Font(66, kLight, true), {left - 3, 22, right, 112}, p.text);
+    c.TextAt(weekday, c.Fit(weekday, 13, 10, right - left, kSemibold), left, right, kTopLine, p.red);
+    c.TextAt(std::to_wstring(day.wDay), c.Font(72, kLight, true), left - 4, right, 102, p.text);
     std::wstring month = Capitalized(s, DateText(s, day, c.T(L"host.widgets.date.monthYear").c_str()));
-    c.Text(month, c.Fit(month, 14, 11, right - left, kSemibold), {left, c.H - 38, right, c.H - 16}, p.secondary);
+    c.TextAt(month, c.Fit(month, 14, 11, right - left, kSemibold), left, right, BottomLine(c), p.secondary);
 }
 
 void DrawCalendar(Ctx& c) {
@@ -394,18 +453,20 @@ void DrawCalendar(Ctx& c) {
             DayColumn(c, kPad, c.W - kPad, c.s.now);
             break;
         case Size::Medium:
-            DayColumn(c, kPad, c.H - 8, c.s.now);
-            MonthGrid(c, {c.H - 6, 14, c.W - 12, c.H - 10}, 11.5f, 9.5f);
+            // Two halves: the day on the left, the month on the right (its cells reach a
+            // little closer to the edge: the numbers sit in their middle).
+            DayColumn(c, kPad, c.W / 2 - kPad, c.s.now);
+            MonthGrid(c, {c.W / 2 - 4, 14, c.W - 10, c.H - 10}, 11, 9.5f);
             break;
         case Size::Large: {
             const Scene& s = c.s;
             std::wstring month = Capitalized(s, DateText(s, s.now, L"MMMM"));
             IDWriteTextFormat* title = c.Font(19, kSemibold, true);
             float mw = TextWidth(c.g, month, title);
-            c.Text(month, title, {kPad + 2, 16, c.W - kPad, 44}, p.red);
-            c.Text(std::to_wstring(s.now.wYear), c.Font(19, kRegular, true), {kPad + 2 + mw + 7, 16, c.W - kPad, 44},
-                   p.secondary);
-            MonthGrid(c, {12, 52, c.W - 12, c.H - 14}, 15, 11);
+            c.TextAt(month, title, kPad + 4, c.W - kPad, 38, p.red);
+            c.TextAt(std::to_wstring(s.now.wYear), c.Font(19, kRegular, true), kPad + 4 + mw + 7, c.W - kPad, 38,
+                     p.secondary);
+            MonthGrid(c, {10, 52, c.W - 10, c.H - 10}, 15, 11);
             break;
         }
     }
@@ -572,8 +633,13 @@ void DrawIcon(Ctx& c, Icon icon) {
     }
 }
 
+// Icons further down the card pop in a moment later.
 void WeatherIcon(Ctx& c, Icon icon, float x, float y, float size) {
     c.Box(x, y, size);
+    const float k = Pop(c.s, 0.05f + y / 900);
+    D2D1::Matrix3x2F box;
+    c.rt->GetTransform(&box);
+    c.rt->SetTransform(D2D1::Matrix3x2F::Scale(k, k, {0.5f, 0.5f}) * box);
     DrawIcon(c, icon);
     c.Mirrored();
 }
@@ -604,7 +670,7 @@ void DrawWeather(Ctx& c) {
     const float right = c.W - kPad;
 
     if (s.weather == WeatherState::NoPlace || s.weather == WeatherState::LocationOff) {
-        WeatherIcon(c, Icon::SunCloud, kPad - 2, 14, 40);
+        WeatherIcon(c, Icon::SunCloud, kPad - 2, kPad - 2, 40);
         TextOptions wrap;
         wrap.wrap = true;
         wrap.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
@@ -613,71 +679,74 @@ void DrawWeather(Ctx& c) {
         const std::wstring& text = c.T(key);
         // The longer advice has to fit a small card too.
         IDWriteTextFormat* font = c.Font(text.size() > 60 ? 12.5f : 14, kSemibold);
-        c.Text(text, font, {kPad, 60, right, c.H - 14}, white, wrap);
+        c.Text(text, font, {kPad, 60, right, c.H - kPad}, white, wrap);
         return;
     }
 
-    // City and temperature (left), condition and today's range: the top of every size.
+    // City and temperature on the left: the top of every size.
     const bool small = s.size == Size::Small;
-    const float cityRight = small ? right : c.W / 2 + 40;
-    c.Text(s.place, c.Fit(s.place, 15, 12, cityRight - kPad, kSemibold), {kPad, 13, cityRight, 33}, white);
-    c.Text(f ? Degrees(f->temp) : L"—", c.Font(44, kLight, true), {kPad - 2, 28, c.W / 2 + 40, 90}, white);
+    const float half = small ? right : c.W / 2;
+    c.TextAt(s.place, c.Fit(s.place, 15, 12, half - kPad, kSemibold), kPad, half, 30, white);
+    c.TextAt(f ? Degrees(f->temp) : L"—", c.Font(46, kMedium, true), kPad - 2, half, 80, white);
     std::wstring status = f ? c.T(SkyKey(f->cond.sky))
                             : c.T(s.weather == WeatherState::Loading ? L"host.widgets.weather.loading"
                                                                      : L"host.widgets.weather.offline");
     std::wstring range = f ? Fill(c.T(L"host.widgets.weather.range"), Degrees(f->high), Degrees(f->low)) : L"";
     if (small) {
-        if (f) WeatherIcon(c, f->cond.icon, kPad - 1, 94, 24);
-        c.Text(status, c.Fit(status, 13, 10.5f, right - kPad, kSemibold), {kPad, 118, right, 136}, white);
-        c.Text(range, c.Fit(range, 13, 10.5f, right - kPad, kSemibold), {kPad, 135, right, 153}, white);
+        // The sky and today's range on the bottom lines, the icon above them.
+        if (f) WeatherIcon(c, f->cond.icon, kPad - 1, 86, 24);
+        c.TextAt(status, c.Fit(status, 13, 10, right - kPad, kSemibold), kPad, right, BottomLine(c) - 18, white);
+        c.TextAt(range, c.Fit(range, 13, 10, right - kPad, kSemibold), kPad, right, BottomLine(c), white);
         return;
     }
+    // On the right, on the same lines: the icon, the sky and today's range.
     TextOptions end;
     end.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
-    if (f) WeatherIcon(c, f->cond.icon, right - 24, 15, 24);
-    c.Text(status, c.Fit(status, 13, 10.5f, right - c.W / 2, kSemibold), {c.W / 2, 42, right, 60}, white, end);
-    c.Text(range, c.Fit(range, 13, 10.5f, right - c.W / 2, kSemibold), {c.W / 2, 59, right, 77}, white, end);
+    if (f) WeatherIcon(c, f->cond.icon, right - 24, 13, 24);
+    c.TextAt(status, c.Fit(status, 13, 11, right - half, kSemibold), half, right, 58, white, end);
+    c.TextAt(range, c.Fit(range, 13, 11, right - half, kSemibold), half, right, 76, white, end);
     if (!f) return;
 
-    // The coming hours.
+    // The coming hours, in six columns of the same width across the card.
     const size_t hours = std::min<size_t>(6, f->hours.size());
-    const float colW = (c.W - 2 * kPad + 8) / 6, rowTop = 94;
+    const float colW = (c.W - 2 * kPad) / 6, rowTop = 92;
     TextOptions center;
     center.align = DWRITE_TEXT_ALIGNMENT_CENTER;
     for (size_t i = 0; i < hours; ++i) {
         const HourForecast& h = f->hours[i];
-        float x = kPad - 4 + i * colW;
+        float x = kPad + i * colW;
         std::wstring label = i == 0 ? c.T(L"host.widgets.weather.now") : HourText(s, h.hour);
-        c.Text(label, c.Font(11.5f, kSemibold), {x, rowTop, x + colW, rowTop + 16}, dim, center);
+        c.TextAt(label, c.Fit(label, 12, 9, colW, kSemibold), x, x + colW, rowTop + 12, dim, center);
         WeatherIcon(c, h.cond.icon, x + colW / 2 - 11, rowTop + 18, 22);
-        c.Text(Degrees(h.temp), c.Font(13.5f, kSemibold), {x + 2, rowTop + 41, x + colW + 2, rowTop + 59}, white,
-               center);
+        // A little to the right: the degree sign would pull the digits off the column's middle.
+        c.TextAt(Degrees(h.temp), c.Font(14, kBold), x + 3, x + colW + 3, rowTop + 56, white, center);
     }
     if (s.size != Size::Large) return;
 
-    // The coming days, each with its range on a bar shared by the whole week.
-    c.Line(kPad, 168, c.W - kPad, 168, 0.75f, Rgb(0xFFFFFF, 0.28f));
+    // The coming days, each with its range on a bar shared by the whole week: the name, the
+    // icon, the low, the bar and the high, in columns.
+    const float daysTop = 164;
+    c.Line(kPad, daysTop + 4, c.W - kPad, daysTop + 4, 0.75f, Rgb(0xFFFFFF, 0.28f));
     const size_t days = std::min<size_t>(5, f->days.size());
     double lo = f->days[0].low, hi = f->days[0].high;
     for (size_t i = 0; i < days; ++i) {
         lo = std::min(lo, f->days[i].low);
         hi = std::max(hi, f->days[i].high);
     }
-    const float rowH = (c.H - 178 - 10) / 5.0f;
-    const float barLeft = 168, barRight = c.W - kPad - 44;
+    const float rowH = (c.H - kPad - daysTop - 10) / 5.0f;
+    const float nameRight = kPad + 64, iconX = nameRight + 6, lowRight = iconX + 22 + 40;
+    const float highLeft = c.W - kPad - 34, barLeft = lowRight + 10, barRight = highLeft - 10;
+    TextOptions trailing;
+    trailing.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
     for (size_t i = 0; i < days; ++i) {
         const DayForecast& d = f->days[i];
-        float y = 178 + i * rowH;
+        const float y = daysTop + 10 + i * rowH, mid = y + rowH / 2, base = mid + 5;
         std::wstring day = DayName(c, d, i);
-        c.Text(day, c.Fit(day, 14, 11, 92 - kPad, kSemibold), {kPad, y, 92, y + rowH}, white,
-               {DWRITE_TEXT_ALIGNMENT_LEADING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER});
-        WeatherIcon(c, d.cond.icon, 96, y + rowH / 2 - 11, 22);
-        c.Text(Degrees(d.low), c.Font(14, kSemibold), {120, y, barLeft - 8, y + rowH}, dim,
-               {DWRITE_TEXT_ALIGNMENT_TRAILING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER});
-        c.Text(Degrees(d.high), c.Font(14, kSemibold), {barRight + 8, y, c.W - kPad, y + rowH}, white,
-               {DWRITE_TEXT_ALIGNMENT_TRAILING, DWRITE_PARAGRAPH_ALIGNMENT_CENTER});
-        float by = y + rowH / 2;
-        c.Line(barLeft, by, barRight, by, 4.5f, Rgb(0x000000, 0.18f));
+        c.TextAt(day, c.Fit(day, 14, 11, nameRight - kPad, kSemibold), kPad, nameRight, base, white);
+        WeatherIcon(c, d.cond.icon, iconX, mid - 11, 22);
+        c.TextAt(Degrees(d.low), c.Font(14, kBold), iconX + 22, lowRight, base, dim, trailing);
+        c.TextAt(Degrees(d.high), c.Font(14, kBold), highLeft, c.W - kPad, base, white, trailing);
+        c.Line(barLeft, mid, barRight, mid, 5, Rgb(0x000000, 0.18f));
         double span = std::max(1.0, hi - lo);
         float x0 = barLeft + (float)((d.low - lo) / span) * (barRight - barLeft);
         float x1 = barLeft + (float)((d.high - lo) / span) * (barRight - barLeft);
@@ -685,14 +754,14 @@ void DrawWeather(Ctx& c) {
         ComPtr<ID2D1GradientStopCollection> collection;
         ComPtr<ID2D1LinearGradientBrush> brush;
         if (SUCCEEDED(c.rt->CreateGradientStopCollection(stops, 2, collection.put())) &&
-            SUCCEEDED(c.rt->CreateLinearGradientBrush({{x0, by}, {std::max(x1, x0 + 1), by}}, collection.get(),
+            SUCCEEDED(c.rt->CreateLinearGradientBrush({{x0, mid}, {std::max(x1, x0 + 1), mid}}, collection.get(),
                                                       brush.put()))) {
-            c.rt->DrawLine({x0, by}, {std::max(x1, x0 + 0.01f), by}, brush.get(), 4.5f, c.Round());
+            c.rt->DrawLine({x0, mid}, {std::max(x1, x0 + 0.01f), mid}, brush.get(), 5, c.Round());
         }
         if (i == 0) {
             float xn = barLeft + (float)((std::clamp(f->temp, lo, hi) - lo) / span) * (barRight - barLeft);
-            c.Dot(xn, by, 3.6f, Rgb(0x000000, 0.25f));
-            c.Dot(xn, by, 2.6f, white);
+            c.Dot(xn, mid, 4, Rgb(0x000000, 0.25f));
+            c.Dot(xn, mid, 2.9f, white);
         }
     }
 }
@@ -701,11 +770,12 @@ void DrawWeather(Ctx& c) {
 // System gauges
 // ---------------------------------------------------------------------------
 
+// The ring fills up to its value when the widget appears.
 void Ring(Ctx& c, float cx, float cy, float r, float width, float fraction, const D2D1_COLOR_F& color) {
     c.Unmirrored();
     cx = c.X(cx);
     c.rt->DrawEllipse(D2D1::Ellipse({cx, cy}, r, r), c.Brush(c.p.track).get(), width);
-    fraction = std::clamp(fraction, 0.0f, 1.0f);
+    fraction = std::clamp(fraction, 0.0f, 1.0f) * Grow(c.s, 0.08f, 0.8f);
     if (fraction >= 0.999f) {
         c.rt->DrawEllipse(D2D1::Ellipse({cx, cy}, r, r), c.Brush(color).get(), width);
     } else if (fraction > 0.004f) {
@@ -744,36 +814,38 @@ void DrawSystem(Ctx& c) {
         gauges.push_back({st.charging ? L"host.widgets.system.charging" : L"host.widgets.system.battery", st.battery,
                           color});
     }
+    const int n = (int)gauges.size();
+    if (c.s.size == Size::Small) {
+        // A row per gauge, the rows spread over the card: its name and value over a bar.
+        const float rowH = (c.H - 2 * kPad) / n, value = 40;
+        TextOptions trailing;
+        trailing.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
+        for (int i = 0; i < n; ++i) {
+            const float top = kPad + i * rowH, base = top + rowH - 13, bar = top + rowH - 5;
+            const std::wstring& label = c.T(gauges[i].label);
+            c.TextAt(label, c.Fit(label, 12, 9, c.W - 2 * kPad - value, kSemibold), kPad, c.W - kPad - value, base,
+                     p.secondary);
+            c.TextAt(Percent(gauges[i].value), c.Font(12.5f, kSemibold, true), c.W - kPad - value, c.W - kPad, base,
+                     p.text, trailing);
+            const float x0 = kPad + 2, x1 = c.W - kPad - 2;
+            c.Line(x0, bar, x1, bar, 4, p.track);
+            const float fraction = std::clamp(gauges[i].value, 0, 100) / 100.0f * Grow(c.s, 0.08f + i * 0.06f, 0.7f);
+            if (fraction > 0.005f) c.Line(x0, bar, x0 + (x1 - x0) * fraction, bar, 4, Rgb(gauges[i].color));
+        }
+        return;
+    }
+    // Medium: a ring per gauge in columns of the same width, the value inside, the name under it.
     TextOptions center;
     center.align = DWRITE_TEXT_ALIGNMENT_CENTER;
     center.valign = DWRITE_PARAGRAPH_ALIGNMENT_CENTER;
-    const bool small = c.s.size == Size::Small;
-    const int n = (int)gauges.size();
+    const float colW = (c.W - 2 * kPad) / n, r = 30, width = 7, cy = 70;
     for (int i = 0; i < n; ++i) {
-        float cx, cy, r, width;
-        if (small) {
-            // Two rows of two (a third one alone is centered).
-            int row = i / 2, col = i % 2;
-            bool alone = n == 3 && i == 2;
-            cx = alone ? c.W / 2 : (col == 0 ? c.W * 0.29f : c.W * 0.71f);
-            cy = row == 0 ? 44 : 110;
-            r = 21;
-            width = 5;
-        } else {
-            float colW = (c.W - 2 * kPad) / n;
-            cx = kPad + colW * (i + 0.5f);
-            cy = 70;
-            r = 31;
-            width = 7;
-        }
+        const float cx = kPad + colW * (i + 0.5f);
         Ring(c, cx, cy, r, width, gauges[i].value / 100.0f, Rgb(gauges[i].color));
-        c.Text(Percent(gauges[i].value), c.Font(small ? 12.5f : 15, kSemibold, true),
-               {cx - r, cy - r, cx + r, cy + r}, p.text, center);
-        float labelTop = cy + r + (small ? 3 : 9);
+        c.Text(Percent(gauges[i].value), c.Font(15, kSemibold, true), {cx - r, cy - r, cx + r, cy + r}, p.text, center);
         const std::wstring& label = c.T(gauges[i].label);
-        const float half = small ? 36 : 42;
-        c.Text(label, c.Fit(label, small ? 10.5f : 12, 8.5f, 2 * half, kSemibold),
-               {cx - half, labelTop, cx + half, labelTop + 16}, p.secondary, center);
+        c.TextAt(label, c.Fit(label, 12, 8.5f, colW - 4, kSemibold), cx - colW / 2 + 2, cx + colW / 2 - 2,
+                 cy + r + width / 2 + 19, p.secondary, center);
     }
 }
 
@@ -809,13 +881,13 @@ void BatteryGlyph(Ctx& c, float cx, float cy, float w, const SystemStats& st) {
                                1.4f);
     c.rt->FillRoundedRectangle(D2D1::RoundedRect({x + w + 1.2f, cy - h * 0.2f, x + w + 2.8f, cy + h * 0.2f}, 0.8f, 0.8f),
                                c.Brush(c.p.secondary).get());
-    const float level = std::clamp(st.battery, 0, 100) / 100.0f;
-    if (level > 0) {
+    const float level = std::clamp(st.battery, 0, 100) / 100.0f * Grow(c.s, 0.08f, 0.8f);
+    if (level > 0.005f) {
         c.rt->FillRoundedRectangle(
             D2D1::RoundedRect({x + 2.2f, y + 2.2f, x + 2.2f + (w - 4.4f) * level, y + h - 2.2f}, h * 0.18f, h * 0.18f),
             c.Brush(Rgb(BatteryColor(st))).get());
     }
-    if (st.charging) Bolt(c, cx, cy, h * 0.95f, c.p.text);
+    if (st.charging) Bolt(c, cx, cy, h * 0.95f * Pop(c.s, 0.3f), c.p.text);
 }
 
 // What the battery does now: charging, plugged in, or the time it has left.
@@ -833,37 +905,43 @@ void DrawBattery(Ctx& c) {
     const Palette& p = c.p;
     const SystemStats& st = c.s.stats;
     FillCard(c, p.top, p.bottom);
-    TextOptions center;
-    center.align = DWRITE_TEXT_ALIGNMENT_CENTER;
-    center.valign = DWRITE_PARAGRAPH_ALIGNMENT_CENTER;
     TextOptions wrap;
     wrap.wrap = true;
     const std::wstring& title = c.T(L"host.widgets.battery.title");
     if (st.battery < 0) {
-        BatteryGlyph(c, kPad + 14, kPad + 10, 26, st);
-        c.Text(title, c.Font(13, kSemibold), {kPad, kPad + 30, c.W - kPad, kPad + 50}, p.text);
-        c.Text(c.T(L"host.widgets.battery.none"), c.Font(12, kRegular), {kPad, kPad + 52, c.W - kPad, c.H - kPad},
+        BatteryGlyph(c, kPad + 14, kPad + 8, 26, st);
+        c.TextAt(title, c.Font(14, kSemibold), kPad, c.W - kPad, 54, p.text);
+        c.Text(c.T(L"host.widgets.battery.none"), c.Font(13, kRegular), {kPad, 62, c.W - kPad, c.H - kPad},
                p.secondary, wrap);
         return;
     }
-    const bool small = c.s.size == Size::Small;
-    const float r = small ? 42 : 50, width = small ? 9 : 10;
-    const float cx = small ? c.W / 2 : kPad + r + 8, cy = small ? 66 : c.H / 2;
-    Ring(c, cx, cy, r, width, st.battery / 100.0f, Rgb(BatteryColor(st)));
-    BatteryGlyph(c, cx, cy - 10, 24, st);
-    c.Text(Percent(st.battery), c.Font(small ? 17 : 19, kSemibold, true), {cx - r, cy + 2, cx + r, cy + 24}, p.text,
-           center);
     const std::wstring state = BatteryState(c, st);
-    if (small) {
-        c.Text(state, c.Fit(state, 12, 9, c.W - 2 * kPad, kSemibold), {kPad, c.H - kPad - 18, c.W - kPad, c.H - kPad},
-               p.secondary, center);
+    const D2D1_COLOR_F color = Rgb(BatteryColor(st));
+    TextOptions center;
+    center.align = DWRITE_TEXT_ALIGNMENT_CENTER;
+    if (c.s.size == Size::Small) {
+        // The ring in the middle of the card, the state on the bottom line.
+        const float r = 42, width = 9, cx = c.W / 2, cy = kPad + width / 2 + r + 2;
+        Ring(c, cx, cy, r, width, st.battery / 100.0f, color);
+        BatteryGlyph(c, cx, cy - 11, 24, st);
+        center.valign = DWRITE_PARAGRAPH_ALIGNMENT_CENTER;
+        c.Text(Percent(st.battery), c.Font(17, kSemibold, true), {cx - r, cy + 1, cx + r, cy + 23}, p.text, center);
+        center.valign = DWRITE_PARAGRAPH_ALIGNMENT_NEAR;
+        c.TextAt(state, c.Fit(state, 13, 9, c.W - 2 * kPad, kSemibold), kPad, c.W - kPad, BottomLine(c), p.secondary,
+                 center);
         return;
     }
-    const float left = cx + r + 22;
-    c.Text(title, c.Font(13, kSemibold), {left, cy - 44, c.W - kPad, cy - 24}, p.secondary);
-    c.Text(Percent(st.battery), c.Font(40, kLight, true), {left, cy - 26, c.W - kPad, cy + 22}, p.text);
-    c.Text(state, c.Fit(state, 13, 10, c.W - kPad - left, kSemibold), {left, cy + 24, c.W - kPad, cy + 44},
-           Rgb(BatteryColor(st)));
+    // Medium: the ring in the left square, the words beside it on the clock's lines.
+    const float r = c.H / 2 - kPad - 5, width = 10, cx = c.H / 2, cy = c.H / 2;
+    Ring(c, cx, cy, r, width, st.battery / 100.0f, color);
+    BatteryGlyph(c, cx, cy - 11, 26, st);
+    center.valign = DWRITE_PARAGRAPH_ALIGNMENT_CENTER;
+    c.Text(Percent(st.battery), c.Font(19, kSemibold, true), {cx - r, cy + 1, cx + r, cy + 25}, p.text, center);
+    const float left = c.H + 6, right = c.W - kPad;
+    const std::wstring heading = Upper(c.s, title);
+    c.TextAt(heading, c.Fit(heading, 13, 10, right - left, kSemibold), left, right, kSideLabel, p.secondary);
+    c.TextAt(Percent(st.battery), c.Font(50, kLight, true), left - 2, right, kSideNumber, p.text);
+    c.TextAt(state, c.Fit(state, 15, 10, right - left, kSemibold), left, right, kSideNote, color);
 }
 
 // ---------------------------------------------------------------------------
@@ -956,38 +1034,47 @@ void DrawNetwork(Ctx& c) {
     for (int i = 0; i < kNetworkHistory; ++i) scale = std::max({scale, st.downHistory[i], st.upHistory[i]});
     scale *= 1.15f;
 
-    const std::wstring& title = c.T(L"host.widgets.network.title");
-    c.Text(title, c.Font(13, kSemibold), {kPad, kPad - 2, c.W - kPad, kPad + 16}, p.secondary);
-    // What the connection itself can do, beside the title: today's traffic is usually far less.
+    // The title and what the connection itself can do on the top line (today's traffic is
+    // usually far less).
+    const float half = small ? c.W - kPad : c.W / 2 - 8;
+    const std::wstring title = Upper(c.s, c.T(L"host.widgets.network.title"));
     const std::wstring link = LinkSpeed(c, st.link);
+    const float linkW = link.empty() ? 0 : TextWidth(c.g, link, c.Font(12, kSemibold)) + 8;
+    c.TextAt(title, c.Fit(title, 13, 10, half - kPad - linkW, kSemibold), kPad, half - linkW, kTopLine, p.secondary);
     if (!link.empty()) {
-        TextOptions right;
-        right.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
-        c.Text(link, c.Font(11, kSemibold), {kPad, kPad - 1, c.W - kPad, kPad + 15}, p.tertiary, right);
+        TextOptions trailing;
+        trailing.align = DWRITE_TEXT_ALIGNMENT_TRAILING;
+        c.TextAt(link, c.Font(12, kSemibold), kPad, half, kTopLine, p.tertiary, trailing);
     }
-    const float textRight = small ? c.W - kPad : c.W * 0.46f;
     const std::wstring down = Speed(c, st.down), up = Speed(c, st.up);
-    const float rowH = small ? 34 : 44;
     struct Row {
         bool down;
         const std::wstring& value;
         const wchar_t* label;
         D2D1_COLOR_F color;
     } rows[] = {{true, down, L"host.widgets.network.down", blue}, {false, up, L"host.widgets.network.up", purple}};
-    for (int i = 0; i < 2; ++i) {
-        const float top = kPad + 24 + i * rowH;
-        SpeedGlyph(c, kPad + 9, top + (small ? 11 : 14), rows[i].down, rows[i].color);
-        const float left = kPad + 26;
-        if (!small) {
-            const std::wstring& label = c.T(rows[i].label);
-            c.Text(label, c.Fit(label, 11, 9, textRight - left, kSemibold), {left, top - 2, textRight, top + 12},
-                   p.secondary);
+    D2D1_RECT_F chart;
+    if (small) {
+        // Two speeds under the title, the chart along the bottom.
+        for (int i = 0; i < 2; ++i) {
+            const float base = 60 + i * 28, left = kPad + 26;
+            SpeedGlyph(c, kPad + 9, base - 6, rows[i].down, rows[i].color);
+            c.TextAt(rows[i].value, c.Fit(rows[i].value, 18, 11, c.W - kPad - left, kSemibold, true), left, c.W - kPad,
+                     base, p.text);
         }
-        c.Text(rows[i].value, c.Fit(rows[i].value, small ? 18 : 22, 11, textRight - left, kSemibold, true),
-               {left, small ? top : top + 10, textRight, small ? top + 24 : top + 38}, p.text);
+        chart = D2D1::RectF(kPad, c.H - kPad - 36, c.W - kPad, c.H - kPad);
+    } else {
+        // Medium: each speed with its name on the left half, the chart on the right one.
+        for (int i = 0; i < 2; ++i) {
+            const float base = 82 + i * 49, left = kPad + 28;
+            SpeedGlyph(c, kPad + 10, base - 8, rows[i].down, rows[i].color);
+            const std::wstring& label = c.T(rows[i].label);
+            c.TextAt(label, c.Fit(label, 11.5f, 9, half - left, kSemibold), left, half, base - 23, p.secondary);
+            c.TextAt(rows[i].value, c.Fit(rows[i].value, 22, 11, half - left, kSemibold, true), left, half, base,
+                     p.text);
+        }
+        chart = D2D1::RectF(c.W / 2 + 8, kPad + 4, c.W - kPad, c.H - kPad);
     }
-    const D2D1_RECT_F chart = small ? D2D1::RectF(kPad, c.H - kPad - 34, c.W - kPad, c.H - kPad)
-                                    : D2D1::RectF(c.W * 0.52f, kPad + 22, c.W - kPad, c.H - kPad);
     c.rt->DrawLine({chart.left, chart.bottom}, {chart.right, chart.bottom}, c.Brush(p.track).get(), 1);
     SpeedChart(c, st.upHistory, scale, chart, purple);
     SpeedChart(c, st.downHistory, scale, chart, blue);
@@ -997,14 +1084,18 @@ void DrawNetwork(Ctx& c) {
 // Countdown
 // ---------------------------------------------------------------------------
 
+// The size of the small app tile in a card's top corner (countdown, notes, music).
+const float kTile = 24;
+
 // A page of a calendar with a ring around a day.
 void CountdownGlyph(Ctx& c, float x, float y) {
-    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + 22, y + 22}, 6, 6), c.Brush(Rgb(0xFF9F0A)).get());
+    const float u = kTile / 22;
+    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + kTile, y + kTile}, 7, 7), c.Brush(Rgb(0xFF9F0A)).get());
     const D2D1_COLOR_F white = Rgb(0xFFFFFF);
-    c.Line(x + 5.5f, y + 7.5f, x + 16.5f, y + 7.5f, 1.6f, white);
-    for (int i = 0; i < 3; ++i) c.Dot(x + 6.5f + i * 4.5f, y + 12, 1.1f, white);
-    for (int i = 0; i < 2; ++i) c.Dot(x + 6.5f + i * 4.5f, y + 16, 1.1f, white);
-    c.rt->DrawEllipse(D2D1::Ellipse({x + 15.5f, y + 16}, 2.6f, 2.6f), c.Brush(white).get(), 1.2f);
+    c.Line(x + 5.5f * u, y + 7.5f * u, x + 16.5f * u, y + 7.5f * u, 1.7f, white);
+    for (int i = 0; i < 3; ++i) c.Dot(x + (6.5f + i * 4.5f) * u, y + 12 * u, 1.2f, white);
+    for (int i = 0; i < 2; ++i) c.Dot(x + (6.5f + i * 4.5f) * u, y + 16 * u, 1.2f, white);
+    c.rt->DrawEllipse(D2D1::Ellipse({x + 15.5f * u, y + 16 * u}, 2.8f, 2.8f), c.Brush(white).get(), 1.3f);
 }
 
 // Days to go (or since), the title, and on a medium card the day itself.
@@ -1015,14 +1106,15 @@ void DrawCountdown(Ctx& c) {
     SYSTEMTIME day;
     const bool valid = ParseDay(s.date, &day);
     const bool medium = s.size == Size::Medium && valid;
-    const float right = medium ? c.W / 2 - 8 : c.W - kPad;
-    CountdownGlyph(c, kPad, 15);
+    // Medium: two halves, the countdown on the left, the day on the right.
+    const float right = medium ? c.W / 2 - kPad : c.W - kPad;
+    CountdownGlyph(c, kPad, kPad);
     const std::wstring& title = s.text.empty() ? c.T(L"host.widgets.countdown.title") : s.text;
     TextOptions wrap;
     wrap.wrap = true;
-    c.Text(title, c.Font(15, kSemibold), {kPad, 44, right, 84}, p.text, wrap);
+    c.Text(title, c.Font(15, kSemibold), {kPad, 46, right, 86}, p.text, wrap);
     if (!valid) {
-        c.Text(c.T(L"host.widgets.countdown.empty"), c.Font(13, kRegular), {kPad, 88, right, c.H - 14}, p.secondary,
+        c.Text(c.T(L"host.widgets.countdown.empty"), c.Font(13, kRegular), {kPad, 90, right, c.H - kPad}, p.secondary,
                wrap);
         return;
     }
@@ -1030,7 +1122,7 @@ void DrawCountdown(Ctx& c) {
     if (days == 0) {
         // The day itself: one word, in red like today in the calendar.
         const std::wstring& today = c.T(L"host.widgets.countdown.today");
-        c.Text(today, c.Fit(today, 34, 20, right - kPad, kSemibold, true), {kPad, c.H - 62, right, c.H - 16}, p.red);
+        c.TextAt(today, c.Fit(today, 34, 20, right - kPad, kSemibold, true), kPad - 1, right, BottomLine(c) - 4, p.red);
     } else {
         // The number and a label of its own ("days to go"), so no language needs plural forms
         // here; one day is "tomorrow" or "yesterday".
@@ -1039,12 +1131,12 @@ void DrawCountdown(Ctx& c) {
                                         : days == -1 ? L"host.widgets.countdown.yesterday"
                                         : days > 0   ? L"host.widgets.countdown.left"
                                                      : L"host.widgets.countdown.ago");
-        c.Text(number, c.Fit(number, 50, 28, right - kPad, kLight, true), {kPad - 2, c.H - 90, right, c.H - 34},
-               days > 0 ? p.text : p.secondary);
-        c.Text(label, c.Fit(label, 13, 10, right - kPad, kSemibold), {kPad, c.H - 36, right, c.H - 16}, p.secondary);
+        c.TextAt(number, c.Fit(number, 46, 28, right - kPad, kLight, true), kPad - 2, right, BottomLine(c) - 19,
+                 days > 0 ? p.text : p.secondary);
+        c.TextAt(label, c.Fit(label, 13, 10, right - kPad, kSemibold), kPad, right, BottomLine(c), p.secondary);
     }
     if (medium) {
-        c.Line(c.W / 2, 18, c.W / 2, c.H - 18, 1, p.hairline);
+        c.Line(c.W / 2, kPad, c.W / 2, c.H - kPad, 1, p.hairline);
         DayColumn(c, c.W / 2 + kPad, c.W - kPad, day);
     }
 }
@@ -1053,43 +1145,36 @@ void DrawCountdown(Ctx& c) {
 // Now playing
 // ---------------------------------------------------------------------------
 
-const UINT32 kMusicTop = 0xFF5E7A, kMusicBottom = 0xFF2D55;
+const UINT32 kMusicRed = 0xFA233B;
 
-// Two beamed notes on a rounded tile, `size` DIPs at (x, y) from the leading corner. Music
-// isn't mirrored: only where the tile goes.
+// The music tile (canvas.cpp), `size` DIPs at (x, y) from the leading corner. Music isn't
+// mirrored: only where the tile goes.
 void MusicTile(Ctx& c, float x, float y, float size, float radius) {
     c.Unmirrored();
     x = c.s.rtl ? c.W - x - size : x;
-    D2D1_GRADIENT_STOP stops[] = {{0, Rgb(kMusicTop)}, {1, Rgb(kMusicBottom)}};
-    ComPtr<ID2D1GradientStopCollection> collection;
-    ComPtr<ID2D1LinearGradientBrush> brush;
-    if (SUCCEEDED(c.rt->CreateGradientStopCollection(stops, 2, collection.put())) &&
-        SUCCEEDED(c.rt->CreateLinearGradientBrush({{x, y}, {x, y + size}}, collection.get(), brush.put()))) {
-        c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + size, y + size}, radius, radius), brush.get());
-    }
-    const float u = size / 22;
-    const D2D1_COLOR_F white = Rgb(0xFFFFFF);
-    c.rt->FillEllipse(D2D1::Ellipse({x + 7.6f * u, y + 15.6f * u}, 2.5f * u, 2.1f * u), c.Brush(white).get());
-    c.rt->FillEllipse(D2D1::Ellipse({x + 14.6f * u, y + 14.1f * u}, 2.5f * u, 2.1f * u), c.Brush(white).get());
-    c.Line(x + 9.9f * u, y + 15.4f * u, x + 9.9f * u, y + 6.6f * u, 1.3f * u, white);
-    c.Line(x + 16.9f * u, y + 13.9f * u, x + 16.9f * u, y + 5.1f * u, 1.3f * u, white);
-    c.Line(x + 9.9f * u, y + 6.6f * u, x + 16.9f * u, y + 5.1f * u, 2.2f * u, white);
+    const float k = Pop(c.s, 0.05f);
+    D2D1::Matrix3x2F plain;
+    c.rt->GetTransform(&plain);
+    c.rt->SetTransform(D2D1::Matrix3x2F::Scale(k, k, {x + size / 2, y + size / 2}) * plain);
+    DrawMusicTile(c.rt, {x, y, x + size, y + size}, radius);
     c.Mirrored();
 }
 
-// Playing: level bars; paused: the pause sign. In the top corner opposite the small tile.
+// Playing: level bars; paused: the pause sign. In the top corner opposite the small tile,
+// on the middle of its line.
 void PlayState(Ctx& c, bool playing) {
     c.Unmirrored();
-    const float right = c.s.rtl ? kPad + 18 : c.W - kPad;
+    const float right = c.s.rtl ? kPad + 18 : c.W - kPad, mid = kPad + kTile / 2;
     if (playing) {
         const float heights[] = {0.55f, 1.0f, 0.4f, 0.8f};
         for (int i = 0; i < 4; ++i) {
             float x = right - 16.5f + i * 5;
-            c.Line(x, 33, x, 33 - 16 * heights[i], 2.6f, Rgb(kMusicBottom));
+            const float h = std::max(16 * heights[i] * Grow(c.s, 0.15f + i * 0.05f, 0.4f), 2.6f);
+            c.Line(x, mid + 8, x, mid + 8 - h, 2.6f, Rgb(kMusicRed));
         }
     } else {
-        c.Line(right - 12, 20, right - 12, 31, 3, c.p.secondary);
-        c.Line(right - 4.5f, 20, right - 4.5f, 31, 3, c.p.secondary);
+        c.Line(right - 12, mid - 6, right - 12, mid + 6, 3, c.p.secondary);
+        c.Line(right - 4.5f, mid - 6, right - 4.5f, mid + 6, 3, c.p.secondary);
     }
     c.Mirrored();
 }
@@ -1101,38 +1186,41 @@ void DrawNowPlaying(Ctx& c) {
     const bool medium = s.size == Size::Medium;
     const MediaInfo none;
     const MediaInfo& m = s.media ? *s.media : none;
-    // Medium: a big tile where a cover would be, the words beside it.
-    const float left = medium ? c.H : kPad;
-    if (medium) MusicTile(c, kPad, kPad, c.H - 2 * kPad, 18);
-    else MusicTile(c, kPad, 15, 22, 6);
+    // Medium: the tile fills the left square, where a cover would be; the words beside it.
+    const float left = medium ? c.H + 6 : kPad;
+    if (medium) MusicTile(c, kPad, kPad, c.H - 2 * kPad, 16);
+    else MusicTile(c, kPad, kPad, kTile, 7);
     const float right = c.W - kPad;
     TextOptions wrap;
     wrap.wrap = true;
     if (!m.present) {
         TextOptions bottom = wrap;
         bottom.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
-        c.Text(c.T(L"host.widgets.nowPlaying.none"), c.Font(15, kSemibold), {left, 40, right, c.H - 56}, p.secondary,
+        c.Text(c.T(L"host.widgets.nowPlaying.none"), c.Font(15, kSemibold), {left, 46, right, c.H - 56}, p.secondary,
                bottom);
-        c.Text(c.T(L"host.widgets.nowPlaying.hint"), c.Font(12, kRegular), {left, c.H - 52, right, c.H - 12},
+        c.Text(c.T(L"host.widgets.nowPlaying.hint"), c.Font(12, kRegular), {left, c.H - 52, right, c.H - kPad},
                p.tertiary, wrap);
         return;
     }
     PlayState(c, m.playing);
-    // From the bottom up: the app, the artist, then the title in up to two lines.
-    float y = c.H - 14;
+    // From the bottom line up: the app, the artist, then the title in up to two lines.
+    float y = BottomLine(c);
     if (!m.app.empty()) {
-        c.Text(Upper(s, m.app), c.Font(10.5f, kSemibold), {left, y - 14, right, y}, p.tertiary);
+        c.TextAt(Upper(s, m.app), c.Font(10.5f, kSemibold), left, right, y, p.tertiary);
         y -= 18;
     }
     if (!m.artist.empty()) {
-        c.Text(m.artist, c.Font(13, kRegular), {left, y - 18, right, y}, p.secondary);
-        y -= 20;
+        c.TextAt(m.artist, c.Font(13, kRegular), left, right, y, p.secondary);
+        y -= 19;
     }
-    const float titleSize = medium ? 17 : 15;
+    IDWriteTextFormat* titleFont = c.Font(medium ? 17 : 15, kSemibold);
+    float baseline, lineH;
+    c.LineOf(titleFont, &baseline, &lineH);
     TextOptions bottom = wrap;
     bottom.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
-    c.Text(m.title, c.Font(titleSize, kSemibold), {left, std::max(y - titleSize * 2.7f, 40.0f), right, y}, p.text,
-           bottom);
+    // The last line of the title on `y`: the box ends where that line does.
+    const float end = y - baseline + lineH;
+    c.Text(m.title, titleFont, {left, std::max(end - 2 * lineH, kPad + kTile + 4), right, end}, p.text, bottom);
 }
 
 // ---------------------------------------------------------------------------
@@ -1140,18 +1228,18 @@ void DrawNowPlaying(Ctx& c) {
 // ---------------------------------------------------------------------------
 
 void NoteGlyph(Ctx& c, float x, float y) {
-    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + 22, y + 22}, 6, 6), c.Brush(Rgb(0xFFD60A)).get());
+    c.rt->FillRoundedRectangle(D2D1::RoundedRect({x, y, x + kTile, y + kTile}, 7, 7), c.Brush(Rgb(0xFFD60A)).get());
     for (int i = 0; i < 3; ++i) {
-        float ly = y + 7.5f + i * 4;
-        c.Line(x + 6, ly, x + (i == 2 ? 12 : 16), ly, 1.6f, Rgb(0xFFFFFF));
+        float ly = y + 8 + i * 4.5f;
+        c.Line(x + 6.5f, ly, x + (i == 2 ? 13 : 17.5f), ly, 1.7f, Rgb(0xFFFFFF));
     }
 }
 
 void DrawNotes(Ctx& c) {
     const Palette& p = c.p;
     FillCard(c, p.top, p.bottom);
-    NoteGlyph(c, kPad, 15);
-    D2D1_RECT_F box = {kPad, 47, c.W - kPad, c.H - 14};
+    NoteGlyph(c, kPad, kPad);
+    D2D1_RECT_F box = {kPad, 50, c.W - kPad, c.H - kPad};
     std::wstring text = c.s.text;
     while (!text.empty() && (text.back() == L'\n' || text.back() == L'\r' || text.back() == L' ')) text.pop_back();
     if (text.empty()) {
@@ -1213,7 +1301,7 @@ void DrawPhoto(Ctx& c) {
         FillCard(c, Rgb(c.s.dark ? 0x3A3F55 : 0xB9C7E8), Rgb(c.s.dark ? 0x23263A : 0x8FA4D6));
         // A landscape in a frame: the "choose a picture" placeholder.
         const D2D1_COLOR_F white = Rgb(0xFFFFFF);
-        c.Box(kPad, 16, 30);
+        c.Box(kPad, kPad, 30);
         c.rt->DrawRoundedRectangle(D2D1::RoundedRect({0.05f, 0.15f, 0.95f, 0.85f}, 0.14f, 0.14f), c.Brush(white).get(),
                                    0.08f);
         c.Dot(0.33f, 0.39f, 0.08f, white);
@@ -1233,7 +1321,8 @@ void DrawPhoto(Ctx& c) {
         TextOptions wrap;
         wrap.wrap = true;
         wrap.valign = DWRITE_PARAGRAPH_ALIGNMENT_FAR;
-        c.Text(c.T(L"host.widgets.photo.empty"), c.Font(14, kSemibold), {kPad, 56, c.W - kPad, c.H - 16}, white, wrap);
+        c.Text(c.T(L"host.widgets.photo.empty"), c.Font(14, kSemibold), {kPad, 56, c.W - kPad, c.H - kPad}, white,
+               wrap);
         return;
     }
     // The picture fills the card; it is never mirrored.

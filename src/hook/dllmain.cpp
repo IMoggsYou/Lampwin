@@ -17,6 +17,17 @@ static const wchar_t* const kNeverLoad[] = {
     L"textinputhost", L"werfault", L"werfaultsecure",
 };
 
+// Riot's games, their launcher and Riot Vanguard (kernel anti-cheat), wherever they are
+// installed and whatever the "do not inject" list says: Vanguard reports any foreign
+// module in them to the player as software that interrupts the game. Names without
+// ".exe"; the folders below catch Riot's other programs and helpers.
+static const wchar_t* const kNeverLoadRiot[] = {
+    L"league of legends", L"leagueclient", L"leagueclientux", L"leagueclientuxrender", L"leaguecrashhandler",
+    L"leaguecrashhandler64", L"valorant", L"valorant-win64-shipping", L"riot client",
+    L"riotclientservices", L"riotclientux", L"riotclientuxrender", L"riotclientcrashhandler", L"vgc", L"vgtray",
+};
+static const wchar_t* const kNeverLoadRiotDirs[] = {L"\\riot games\\", L"\\riot vanguard\\"};
+
 // Anti-cheat that ships in a folder next to the game. It may take any foreign module
 // for a cheat, so the DLL stays out of every program installed there.
 static const wchar_t* const kAntiCheatDirs[] = {L"EasyAntiCheat", L"EasyAntiCheat_EOS", L"BattlEye"};
@@ -80,6 +91,12 @@ static bool ShouldLoadIntoThisProcess(bool* isHost, bool* alwaysAllowed) {
     }
     for (const wchar_t* name : kNeverLoad) {
         if (wcscmp(self.baseNoExt, name) == 0) return false;
+    }
+    for (const wchar_t* name : kNeverLoadRiot) {
+        if (wcscmp(self.baseNoExt, name) == 0) return false;
+    }
+    for (const wchar_t* dir : kNeverLoadRiotDirs) {
+        if (wcsstr(self.full, dir)) return false;
     }
 
     HANDLE hMap = OpenFileMappingW(FILE_MAP_READ, FALSE, MACWIN_SETTINGS_SECTION);

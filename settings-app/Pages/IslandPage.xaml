@@ -1,0 +1,93 @@
+<!-- SPDX-License-Identifier: GPL-3.0-or-later -->
+<!-- MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin -->
+
+<UserControl x:Class="MacWin.Settings.Pages.IslandPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="clr-namespace:MacWin.Settings.Controls"
+             xmlns:l="clr-namespace:MacWin.Settings">
+    <StackPanel>
+        <Border Style="{StaticResource Group}">
+            <c:SettingRow Title="{l:Tr settings.island.enabled.title}"
+                          Description="{l:Tr settings.island.enabled.description}">
+                <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandEnabled}"/>
+            </c:SettingRow>
+        </Border>
+
+        <!-- What it shows. Rows for hardware this PC lacks are hidden (IslandPage.xaml.cs). -->
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.island.show.header}"/>
+        <Border Style="{StaticResource Group}" IsEnabled="{Binding IslandEnabled}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.island.music.title}"
+                              Description="{l:Tr settings.island.music.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandMusic}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.calls.title}"
+                              Description="{l:Tr settings.island.calls.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandCalls}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.mirroring.title}"
+                              Description="{l:Tr settings.island.mirroring.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandMirroring}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.silent.title}"
+                              Description="{l:Tr settings.island.silent.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandSilent}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.output.title}"
+                              Description="{l:Tr settings.island.output.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandOutput}"/>
+                </c:SettingRow>
+                <StackPanel x:Name="BatteryRows">
+                    <Rectangle Style="{StaticResource RowSeparator}"/>
+                    <c:SettingRow Title="{l:Tr settings.island.charging.title}"
+                                  Description="{l:Tr settings.island.charging.description}">
+                        <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandCharging}"/>
+                    </c:SettingRow>
+                    <Rectangle Style="{StaticResource RowSeparator}"/>
+                    <c:SettingRow Title="{l:Tr settings.island.lowBattery.title}"
+                                  Description="{l:Tr settings.island.lowBattery.description}">
+                        <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandLowBattery}"/>
+                    </c:SettingRow>
+                </StackPanel>
+                <StackPanel x:Name="AirplaneRow">
+                    <Rectangle Style="{StaticResource RowSeparator}"/>
+                    <c:SettingRow Title="{l:Tr settings.island.airplane.title}"
+                                  Description="{l:Tr settings.island.airplane.description}">
+                        <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandAirplane}"/>
+                    </c:SettingRow>
+                </StackPanel>
+                <StackPanel x:Name="MobileDataRow">
+                    <Rectangle Style="{StaticResource RowSeparator}"/>
+                    <c:SettingRow Title="{l:Tr settings.island.mobileData.title}"
+                                  Description="{l:Tr settings.island.mobileData.description}">
+                        <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandMobileData}"/>
+                    </c:SettingRow>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+        <TextBlock x:Name="HardwareNote" Style="{StaticResource Text.Footnote}"
+                   Text="{l:Tr settings.island.show.footnote}"/>
+
+        <TextBlock Style="{StaticResource Text.GroupHeader}" Text="{l:Tr settings.island.behavior.header}"/>
+        <Border Style="{StaticResource Group}" IsEnabled="{Binding IslandEnabled}">
+            <StackPanel>
+                <c:SettingRow Title="{l:Tr settings.island.hover.title}"
+                              Description="{l:Tr settings.island.hover.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandHoverExpand}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.monitor.title}"
+                              Description="{l:Tr settings.island.monitor.description}">
+                    <c:SegmentedControl MinWidth="230"
+                                        ItemKeys="settings.island.monitor.main|settings.island.monitor.active"
+                                        SelectedIndex="{Binding IslandMonitor, Mode=TwoWay}"/>
+                </c:SettingRow>
+            </StackPanel>
+        </Border>
+    </StackPanel>
+</UserControl>

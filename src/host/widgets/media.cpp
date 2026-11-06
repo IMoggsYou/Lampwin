@@ -34,6 +34,15 @@ struct IManager : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE GetCurrentSession(ISession** session) = 0;
 };
 
+struct ITimeline : IInspectable {   // TimeSpan and DateTime are one INT64 each (100 ns units)
+    virtual HRESULT STDMETHODCALLTYPE get_StartTime(INT64* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_EndTime(INT64* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_MinSeekTime(INT64* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_MaxSeekTime(INT64* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Position(INT64* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_LastUpdatedTime(INT64* value) = 0;
+};
+
 struct IPlaybackInfo : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE get_Controls(IInspectable** controls) = 0;
     virtual HRESULT STDMETHODCALLTYPE get_PlaybackStatus(int* status) = 0;
@@ -44,19 +53,30 @@ const int kPaused = 5;
 struct ISession : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE get_SourceAppUserModelId(HSTRING* id) = 0;
     virtual HRESULT STDMETHODCALLTYPE TryGetMediaPropertiesAsync(IAsyncOp** operation) = 0;
-    virtual HRESULT STDMETHODCALLTYPE GetTimelineProperties(IInspectable** timeline) = 0;
+    virtual HRESULT STDMETHODCALLTYPE GetTimelineProperties(ITimeline** timeline) = 0;
     virtual HRESULT STDMETHODCALLTYPE GetPlaybackInfo(IPlaybackInfo** info) = 0;
 };
 
 const IID kMediaProperties = {0x68856cf6, 0xadb4, 0x54b2, {0xac, 0x16, 0x05, 0x83, 0x79, 0x07, 0xac, 0xb6}};
+struct IStreamReference : IInspectable {   // Windows.Storage.Streams.IRandomAccessStreamReference
+    virtual HRESULT STDMETHODCALLTYPE OpenReadAsync(IAsyncOp** operation) = 0;
+};
+
 struct IMediaProperties : IInspectable {
     virtual HRESULT STDMETHODCALLTYPE get_Title(HSTRING* value) = 0;
     virtual HRESULT STDMETHODCALLTYPE get_Subtitle(HSTRING* value) = 0;
     virtual HRESULT STDMETHODCALLTYPE get_AlbumArtist(HSTRING* value) = 0;
     virtual HRESULT STDMETHODCALLTYPE get_Artist(HSTRING* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_AlbumTitle(HSTRING* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_TrackNumber(INT32* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Genres(IInspectable** value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_AlbumTrackCount(INT32* value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_PlaybackType(IInspectable** value) = 0;
+    virtual HRESULT STDMETHODCALLTYPE get_Thumbnail(IStreamReference** value) = 0;
 };
 
 const IID kAsyncInfo = {0x00000036, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
+const IID kUnknown = {0x00000000, 0x0000, 0x0000, {0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x46}};
 
 const wchar_t kManagerClass[] = L"Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager";
 
@@ -100,9 +120,37 @@ HRESULT OpenManager(HANDLE stop, ComPtr<IManager>* manager) {
     return hr;
 }
 
+// The cover's bytes, read whole (a few hundred KB at most; anything bigger is skipped).
+std::shared_ptr<const std::vector<BYTE>> ReadCover(IMediaProperties* props, HANDLE stop) {
+    typedef HRESULT(WINAPI * CreateStream_t)(IUnknown*, REFIID, void**);
+    static const auto createStream = []() -> CreateStream_t {
+        HMODULE shcore = LoadLibraryExW(L"shcore.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        return shcore ? (CreateStream_t)(void*)GetProcAddress(shcore, "CreateStreamOverRandomAccessStream") : nullptr;
+    }();
+    ComPtr<IStreamReference> ref;
+    ComPtr<IAsyncOp> open;
+    ComPtr<IUnknown> randomAccess;
+    ComPtr<IStream> stream;
+    if (!createStream || FAILED(props->get_Thumbnail(ref.put())) || !ref || FAILED(ref->OpenReadAsync(open.put())) ||
+        !open || FAILED(Await(open.get(), stop, kUnknown, randomAccess.put_void())) ||
+        FAILED(createStream(randomAccess.get(), __uuidof(IStream), stream.put_void()))) {
+        return nullptr;
+    }
+    auto bytes = std::make_shared<std::vector<BYTE>>();
+    BYTE chunk[16384];
+    ULONG read = 0;
+    while (SUCCEEDED(stream->Read(chunk, sizeof(chunk), &read)) && read > 0) {
+        bytes->insert(bytes->end(), chunk, chunk + read);
+        if (bytes->size() > (8u << 20)) return nullptr;
+    }
+    if (bytes->empty()) return nullptr;
+    return bytes;
+}
+
 // The session Windows shows in its media controls. Nothing playing is an answer too
-// (present = false); an error means the manager should be asked for again.
-HRESULT ReadSession(IManager* manager, HANDLE stop, MediaInfo* out) {
+// (present = false); an error means the manager should be asked for again. With
+// `details`, the cover (taken over from `last` for the same song) and the timeline too.
+HRESULT ReadSession(IManager* manager, HANDLE stop, bool details, const MediaInfo& last, MediaInfo* out) {
     *out = MediaInfo();
     ComPtr<ISession> session;
     HRESULT hr = manager->GetCurrentSession(session.put());
@@ -128,6 +176,20 @@ HRESULT ReadSession(IManager* manager, HANDLE stop, MediaInfo* out) {
     out->app = MediaAppName(Take(app));
     out->playing = status == kPlaying;
     out->present = !out->title.empty();
+    if (!details || !out->present) return S_OK;
+    ComPtr<ITimeline> timeline;
+    INT64 start = 0, end = 0;
+    if (SUCCEEDED(session->GetTimelineProperties(timeline.put())) && timeline &&
+        SUCCEEDED(timeline->get_StartTime(&start)) && SUCCEEDED(timeline->get_EndTime(&end)) && end > start &&
+        SUCCEEDED(timeline->get_Position(&out->position)) && SUCCEEDED(timeline->get_LastUpdatedTime(&out->updated))) {
+        out->duration = end - start;
+        out->position -= start;
+    } else {
+        out->position = out->duration = out->updated = 0;
+    }
+    const bool sameSong =
+        last.present && last.title == out->title && last.artist == out->artist && last.app == out->app;
+    out->art = sameSong ? last.art : ReadCover(props.get(), stop);
     return S_OK;
 }
 
@@ -167,13 +229,13 @@ std::wstring MediaAppName(const std::wstring& id) {
     return name;
 }
 
-void MediaWatcher::Start(HWND target, UINT message) {
+void MediaWatcher::Start(HWND target, UINT message, bool details) {
     if (thread_.joinable()) return;
     if (!stop_) stop_ = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     if (!stop_) return;
     ResetEvent(stop_);
     HANDLE stop = stop_;
-    thread_ = std::thread([target, message, stop] {
+    thread_ = std::thread([target, message, stop, details] {
         CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         {
             ComPtr<IManager> manager;
@@ -184,7 +246,7 @@ void MediaWatcher::Start(HWND target, UINT message) {
                 wait = kEveryMs;
                 MediaInfo now;
                 HRESULT hr = manager ? S_OK : OpenManager(stop, &manager);
-                if (SUCCEEDED(hr)) hr = ReadSession(manager.get(), stop, &now);
+                if (SUCCEEDED(hr)) hr = ReadSession(manager.get(), stop, details, last, &now);
                 if (hr == E_ABORT && WaitForSingleObject(stop, 0) == WAIT_OBJECT_0) break;
                 if (FAILED(hr)) {
                     if (!failed) Log(L"widgets: Windows' media controls don't answer (0x%08lx)", (unsigned long)hr);

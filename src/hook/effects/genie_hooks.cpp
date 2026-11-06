@@ -414,6 +414,26 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
     if (rawW <= 0 || rawH <= 0 || physW <= 0 || physH <= 0 || cropR - cropL <= 0 || cropB - cropT <= 0) {
         return bail();
     }
+    float cropU0 = (float)cropL / (float)physW, cropV0 = (float)cropT / (float)physH;
+    float cropU1 = (float)cropR / (float)physW, cropV1 = (float)cropB / (float)physH;
+    // A window with a region (cut by MacWin's corners, or shaped by the program itself):
+    // DWM's extended frame bounds then collapse to the whole window rect, invisible
+    // resize border included, and PrintWindow renders that border black - the black
+    // edges beside Chromium / Electron windows in the genie. What is on screen is the
+    // region's box. Region coordinates are the window's own, like winRect.
+    RECT rgn;
+    if (GetWindowRgnBox(hWnd, &rgn) != ERROR) {
+        if (rgn.left < 0) rgn.left = 0;
+        if (rgn.top < 0) rgn.top = 0;
+        if (rgn.right > rawW) rgn.right = rawW;
+        if (rgn.bottom > rawH) rgn.bottom = rawH;
+        if (rgn.right - rgn.left > 0 && rgn.bottom - rgn.top > 0) {
+            cropU0 = (float)rgn.left / (float)rawW;
+            cropV0 = (float)rgn.top / (float)rawH;
+            cropU1 = (float)rgn.right / (float)rawW;
+            cropV1 = (float)rgn.bottom / (float)rawH;
+        }
+    }
 
     if (g_unloading.load(std::memory_order_relaxed)) return bail();
 
@@ -482,10 +502,10 @@ bool StartMacGenieAnim(HWND hWnd, BOOL rising, LONG_PTR originalExStyle,
     req.pid = GetCurrentProcessId();
     req.rawW = rawW;
     req.rawH = rawH;
-    req.cropU0 = (float)cropL / (float)physW;
-    req.cropV0 = (float)cropT / (float)physH;
-    req.cropU1 = (float)cropR / (float)physW;
-    req.cropV1 = (float)cropB / (float)physH;
+    req.cropU0 = cropU0;
+    req.cropV0 = cropV0;
+    req.cropU1 = cropU1;
+    req.cropV1 = cropV1;
     req.hFirstFrame = (uint64_t)(uintptr_t)hFirst;
     req.hDone = (uint64_t)(uintptr_t)hDone;
     req.hRevealed = (uint64_t)(uintptr_t)hRevealed;
@@ -645,6 +665,14 @@ bool MacGenieLaunchPrepare(HWND hWnd, int nCmdShow, LONG_PTR* origExOut, BOOL* c
         SUCCEEDED(DwmSetWindowAttribute(hWnd, DWMWA_CLOAK, &cloak, sizeof(cloak)))) {
         *cloakedOut = TRUE;
         return true;
+    }
+    // A window that is layered already has its own transparency: per-pixel alpha
+    // (UpdateLayeredWindow), a colour key or an opacity of its own. Hiding it with
+    // SetLayeredWindowAttributes would replace that for good - the key colour turns
+    // solid, per-pixel windows stop updating - so without the cloak it opens as usual.
+    if (exStyle & WS_EX_LAYERED) {
+        MacGenieSetDwmTransitions(hWnd, TRUE);
+        return false;
     }
     SetWindowLongPtrW(hWnd, GWL_EXSTYLE, exStyle | WS_EX_LAYERED);
     SetLayeredWindowAttributes(hWnd, 0, 0, LWA_ALPHA);

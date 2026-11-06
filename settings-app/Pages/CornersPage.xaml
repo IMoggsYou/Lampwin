@@ -64,6 +64,17 @@
                               Description="{l:Tr settings.corners.others.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding WindowCorners}"/>
                 </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.corners.smooth.title}"
+                              Description="{l:Tr settings.corners.smooth.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding SmoothCorners}"
+                              IsEnabled="{Binding WindowCorners}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.corners.borders.title}"
+                              Description="{l:Tr settings.corners.borders.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding WindowBorders}"/>
+                </c:SettingRow>
             </StackPanel>
         </Border>
     </StackPanel>

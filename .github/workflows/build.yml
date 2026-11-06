@@ -71,9 +71,9 @@ jobs:
       - name: Tests
         run: ctest --test-dir build/x64 --output-on-failure
 
-      # Pictures of every settings page and widget, to look at in a pull request (Lampwin
-      # isn't running here: the settings window and the widgets draw sample data).
-      - name: Snapshots (settings window, widgets)
+      # Pictures of every settings page, widget and island view, to look at in a pull request (Lampwin
+      # isn't running here: the settings window, the widgets and the island draw sample data).
+      - name: Snapshots (settings window, widgets, island)
         continue-on-error: true
         timeout-minutes: 6
         shell: pwsh
@@ -83,6 +83,7 @@ jobs:
           Start-Process "$bin/MacWin.Settings.exe" -ArgumentList '--snapshot', 'build/snapshots/settings-pl', '--lang', 'pl', '--theme', 'dark' -Wait
           Start-Process "$bin/MacWin.exe" -ArgumentList '--widget-snapshot', 'build/snapshots/widgets-light', '--lang', 'en' -Wait
           Start-Process "$bin/MacWin.exe" -ArgumentList '--widget-snapshot', 'build/snapshots/widgets-dark', '--lang', 'pl', '--theme', 'dark' -Wait
+          Start-Process "$bin/MacWin.exe" -ArgumentList '--island-snapshot', 'build/snapshots/island', '--lang', 'en' -Wait
 
       - name: Upload snapshots
         uses: actions/upload-artifact@v4

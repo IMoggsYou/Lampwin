@@ -20,6 +20,7 @@
 #include "host/i18n.h"
 #include "host/injector.h"
 #include "host/ipc_server.h"
+#include "host/island/island_host.h"
 #include "host/log.h"
 #include "host/render/device.h"
 #include "host/settings_store.h"
@@ -38,6 +39,7 @@ const UINT WM_APP_UPDATE = WM_APP + 4;
 const UINT WM_APP_WIDGETS = WM_APP + 5;
 const UINT WM_APP_HOT_CORNER = WM_APP + 6;
 const UINT WM_APP_LOCATED = WM_APP + 7;
+const UINT WM_APP_ISLAND = WM_APP + 8;
 const UINT_PTR kPreloadTimer = 1;
 const UINT_PTR kUpdateTimer = 2;
 const UINT_PTR kAppearanceTimer = 3;
@@ -93,6 +95,8 @@ private:
     void RunInstaller();
     void ApplySettings(bool save);
     void ApplyWidgets();
+    void ApplyIsland();
+    void OnIslandRequest(WPARAM request, LPARAM lp);
     void ApplyDesktop();
     void ToggleOverview();
     void OnHotCorner(CornerAction action, POINT pt);
@@ -132,6 +136,7 @@ private:
     Updater updater_;
     IpcServer ipc_{renderer_, settings_, locator_};
     widgets::WidgetHost widgets_;
+    island::IslandHost island_;
     HotCorners hotCorners_;
     Overview overview_;
     Appearance appearance_;
@@ -243,6 +248,8 @@ bool App::Init(HINSTANCE hInst) {
 
     widgets_.Init(hwnd_, WM_APP_WIDGETS);
     ApplyWidgets();
+    island_.Init(hwnd_, WM_APP_ISLAND);
+    ApplyIsland();
     overview_.Init(hInst);
     hotCorners_.Init(hwnd_, WM_APP_HOT_CORNER);
     appearance_.Init(hwnd_, kAppearanceTimer, WM_APP_LOCATED);
@@ -269,6 +276,7 @@ void App::Shutdown() {
         h = nullptr;
     }
     widgets_.Stop();
+    island_.Stop();
     updater_.Stop();
     Log(L"shutting down");
     // 1. No new animations from here on.
@@ -438,6 +446,18 @@ void App::ApplyWidgets() {
     widgets_.Apply(settings_.Get().widgets, i18n::All(L"host.widgets."), i18n::LocaleName(), i18n::IsRightToLeft());
 }
 
+// The island too gets a copy, and its texts.
+void App::ApplyIsland() {
+    island_.Apply(settings_.Get().island, i18n::All(L"host.island."), i18n::IsRightToLeft());
+}
+
+void App::OnIslandRequest(WPARAM request, LPARAM lp) {
+    if (request == island::kOpen) {
+        std::unique_ptr<std::wstring> target((std::wstring*)lp);
+        OpenAsUser(*target);
+    }
+}
+
 // Hot corners, the overview's shortcut and the appearance schedule follow the settings.
 void App::ApplyDesktop() {
     const HostSettings& s = settings_.Get();
@@ -557,6 +577,7 @@ void App::ReloadSettings() {
     if (after.language != before.language) i18n::Init(after.language);
     ApplySettings(false);
     ApplyWidgets();
+    ApplyIsland();
     ApplyDesktop();
     if (after.updateCheck && !before.updateCheck) updater_.Check(false);
     // Switched to automatic installs while a found version waits: get it now.
@@ -695,6 +716,9 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             return 0;
         case WM_APP_WIDGETS:
             OnWidgetRequest(wp, lp);
+            return 0;
+        case WM_APP_ISLAND:
+            OnIslandRequest(wp, lp);
             return 0;
         case WM_APP_HOT_CORNER:
             OnHotCorner((CornerAction)wp, POINT{(short)LOWORD(lp), (short)HIWORD(lp)});
@@ -864,6 +888,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, PWSTR, int) {
     if (has(L"--widget-snapshot")) {
         return widgets::WidgetSnapshot(value(L"--widget-snapshot"), value(L"--lang"), value(L"--theme") == L"dark");
     }
+    if (has(L"--island-snapshot")) return island::IslandSnapshot(value(L"--island-snapshot"), value(L"--lang"));
     if (has(L"--install-task")) return InstallTask(!has(L"--no-logon"));
     if (has(L"--remove-task")) return RemoveTask();
     if (has(L"--configure")) return Configure(args);

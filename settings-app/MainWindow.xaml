@@ -45,9 +45,12 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <DockPanel>
-                            <!-- A macOS-style tile: the color, a soft sheen on its upper half and a
-                                 hairline edge, with Windows 11's own icon in white. -->
-                            <Grid Width="22" Height="22">
+                            <!-- An iOS-style tile: the color, a soft sheen on its upper half and a
+                                 hairline edge, with Lampwin's own icon in white (Theme/Icons.xaml). -->
+                            <Grid x:Name="Tile" Width="22" Height="22" RenderTransformOrigin="0.5,0.5">
+                                <Grid.RenderTransform>
+                                    <ScaleTransform/>
+                                </Grid.RenderTransform>
                                 <Border CornerRadius="5.5" Background="{Binding Tint}"/>
                                 <Border CornerRadius="5.5" BorderThickness="0.5" BorderBrush="#26000000">
                                     <Border.Background>
@@ -57,9 +60,12 @@
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
-                                <TextBlock Text="{Binding Glyph}" FontFamily="Segoe Fluent Icons, Segoe MDL2 Assets"
-                                           FontSize="13" Foreground="White" HorizontalAlignment="Center"
-                                           VerticalAlignment="Center" TextOptions.TextRenderingMode="Grayscale"/>
+                                <Viewbox Width="15" Height="15">
+                                    <Canvas Width="24" Height="24">
+                                        <Path Data="{Binding IconFaint}" Fill="White" Opacity="0.38"/>
+                                        <Path Data="{Binding Icon}" Fill="White"/>
+                                    </Canvas>
+                                </Viewbox>
                             </Grid>
                             <TextBlock Text="{Binding Title}" Margin="9,0,0,0" VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" ToolTip="{Binding Title}"/>

@@ -152,26 +152,20 @@ public sealed class WidgetPreview : FrameworkElement
              VisualTreeHelper.GetDpi(this).PixelsPerDip, display: true);
     }
 
+    // A row per gauge: its name and value over a bar (DrawSystem, small).
     private static void Gauges(DrawingContext dc, Palette p)
     {
-        (double X, double Y, double Value, uint Color)[] rings =
-        [
-            (30, 30, 0.37, 0x0A84FF), (70, 30, 0.62, 0xBF5AF2), (30, 70, 0.48, 0xFF9F0A), (70, 70, 0.81, 0x30D158),
-        ];
-        foreach (var (x, y, value, color) in rings)
+        (double Value, uint Color)[] gauges = [(0.37, 0x0A84FF), (0.62, 0xBF5AF2), (0.48, 0xFF9F0A), (0.81, 0x30D158)];
+        var label = new SolidColorBrush(Color.FromArgb(0x70, p.Secondary.R, p.Secondary.G, p.Secondary.B));
+        var value = new SolidColorBrush(p.Text);
+        for (int i = 0; i < gauges.Length; i++)
         {
-            const double r = 12.5;
-            var c = new Point(x, y);
-            dc.DrawEllipse(null, new Pen(new SolidColorBrush(p.Track), 4.4), c, r, r);
-            double a = value * 2 * Math.PI;
-            var arc = new StreamGeometry();
-            using (var ctx = arc.Open())
-            {
-                ctx.BeginFigure(new Point(x, y - r), false, false);
-                ctx.ArcTo(new Point(x + r * Math.Sin(a), y - r * Math.Cos(a)), new Size(r, r), 0, value > 0.5,
-                          SweepDirection.Clockwise, true, false);
-            }
-            dc.DrawGeometry(null, RoundPen(Hex(color), 4.4), arc);
+            double top = 10 + i * 20;
+            dc.DrawRoundedRectangle(label, null, new Rect(10, top + 5, 30 + i % 2 * 8, 4.5), 2.25, 2.25);
+            dc.DrawRoundedRectangle(value, null, new Rect(78, top + 5, 12, 4.5), 2.25, 2.25);
+            dc.DrawLine(RoundPen(p.Track, 3.2), new Point(11.5, top + 15), new Point(88.5, top + 15));
+            dc.DrawLine(RoundPen(Hex(gauges[i].Color), 3.2), new Point(11.5, top + 15),
+                        new Point(11.5 + 77 * gauges[i].Value, top + 15));
         }
     }
 
@@ -201,17 +195,32 @@ public sealed class WidgetPreview : FrameworkElement
         dc.DrawRoundedRectangle(line, null, new Rect(12, 86, 44, 5), 2.5, 2.5);
     }
 
+    // The music tile of the widget (DrawMusicTile in src/host/widgets/canvas.cpp).
+    private static readonly Geometry NoteBeam =
+        Geometry.Parse("M8.25,8.35 Q8.25,7.6 8.95,7.42 L19.1,4.62 Q20,4.38 20,5.3 V7.3 L8.25,10.5 Z");
+
+    private static void MusicTile(DrawingContext dc, Rect box, double radius)
+    {
+        dc.DrawRoundedRectangle(Vertical(Hex(0xFF6B86), Hex(0xFA233B)), null, box, radius, radius);
+        double side = Math.Min(box.Width, box.Height) * 0.64, k = side / 24;
+        dc.PushTransform(new MatrixTransform(k, 0, 0, k, box.X + box.Width * 0.18, box.Y + box.Height * 0.16));
+        var white = new SolidColorBrush(System.Windows.Media.Colors.White);
+        dc.DrawGeometry(white, null, NoteBeam);
+        dc.DrawRectangle(white, null, new Rect(8.25, 8, 1.95, 9.7));
+        dc.DrawRectangle(white, null, new Rect(18.05, 5, 1.95, 10));
+        foreach (var head in new[] { new Point(7.12, 17.72), new Point(16.92, 15.02) })
+        {
+            dc.PushTransform(new RotateTransform(-22, head.X, head.Y));
+            dc.DrawEllipse(white, null, head, 3.3, 2.5);
+            dc.Pop();
+        }
+        dc.Pop();
+    }
+
     private static void NowPlaying(DrawingContext dc, Palette p)
     {
-        var pink = Hex(0xFF2D55);
-        dc.DrawRoundedRectangle(Vertical(Hex(0xFF5E7A), pink), null, new Rect(12, 12, 17, 17), 4.5, 4.5);
-        var white = new SolidColorBrush(System.Windows.Media.Colors.White);
-        var stem = RoundPen(System.Windows.Media.Colors.White, 1.1);
-        dc.DrawEllipse(white, null, new Point(17.9, 24.1), 1.9, 1.6);
-        dc.DrawEllipse(white, null, new Point(23.3, 22.9), 1.9, 1.6);
-        dc.DrawLine(stem, new Point(19.7, 23.9), new Point(19.7, 17.1));
-        dc.DrawLine(stem, new Point(25.1, 22.7), new Point(25.1, 15.9));
-        dc.DrawLine(RoundPen(System.Windows.Media.Colors.White, 1.7), new Point(19.7, 17.1), new Point(25.1, 15.9));
+        var pink = Hex(0xFA233B);
+        MusicTile(dc, new Rect(12, 12, 17, 17), 4.5);
         double[] bars = [0.55, 1.0, 0.4, 0.8];
         for (int i = 0; i < bars.Length; i++)
         {

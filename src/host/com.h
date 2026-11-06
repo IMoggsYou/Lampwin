@@ -3,6 +3,7 @@
 
 #pragma once
 #include <unknwn.h>
+#include <cstddef>
 #include <utility>
 
 // Minimal COM smart pointer (MinGW's WRL is incomplete).

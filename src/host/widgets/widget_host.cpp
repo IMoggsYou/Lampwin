@@ -35,11 +35,15 @@ const UINT WM_APP_UPDATE = WM_APP + 1;    // lParam: Update*
 const UINT WM_APP_WEATHER = WM_APP + 2;   // lParam: WeatherResult*
 const UINT WM_APP_MEDIA = WM_APP + 3;     // lParam: MediaInfo*
 
-const UINT_PTR kTickTimer = 1, kWeatherTimer = 2, kLayoutTimer = 3, kAnimTimer = 4;
+const UINT_PTR kTickTimer = 1, kWeatherTimer = 2, kLayoutTimer = 3, kAnimTimer = 4, kFadeTimer = 5;
 const UINT kWeatherEveryMs = 30 * 60 * 1000;
 const UINT kWeatherRetryMs = 3 * 60 * 1000;
 const ULONGLONG kWeatherCacheMaxAge = 6ULL * 3600;   // seconds: older than this is not shown
 const double kAnimMs = 200;
+// A widget's new picture fades in over the last one; a widget that appears fades in.
+const double kFadeMs = 280, kAppearMs = 340;
+// How long a widget that appears takes to bring its symbols in (redrawn every frame meanwhile).
+const double kIntroMs = 950;
 const UINT kSystemEveryMs = 2000;
 
 // GUID_CONSOLE_DISPLAY_STATE (winnt.h), here to need no extra import library.
@@ -82,7 +86,42 @@ struct Widget {
     ComPtr<IWICBitmapSource> photo;
     std::wstring photoPath;
     SIZE photoSize = {};
+    // Motion: the pictures a change fades between (only while it does), and the opacity of
+    // the card and its shadow while the widget appears.
+    bool drawn = false;   // the card shows a picture a new one can fade from
+    std::vector<BYTE> fadeFrom, fadeTo;
+    LARGE_INTEGER fadeStart = {};
+    BYTE alpha = 255;
+    bool appearing = false;
+    bool intro = false;   // its rings, bars and icons are still coming in
+    LARGE_INTEGER appearStart = {};
 };
+
+// Widgets whose symbols come in when they appear.
+bool HasIntro(Kind k) {
+    return k == Kind::Weather || k == Kind::System || k == Kind::Battery || k == Kind::NowPlaying;
+}
+
+// Ease out (cubic): quick at first, gentle at the end.
+double EaseOut(double t) {
+    t = std::min(std::max(t, 0.0), 1.0);
+    return 1 - (1 - t) * (1 - t) * (1 - t);
+}
+
+// Windows' "Animation effects": off, widgets change at once.
+bool MotionOn() {
+    BOOL on = TRUE;
+    return !SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, &on, 0) || on;
+}
+
+// `out` = `from` blended towards `to` by k / 256. Premultiplied pixels blend byte by byte.
+void Blend(BYTE* out, const BYTE* from, const BYTE* to, size_t bytes, int k) {
+    for (size_t i = 0; i < bytes; ++i) out[i] = (BYTE)((from[i] * (256 - k) + to[i] * k) >> 8);
+}
+
+void ReleaseBytes(std::vector<BYTE>& v) {
+    std::vector<BYTE>().swap(v);
+}
 
 bool SameSpan(Span a, Span b) {
     return a.cols == b.cols && a.rows == b.rows;
@@ -295,7 +334,7 @@ private:
     bool CreateWindows(Widget* w);
     void DestroyWindows(Widget* w);
     void RecreateAll();
-    void Render(Widget* w);
+    void Render(Widget* w, bool intro = false);
     void RenderAll(bool onlyAuto = false);
     void Move(Widget* w, int x, int y);
     Scene SceneFor(Widget* w, const SYSTEMTIME& now);
@@ -320,6 +359,7 @@ private:
     void Animate(Widget* w, POINT to);
     void AnimationStep();
     void FinishAnimation();
+    void FadeStep();
     void Click(Widget* w);
     void ShowMenu(Widget* w, POINT at);
     void SetSize(Widget* w, Size size);
@@ -675,6 +715,21 @@ void Host::Show(Widget* w, const Monitor& m, const Grid& grid, const Slot& slot)
     w->shown = true;
     if (!w->card && !CreateWindows(w)) return;
     const bool hidden = !IsWindowVisible(w->shadow);
+    if (hidden) {
+        // Nothing to fade from: it comes in as a whole.
+        w->drawn = false;
+        if (MotionOn()) {
+            w->alpha = 0;
+            w->appearing = true;
+            w->intro = HasIntro(w->item.kind);
+            QueryPerformanceCounter(&w->appearStart);
+            SetTimer(control_, kFadeTimer, 15, nullptr);
+            if (w->shadowDrawn) {
+                BLENDFUNCTION clear = {AC_SRC_OVER, 0, 0, AC_SRC_ALPHA};
+                UpdateLayeredWindow(w->shadow, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &clear, ULW_ALPHA);
+            }
+        }
+    }
     if (resized) {
         w->unit = unit;
         w->rect = r;
@@ -698,6 +753,11 @@ void Host::Show(Widget* w, const Monitor& m, const Grid& grid, const Slot& slot)
 
 void Host::Hide(Widget* w) {
     w->shown = false;
+    w->appearing = false;
+    w->intro = false;
+    w->alpha = 255;
+    ReleaseBytes(w->fadeFrom);
+    ReleaseBytes(w->fadeTo);
     if (w->shadow) ShowWindow(w->shadow, SW_HIDE);
     if (w->card) ShowWindow(w->card, SW_HIDE);
 }
@@ -757,6 +817,11 @@ Scene Host::SceneFor(Widget* w, const SYSTEMTIME& now) {
     s.texts = &texts_;
     s.locale = locale_;
     s.now = now;
+    if (w->intro) {
+        LARGE_INTEGER t;
+        QueryPerformanceCounter(&t);
+        s.since = (float)((t.QuadPart - w->appearStart.QuadPart) / (double)qpf_.QuadPart);
+    }
     wchar_t format[80] = L"";
     GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_STIMEFORMAT, format, ARRAYSIZE(format));
     s.clock24 = wcschr(format, L'H') != nullptr;
@@ -785,11 +850,18 @@ Scene Host::SceneFor(Widget* w, const SYSTEMTIME& now) {
     return s;
 }
 
-void Host::Render(Widget* w) {
+void Host::Render(Widget* w, bool intro) {
     if (!w->card || !w->shown || w->unit <= 0) return;
     const int cw = w->rect.right - w->rect.left, ch = w->rect.bottom - w->rect.top;
     const int reach = (int)lroundf(kShadowReach * w->unit);
-    BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+    BLENDFUNCTION blend = {AC_SRC_OVER, 0, w->alpha, AC_SRC_ALPHA};
+    // What is on the card now (a fade's frame, maybe) is where the new picture fades in from.
+    // A clock's hands move on their own; a new size or a hidden card has nothing to fade from.
+    const size_t bytes = (size_t)cw * ch * 4;
+    const bool fade = !intro && w->drawn && w->item.kind != Kind::Clock && w->cardSurface.Bits() &&
+                      w->cardSurface.Width() == cw && w->cardSurface.Height() == ch && IsWindowVisible(w->card) &&
+                      MotionOn();
+    if (fade) w->fadeFrom.assign(w->cardSurface.Bits(), w->cardSurface.Bits() + bytes);
     POINT origin = {0, 0};
     if (!w->shadowDrawn && w->shadowSurface.Resize(g_, cw + 2 * reach, ch + 2 * reach)) {
         DrawShadow(g_, w->shadowSurface,
@@ -806,7 +878,6 @@ void Host::Render(Widget* w) {
     Scene scene = SceneFor(w, now);
     if (w->item.kind == Kind::Clock) {
         // The face once, then every tick a copy of it with the hands on top.
-        const size_t bytes = (size_t)cw * ch * 4;
         if (w->face.size() != bytes || w->faceWidth != cw || w->faceHeight != ch || w->faceDark != scene.dark ||
             w->faceRtl != scene.rtl) {
             scene.pass = Pass::Face;
@@ -828,6 +899,17 @@ void Host::Render(Widget* w) {
         DrawCard(g_, rt, scene, w->unit, cw, ch);
         w->cardSurface.End();
     }
+    if (fade) {
+        // The first frame is still the old picture; FadeStep takes it to the new one.
+        w->fadeTo.assign(w->cardSurface.Bits(), w->cardSurface.Bits() + bytes);
+        memcpy(w->cardSurface.Bits(), w->fadeFrom.data(), bytes);
+        QueryPerformanceCounter(&w->fadeStart);
+        SetTimer(control_, kFadeTimer, 15, nullptr);
+    } else {
+        ReleaseBytes(w->fadeFrom);
+        ReleaseBytes(w->fadeTo);
+    }
+    w->drawn = true;
     POINT at = {w->rect.left, w->rect.top};
     SIZE size = {cw, ch};
     UpdateLayeredWindow(w->card, nullptr, &at, &size, w->cardSurface.Dc(), &origin, 0, &blend, ULW_ALPHA);
@@ -1230,6 +1312,59 @@ void Host::FinishAnimation() {
     if (w) Move(w, animTo_.x, animTo_.y);
 }
 
+// One frame of every fade and every widget coming in; the timer stops when all are done.
+void Host::FadeStep() {
+    LARGE_INTEGER now;
+    QueryPerformanceCounter(&now);
+    auto elapsed = [&](const LARGE_INTEGER& since) { return (now.QuadPart - since.QuadPart) * 1000.0 / qpf_.QuadPart; };
+    bool more = false;
+    for (auto& wp : widgets_) {
+        Widget* w = wp.get();
+        if (!w->card || !w->shown) continue;
+        BLENDFUNCTION blend = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
+        const bool appearing = w->appearing;
+        if (appearing) {
+            const double t = elapsed(w->appearStart) / kAppearMs;
+            w->appearing = t < 1;
+            w->alpha = w->appearing ? (BYTE)lround(255 * EaseOut(t)) : 255;
+            more = more || w->appearing;
+            blend.SourceConstantAlpha = w->alpha;
+            UpdateLayeredWindow(w->shadow, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA);
+        }
+        if (w->intro) {
+            // A frame of the symbols coming in; the last one at rest.
+            w->intro = elapsed(w->appearStart) < kIntroMs;
+            more = more || w->intro;
+            Render(w, true);
+            continue;
+        }
+        blend.SourceConstantAlpha = w->alpha;
+        const size_t bytes = (size_t)w->cardSurface.Width() * w->cardSurface.Height() * 4;
+        if (!w->fadeTo.empty() && w->fadeTo.size() == bytes && w->fadeFrom.size() == bytes) {
+            const double t = elapsed(w->fadeStart) / kFadeMs;
+            if (t >= 1) {
+                memcpy(w->cardSurface.Bits(), w->fadeTo.data(), bytes);
+                ReleaseBytes(w->fadeFrom);
+                ReleaseBytes(w->fadeTo);
+            } else {
+                Blend(w->cardSurface.Bits(), w->fadeFrom.data(), w->fadeTo.data(), bytes, (int)lround(256 * EaseOut(t)));
+                more = true;
+            }
+            POINT origin = {0, 0}, at = {w->rect.left, w->rect.top};
+            SIZE size = {w->cardSurface.Width(), w->cardSurface.Height()};
+            UpdateLayeredWindow(w->card, nullptr, &at, &size, w->cardSurface.Dc(), &origin, 0, &blend, ULW_ALPHA);
+        } else {
+            // A fade left over from another size has nothing to show.
+            ReleaseBytes(w->fadeFrom);
+            ReleaseBytes(w->fadeTo);
+            if (appearing) {
+                UpdateLayeredWindow(w->card, nullptr, nullptr, nullptr, nullptr, nullptr, 0, &blend, ULW_ALPHA);
+            }
+        }
+    }
+    if (!more) KillTimer(control_, kFadeTimer);
+}
+
 void Host::AnimationStep() {
     Widget* w = animated_;
     if (!w) {
@@ -1404,6 +1539,8 @@ LRESULT Host::OnControl(UINT msg, WPARAM wp, LPARAM lp) {
                 FetchWeather();
             } else if (wp == kAnimTimer) {
                 AnimationStep();
+            } else if (wp == kFadeTimer) {
+                FadeStep();
             } else if (wp == kLayoutTimer) {
                 KillTimer(control_, kLayoutTimer);
                 if (recreate_) {

@@ -25,6 +25,7 @@ this table.
 | test mode | tryb testowy | 测试模式 | परीक्षण मोड | modo de prueba | mode test | وضع الاختبار | পরীক্ষা মোড | тестовый режим | modo de teste | テスト モード |
 | widget | widżet | 小组件 | विजेट | widget | widget | أداة (الأدوات) | উইজেট | виджет | widget | ウィジェット |
 | anti-cheat | ochrona przed oszustwami | 反作弊 | एंटी-चीट | antitrampas | anti-triche | مكافحة الغش | অ্যান্টি-চিট | античит | antitrapaça | アンチチート |
+| island (the pill at the top of the screen) | wyspa | 灵动岛 | आइलैंड | isla | île | الجزيرة | আইল্যান্ড | остров | ilha | アイランド |
 
 Never translated: Lampwin, Windows, Windows 11, macOS, GitHub, Figma, the program names
 (Chrome, Edge, …), `settings.json`, keyboard shortcuts (French writes `Maj` for Shift).

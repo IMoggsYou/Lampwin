@@ -101,6 +101,10 @@ if(MACWIN_BITS EQUAL 64)
     src/host/desktop/hot_corners.cpp
     src/host/desktop/overview.cpp
     src/host/desktop/sun.cpp
+    src/host/island/island_draw.cpp
+    src/host/island/island_glyphs.cpp
+    src/host/island/island_host.cpp
+    src/host/island/island_sources.cpp
     src/host/i18n.cpp
     src/host/log.cpp
     src/host/json.cpp
@@ -128,7 +132,7 @@ if(MACWIN_BITS EQUAL 64)
   target_link_options(MacWin PRIVATE -municode)
   target_link_libraries(MacWin PRIVATE d3d11 dxgi dwmapi shcore ole32 oleaut32 uuid
                         shell32 user32 gdi32 advapi32 comctl32 winhttp bcrypt wtsapi32
-                        d2d1 dwrite windowscodecs runtimeobject iphlpapi)
+                        d2d1 dwrite windowscodecs runtimeobject iphlpapi version)
   add_dependencies(MacWin MacWinHook)
   macwin_version_resource(MacWin "Lampwin - macOS-style window animations" MacWin.exe VFT_APP)
 

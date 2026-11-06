@@ -84,25 +84,6 @@ void Blend(BYTE* dst, int dstW, int dstH, const Surface& src, int x, int y) {
     }
 }
 
-bool SavePng(Graphics& g, const BYTE* bits, int w, int h, const std::wstring& path) {
-    IWICImagingFactory* wic = g.Wic();
-    ComPtr<IWICStream> stream;
-    ComPtr<IWICBitmapEncoder> encoder;
-    ComPtr<IWICBitmapFrameEncode> frame;
-    if (FAILED(wic->CreateStream(stream.put())) ||
-        FAILED(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE)) ||
-        FAILED(wic->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put())) ||
-        FAILED(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache)) ||
-        FAILED(encoder->CreateNewFrame(frame.put(), nullptr)) || FAILED(frame->Initialize(nullptr)) ||
-        FAILED(frame->SetSize(w, h))) {
-        return false;
-    }
-    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;   // opaque here, so the same as premultiplied
-    return SUCCEEDED(frame->SetPixelFormat(&format)) &&
-           SUCCEEDED(frame->WritePixels(h, w * 4, w * h * 4, const_cast<BYTE*>(bits))) &&
-           SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
-}
-
 // Gauges, a battery on its way up and a minute of a download that speeds up.
 SystemStats SampleStats() {
     SystemStats st;

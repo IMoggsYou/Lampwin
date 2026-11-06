@@ -40,7 +40,8 @@ public partial class CornersPage : UserControl
 
     private void Model_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(SettingsModel.CornerRadius) or nameof(SettingsModel.CornerSmoothing)) UpdatePreview();
+        if (e.PropertyName is nameof(SettingsModel.CornerRadius) or nameof(SettingsModel.CornerSmoothing)
+            or nameof(SettingsModel.WindowBorders)) UpdatePreview();
     }
 
     private void Preview_SizeChanged(object sender, SizeChangedEventArgs e) => UpdatePreview();
@@ -58,6 +59,7 @@ public partial class CornersPage : UserControl
         placed.Freeze();
         PreviewShadow.Data = placed;
         PreviewWindow.Data = placed;
+        PreviewWindow.StrokeThickness = _model.WindowBorders ? 1 : 0;
         var bar = new CombinedGeometry(GeometryCombineMode.Intersect, shape, new RectangleGeometry(new Rect(0, 0, ww, title)))
         {
             Transform = new TranslateTransform(x, y),
