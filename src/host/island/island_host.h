@@ -42,7 +42,6 @@ private:
     HWND notify_ = nullptr;
     UINT msg_ = 0;
     std::thread thread_;
-    HWND window_ = nullptr;   // the island's own window (its thread's)
 };
 
 // `MacWin.exe --island-snapshot <dir> [--lang <code>]`: every view of the island with
