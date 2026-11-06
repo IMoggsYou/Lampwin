@@ -29,11 +29,30 @@ void CloseJobHandles(GenieJob* job) {
     job->hFirst = job->hDone = job->hRevealed = nullptr;
 }
 
-// Where the window is on screen (DWM's extended frame). A window already minimized when
-// its request is read sits at Windows' parking spot (-32000, -32000), and that rect would
-// stretch the genie's canvas over 30000 px: its normal - or maximized - place is used then.
+// The box of a window's region on screen, physical px. With a region (MacWin's corners, or
+// a program's own shape) DWM's extended frame bounds are the whole window rect, invisible
+// resize border included; the DLL crops its snapshot to this box, so the genie must start
+// from it too. Region coordinates are the window's own: scaled for a DPI-virtualized one.
+bool RegionScreenRect(HWND hwnd, RECT* out) {
+    RECT box, win;
+    if (GetWindowRgnBox(hwnd, &box) == ERROR || IsRectEmpty(&box) || !GetWindowRect(hwnd, &win)) return false;
+    const UINT windowDpi = GetDpiForWindow(hwnd);
+    UINT dpiX = 96, dpiY = 96;
+    GetDpiForMonitor(MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST), MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
+    const float scale = windowDpi ? (float)dpiX / (float)windowDpi : 1.0f;
+    RECT r = {win.left + (LONG)lroundf(box.left * scale), win.top + (LONG)lroundf(box.top * scale),
+              win.left + (LONG)lroundf(box.right * scale), win.top + (LONG)lroundf(box.bottom * scale)};
+    IntersectRect(out, &r, &win);
+    return !IsRectEmpty(out);
+}
+
+// Where the window is on screen (its region's box, else DWM's extended frame). A window
+// already minimized when its request is read sits at Windows' parking spot (-32000,
+// -32000), and that rect would stretch the genie's canvas over 30000 px: its normal - or
+// maximized - place is used then.
 bool WindowScreenRect(HWND hwnd, RECT* out) {
-    if (FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out, sizeof(*out))) &&
+    if (!RegionScreenRect(hwnd, out) &&
+        FAILED(DwmGetWindowAttribute(hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, out, sizeof(*out))) &&
         !GetWindowRect(hwnd, out)) {
         return false;
     }

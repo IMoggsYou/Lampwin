@@ -28,6 +28,7 @@ how old copies still find the releases). In code use `MACWIN_DISPLAY_NAME` (C++)
 | Shared contracts | `src/common/` | `SharedSettings` (named section), `AnimRequest` (WM_COPYDATA), object names (`names.h`) |
 | Desktop features | `src/host/desktop/` | Hot corners (low-level mouse hook on its own thread), the window overview (DWM thumbnails), light / dark by sunrise and sunset |
 | Desktop widgets | `src/host/widgets/` | Run inside the host on their own thread (only while a widget is shown): Direct2D on the CPU into layered windows owned by the desktop, grid layout, drag and drop, weather from Open-Meteo |
+| Island | `src/host/island/` | The pill at the top of the screen (music, calls, mirroring, notes) on its own thread, only while it is on; `MacWin.exe --island-snapshot <dir>` draws every view |
 | Settings app | `settings-app/` (C# / WPF, .NET 10) | The window users see; edits `%APPDATA%\MacWin\settings.json`, tells the host to reload |
 | Installer | `installer/` (Inno Setup 6) | Program Files install, scheduled task (elevated autostart), .NET runtime, 11 languages |
 | Translations | `i18n/*.json` | Every user-visible string of the settings app and the host |

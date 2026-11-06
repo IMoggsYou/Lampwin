@@ -9,6 +9,54 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- **Island** (Settings → Island): a black pill at the top of the screen, like the Dynamic
+  Island on the iPhone. It shows the music that plays – with its cover, moving level bars
+  and, when you point at it, the song's progress and the playback buttons – a call while a
+  program such as Discord, Signal, Teams, Zoom or WhatsApp uses the microphone (with its
+  time and a button to mute the microphone), and screen mirroring to a TV or projector
+  (with a button to stop). Short notes come and go for charging, low battery, sound muted
+  or back, new headphones, airplane mode and mobile data turned off. Options for hardware
+  a PC doesn't have – a battery, Wi-Fi, a mobile broadband modem – are left out. It stays
+  out of the way of full-screen games and videos, and everything it shows is read on your PC.
+- **Smooth corners** (Settings → Window corners): Windows itself draws the corners of
+  every window, perfectly smooth, and Lampwin now also rounds the windows Windows leaves
+  square – programs with a frame of their own, such as many launchers and apps made with
+  WPF, Qt or Java. Full-screen games and videos stay square.
+- **Window borders** (Settings → Window corners): turn off the thin light line around
+  every window; windows then only have their shadow.
+
+### Changed
+
+- The settings window's sidebar has Lampwin's own icons – a genie lamp for the animations
+  among them – drawn in white on coloured tiles like the settings of iOS, sharp at any
+  display scaling.
+- The Now playing widget has a new music tile: two beamed notes drawn cleanly, as on a
+  Mac. The weather's temperatures are written in bolder digits.
+- Widgets are laid out anew on one grid: the same margin on every side, words lined up
+  on shared lines and medium widgets split into equal halves. The clock and the battery
+  show the day or a label, a big number and a line under it beside the face or ring; the
+  calendar's month fills its half; the weather's hours are spread evenly across the card;
+  a small System widget shows its gauges as bars, easier to read than four tiny rings.
+- Smooth corners are on by default, so other programs' windows get Windows 11's own
+  round corners instead of the stepped squircle. Turn Smooth corners off to keep the
+  macOS shape or another radius.
+
+### Fixed
+
+- Windows of Chrome, Edge, Discord, VS Code, Claude and other Chromium / Electron apps no
+  longer have black edges along their sides while they minimize, restore, open or close,
+  and the animation starts and ends exactly where the window is.
+- Thin lines in a window (a scrollbar, a border) no longer look dashed while the window
+  bends into the taskbar.
+- A window that has its own transparency (a colour key or per-pixel alpha) could keep a
+  solid background or stop updating after its opening animation; such a window now opens
+  without the animation when it can't be hidden safely.
+- Riot Vanguard no longer warns that Lampwin interrupts League of Legends or VALORANT:
+  Lampwin stays out of Riot's games, the Riot Client and Vanguard wherever they are
+  installed, whatever the list of programs to leave alone says.
+
 ## [1.6.1] - 2026-10-30
 
 ### Changed

@@ -188,6 +188,60 @@ D2D1_COLOR_F Mix(const D2D1_COLOR_F& a, const D2D1_COLOR_F& b, float t) {
 }
 
 // The figma-squircle construction: straight edge, cubic Bezier, circular arc, cubic Bezier.
+void DrawMusicNotes(ID2D1RenderTarget* rt, const D2D1_RECT_F& box, const D2D1_COLOR_F& color) {
+    ComPtr<ID2D1Factory> f;
+    ComPtr<ID2D1SolidColorBrush> brush;
+    rt->GetFactory(f.put());
+    if (FAILED(rt->CreateSolidColorBrush(color, brush.put()))) return;
+    D2D1::Matrix3x2F old;
+    rt->GetTransform(&old);
+    // The notes are drawn on a 24 x 24 grid: a slanted beam, two stems and two tilted heads.
+    const float k = std::min(box.right - box.left, box.bottom - box.top) / 24;
+    const D2D1::Matrix3x2F unit =
+        D2D1::Matrix3x2F::Scale(k, k) * D2D1::Matrix3x2F::Translation(box.left, box.top) * old;
+    rt->SetTransform(unit);
+    ComPtr<ID2D1PathGeometry> beam;
+    ComPtr<ID2D1GeometrySink> sink;
+    if (SUCCEEDED(f->CreatePathGeometry(beam.put())) && SUCCEEDED(beam->Open(sink.put()))) {
+        sink->BeginFigure({8.25f, 8.35f}, D2D1_FIGURE_BEGIN_FILLED);
+        sink->AddQuadraticBezier({{8.25f, 7.6f}, {8.95f, 7.42f}});
+        sink->AddLine({19.1f, 4.62f});
+        sink->AddQuadraticBezier({{20, 4.38f}, {20, 5.3f}});
+        sink->AddLine({20, 7.3f});
+        sink->AddLine({8.25f, 10.5f});
+        sink->EndFigure(D2D1_FIGURE_END_CLOSED);
+        sink->Close();
+        rt->FillGeometry(beam.get(), brush.get());
+    }
+    rt->FillRectangle({8.25f, 8, 10.2f, 17.7f}, brush.get());
+    rt->FillRectangle({18.05f, 5, 20, 15}, brush.get());
+    const D2D1_POINT_2F heads[] = {{7.12f, 17.72f}, {16.92f, 15.02f}};
+    for (const D2D1_POINT_2F& h : heads) {
+        rt->SetTransform(D2D1::Matrix3x2F::Rotation(-22, h) * unit);
+        rt->FillEllipse(D2D1::Ellipse(h, 3.3f, 2.5f), brush.get());
+    }
+    rt->SetTransform(old);
+}
+
+void DrawMusicTile(ID2D1RenderTarget* rt, const D2D1_RECT_F& box, float radius) {
+    const D2D1_ROUNDED_RECT shape = D2D1::RoundedRect(box, radius, radius);
+    const D2D1_GRADIENT_STOP fill[] = {{0, Rgb(0xFF6B86)}, {1, Rgb(0xFA233B)}};
+    const D2D1_GRADIENT_STOP sheen[] = {{0, Rgb(0xFFFFFF, 0.18f)}, {0.5f, Rgb(0xFFFFFF, 0)}};
+    for (const D2D1_GRADIENT_STOP* stops : {fill, sheen}) {
+        ComPtr<ID2D1GradientStopCollection> collection;
+        ComPtr<ID2D1LinearGradientBrush> brush;
+        if (SUCCEEDED(rt->CreateGradientStopCollection(stops, 2, collection.put())) &&
+            SUCCEEDED(rt->CreateLinearGradientBrush({{box.left, box.top}, {box.left, box.bottom}}, collection.get(),
+                                                    brush.put()))) {
+            rt->FillRoundedRectangle(shape, brush.get());
+        }
+    }
+    const float w = box.right - box.left, h = box.bottom - box.top;
+    const float side = std::min(w, h) * 0.64f;
+    const float x = box.left + w * 0.18f, y = box.top + h * 0.16f;
+    DrawMusicNotes(rt, {x, y, x + side, y + side}, Rgb(0xFFFFFF));
+}
+
 ComPtr<ID2D1PathGeometry> Squircle(ID2D1Factory* f, const D2D1_RECT_F& rect, float radius, float smoothing) {
     ComPtr<ID2D1PathGeometry> path;
     ComPtr<ID2D1GeometrySink> sink;
@@ -367,6 +421,26 @@ ComPtr<IWICBitmapSource> LoadPicture(Graphics& g, const std::wstring& path, UINT
     ComPtr<IWICBitmapSource> out;
     cached.As(&out);
     return out;
+}
+
+// An opaque (or premultiplied) BGRA picture as a PNG file.
+bool SavePng(Graphics& g, const BYTE* bits, int w, int h, const std::wstring& path) {
+    IWICImagingFactory* wic = g.Wic();
+    ComPtr<IWICStream> stream;
+    ComPtr<IWICBitmapEncoder> encoder;
+    ComPtr<IWICBitmapFrameEncode> frame;
+    if (FAILED(wic->CreateStream(stream.put())) ||
+        FAILED(stream->InitializeFromFilename(path.c_str(), GENERIC_WRITE)) ||
+        FAILED(wic->CreateEncoder(GUID_ContainerFormatPng, nullptr, encoder.put())) ||
+        FAILED(encoder->Initialize(stream.get(), WICBitmapEncoderNoCache)) ||
+        FAILED(encoder->CreateNewFrame(frame.put(), nullptr)) || FAILED(frame->Initialize(nullptr)) ||
+        FAILED(frame->SetSize(w, h))) {
+        return false;
+    }
+    WICPixelFormatGUID format = GUID_WICPixelFormat32bppBGRA;   // opaque here, so the same as premultiplied
+    return SUCCEEDED(frame->SetPixelFormat(&format)) &&
+           SUCCEEDED(frame->WritePixels(h, w * 4, w * h * 4, const_cast<BYTE*>(bits))) &&
+           SUCCEEDED(frame->Commit()) && SUCCEEDED(encoder->Commit());
 }
 
 }  // namespace widgets

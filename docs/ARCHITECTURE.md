@@ -54,10 +54,26 @@ show the window before it is visible.
 
 ## Window corners
 
-`src/hook/effects/corners.cpp` cuts windows that draw their own title bar (Chromium,
-Electron) to a squircle with `SetWindowRgn`, turns off the DWM border and backdrop for
-them, and adds two helper windows: a DirectComposition "shade" for the shadow and
-antialiased edge, and a transparent "grip" so the resize border still works.
+`src/hook/effects/corners.cpp` has two ways. With smooth corners (the default) DWM draws
+every corner: windows it would leave square get `DWMWCP_ROUND`, and with borders off every
+window gets `DWMWA_COLOR_NONE` (`UpdateLook`; the program's own values are given back).
+Otherwise it cuts windows that draw their own title bar (Chromium, Electron) to a
+squircle with `SetWindowRgn`, turns off the DWM border and backdrop for them, and adds
+two helper windows: a DirectComposition "shade" for the shadow and antialiased edge, and
+a transparent "grip" so the resize border still works.
+
+## Island
+
+`src/host/island/` is the pill at the top of the screen. It runs on a thread of its own
+(only while it is on) with one layered, topmost, never-activated window, drawn with
+Direct2D on the CPU like the widgets and animated with springs. `island_sources.cpp`
+reads what Windows already shows: the microphone and camera use it records for its own
+icon (the CapabilityAccessManager consent store) for calls, the display paths for screen
+mirroring, airplane mode, the mobile broadband adapter, Core Audio for mute and the default
+output, and the power status; `widgets::MediaWatcher` with details gives the music, its
+cover and timeline. Its buttons press the media keys, mute the default microphone, stop a
+duplicated display or open Windows' settings pages. `MacWin.exe --island-snapshot <dir>`
+draws every view.
 
 ## Safety
 

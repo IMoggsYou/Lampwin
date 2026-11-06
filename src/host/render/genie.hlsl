@@ -70,6 +70,7 @@ struct GenieVSOut
 {
     float4 pos : SV_Position;
     float2 uv : TEXCOORD0;
+    float4 grad : TEXCOORD1;   // uv per screen px: xy along x, zw along y (UvPerPixel)
 };
 
 // No vertex buffer: the (tiles+1)^2 grid vertices are derived from SV_VertexID. The
@@ -82,33 +83,59 @@ float2 GridUV(uint id)
     return g * (1.0 + 2.0 * margin) - margin;
 }
 
-GenieVSOut Output(float2 s, float2 uv)
+// How far uv moves per screen pixel at a vertex, from the warp's own derivatives (finite
+// differences, `s` warped from uv, `su` / `sv` from uv + h along u / v). The pixel shader
+// samples with these instead of ddx / ddy: those are constant per triangle, and the two
+// triangles of a bent tile then pick different mip levels, so thin lines (a scrollbar, a
+// border) came out dashed. Interpolated from the vertices they change smoothly.
+float4 UvPerPixel(float2 s, float2 su, float2 sv, float h)
+{
+    float2 du = (su - s) / h;   // screen px per unit of u
+    float2 dv = (sv - s) / h;   // screen px per unit of v
+    float det = du.x * dv.y - du.y * dv.x;
+    det = (det < 0.0 ? -1.0 : 1.0) * max(abs(det), 1e-6);   // a collapsed row: top mip
+    // The inverse Jacobian's columns: d(uv)/dx and d(uv)/dy.
+    return float4(dv.y, -du.y, -dv.x, du.x) / det;
+}
+
+static const float GRAD_STEP = 0.002;   // uv; a few screen px on any window
+
+GenieVSOut Output(float2 s, float2 su, float2 sv, float2 uv)
 {
     float2 c = (s - gCanvas.xy) / gCanvas.zw;
     GenieVSOut o;
     o.pos = float4(c.x * 2.0 - 1.0, 1.0 - c.y * 2.0, 0.0, 1.0);
     o.uv = uv;
+    o.grad = UvPerPixel(s, su, sv, GRAD_STEP);
     return o;
 }
 
 GenieVSOut GenieVS(uint id : SV_VertexID)
 {
     float2 uv = GridUV(id);
-    return Output(LampVertexMacOS(uv.x, uv.y, gParams.x), uv);
+    float t = gParams.x;
+    return Output(LampVertexMacOS(uv.x, uv.y, t), LampVertexMacOS(uv.x + GRAD_STEP, uv.y, t),
+                  LampVertexMacOS(uv.x, uv.y + GRAD_STEP, t), uv);
 }
 
 // Scale: the window shrinks into its end rect (gIcon). The size leads and both settle
 // together (ScaleVertex in genie_effect.cpp).
-GenieVSOut ScaleVS(uint id : SV_VertexID)
+float2 ScaleVertex(float2 uv)
 {
-    float2 uv = GridUV(id);
     float t = gParams.x;
     float size = 1.0 - (1.0 - t) * (1.0 - t);
     float pos = t * t * (3.0 - 2.0 * t);
     float2 from = gWin.xy + gWin.zw * 0.5;
     float2 to = gIcon.xy + gIcon.zw * 0.5;
     float2 dim = gWin.zw + (gIcon.zw - gWin.zw) * size;
-    return Output(from + (to - from) * pos + (uv - 0.5) * dim, uv);
+    return from + (to - from) * pos + (uv - 0.5) * dim;
+}
+
+GenieVSOut ScaleVS(uint id : SV_VertexID)
+{
+    float2 uv = GridUV(id);
+    return Output(ScaleVertex(uv), ScaleVertex(uv + float2(GRAD_STEP, 0.0)),
+                  ScaleVertex(uv + float2(0.0, GRAD_STEP)), uv);
 }
 
 float ClassicMorph(float v, float tt)
@@ -118,16 +145,22 @@ float ClassicMorph(float v, float tt)
 }
 
 // Classic: every source row slides towards the dock edge and narrows to the neck.
-GenieVSOut ClassicVS(uint id : SV_VertexID)
+float2 ClassicVertex(float2 uv)
 {
-    float2 uv = GridUV(id);
     float e = ClassicMorph(gIcon.w > 0.5 ? 1.0 - uv.y : uv.y, gParams.x);
     float idY = gWin.y + gWin.w * uv.y;
     float y = idY + (gIcon.y - idY) * e;
     float width = gWin.z + (gIcon.z - gWin.z) * e;
     float cx0 = gWin.x + gWin.z * 0.5;
     float cx = cx0 + (gIcon.x - cx0) * e;
-    return Output(float2(cx + (uv.x - 0.5) * width, y), uv);
+    return float2(cx + (uv.x - 0.5) * width, y);
+}
+
+GenieVSOut ClassicVS(uint id : SV_VertexID)
+{
+    float2 uv = GridUV(id);
+    return Output(ClassicVertex(uv), ClassicVertex(uv + float2(GRAD_STEP, 0.0)),
+                  ClassicVertex(uv + float2(0.0, GRAD_STEP)), uv);
 }
 
 // Signed distance (snapshot px, < 0 inside) to the window's shape: a superellipse
@@ -165,9 +198,17 @@ float4 WindowColor(float2 uv)
     return c;
 }
 
+// WindowColor for the warped grid, with the vertices' smooth gradients (UvPerPixel).
 float4 GeniePS(GenieVSOut i) : SV_Target
 {
-    return WindowColor(i.uv) * gParams.w;
+    float4 c = gSnapshot.SampleGrad(gSampler, i.uv, i.grad.xy, i.grad.zw);
+    if (gTex.z > 0.0)
+    {
+        // The anti-aliased edge is one screen pixel wide: that many snapshot px.
+        float aa = max(max(length(i.grad.xy * gTex.xy), length(i.grad.zw * gTex.xy)), 0.001);
+        c *= saturate(0.5 - WindowDistance(i.uv) / aa);
+    }
+    return c * gParams.w;
 }
 
 // ---- Shatter and fragments (MacWin's own) ----------------------------------------------

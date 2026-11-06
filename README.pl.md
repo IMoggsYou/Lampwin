@@ -41,9 +41,11 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 - ↩️ **Odwracanie w locie** — kliknij jeszcze raz w trakcie, a dżin zawróci dokładnie z tego
   miejsca. Win+D animuje wszystkie okna naraz. Gdy w Windows wyłączysz *Efekty animacji*,
   Lampwin też przestaje animować.
-- ⬛ **Rogi squircle** — kształt z macOS (wygładzenie 100%) albo zaokrąglenie Windows 11,
-  dla animacji, okna ustawień i programów, które same rysują pasek tytułu (Chrome, Edge,
-  Brave, Discord, VS Code, Spotify…), z dopasowanym cieniem.
+- ⬛ **Gładkie rogi** — wygładzone zaokrąglenie samego Windows w każdym programie, także
+  w oknach, które Windows zostawia kwadratowe, i przełącznik cienkiego obramowania okien.
+  Albo squircle z macOS o dowolnym promieniu dla animacji, okna ustawień i programów,
+  które same rysują pasek tytułu (Chrome, Edge, Brave, Discord, VS Code, Spotify…),
+  z dopasowanym cieniem.
 - 🗓️ **Widżety na pulpicie** — zegar, kalendarz, pogoda, wskaźniki systemu, bateria,
   szybkość sieci, notatka, zdjęcie, odliczanie do wybranego dnia i to, co teraz gra, jasne
   albo ciemne. Leżą na
@@ -55,6 +57,9 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
   znajduje program po nazwie pliku. Zestaw ikon w stylu macOS jest w komplecie. Zapisz
   swoje ustawienie jako **zestaw ikon**, wróć do **ikon Windows** jednym kliknięciem albo
   usuń wszystko.
+- 🏝️ **Wyspa** — czarna pigułka u góry ekranu, jak Dynamic Island w iPhonie: muzyka
+  z okładką i przyciskami, rozmowy (Discord, Signal, Teams…), dublowanie ekranu i krótkie
+  powiadomienia o ładowaniu, wyciszeniu, słuchawkach i trybie samolotowym.
 - 🪄 **Przegląd okien i gorące narożniki** — wszystkie okna obok siebie jak w Exposé
   (**Ctrl+Alt+↑**, menu w zasobniku albo gorący narożnik); wsuń wskaźnik w narożnik
   ekranu, żeby pokazać pulpit, widok zadań, menu Start albo powiadomienia, zablokować

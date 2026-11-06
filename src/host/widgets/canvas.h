@@ -67,6 +67,13 @@ D2D1_COLOR_F Mix(const D2D1_COLOR_F& a, const D2D1_COLOR_F& b, float t);
 // (settings-app/Controls/Squircle.cs builds the same one).
 ComPtr<ID2D1PathGeometry> Squircle(ID2D1Factory* f, const D2D1_RECT_F& r, float radius, float smoothing);
 
+// The music tile (the Now playing widget, the island): a red-to-pink tile with two beamed
+// notes in white, filling `box` with corners of `radius`. Drawn in the target's current
+// transform, which it leaves as it was.
+void DrawMusicTile(ID2D1RenderTarget* rt, const D2D1_RECT_F& box, float radius);
+// Just the notes, in `color`, filling the square `box`.
+void DrawMusicNotes(ID2D1RenderTarget* rt, const D2D1_RECT_F& box, const D2D1_COLOR_F& color);
+
 // How far a card's shadow reaches past its edges, in DIPs.
 const float kShadowReach = 36;
 // The soft shadow under a card (a wide ambient one and a tight contact one), in px, into
@@ -84,6 +91,9 @@ struct TextOptions {
 void DrawText(Graphics& g, ID2D1RenderTarget* rt, const std::wstring& text, IDWriteTextFormat* font,
               const D2D1_RECT_F& box, const D2D1_COLOR_F& color, const TextOptions& o = {});
 float TextWidth(Graphics& g, const std::wstring& text, IDWriteTextFormat* font);
+
+// `w` x `h` BGRA pixels (opaque) saved as a PNG file (the snapshots).
+bool SavePng(Graphics& g, const BYTE* bits, int w, int h, const std::wstring& path);
 
 // A picture file decoded, turned upright (EXIF orientation) and scaled to cover w x h.
 ComPtr<IWICBitmapSource> LoadPicture(Graphics& g, const std::wstring& path, UINT w, UINT h);

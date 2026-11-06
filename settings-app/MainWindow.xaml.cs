@@ -23,8 +23,10 @@ public sealed class NavItem
     public required string Id { get; init; }
     public required string TitleKey { get; init; }
     public required Brush Tint { get; init; }
-    /// <summary>A Segoe Fluent Icons glyph (Windows 11's own icon font): sharp at any size.</summary>
-    public required string Glyph { get; init; }
+    /// <summary>Lampwin's own icon (Theme/Icons.xaml): a 24 x 24 shape, drawn white on the tile.</summary>
+    public required Geometry Icon { get; init; }
+    /// <summary>A part of the icon drawn fainter, if it has one.</summary>
+    public Geometry? IconFaint { get; init; }
     public required Func<UserControl> Create { get; init; }
 
     public string Title => Loc.T(TitleKey);
@@ -61,52 +63,68 @@ public partial class MainWindow : Window
             new()
             {
                 Id = "animations", TitleKey = "settings.nav.animations",
-                Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Glyph = "\uE8A7", Create = () => new AnimationsPage(),
+                Tint = Gradient("#FF2F7BFF", "#FF8A4FF0"), Create = () => new AnimationsPage(),
+                Icon = IconShape("Icon.Animations"),
             },
             new()
             {
                 Id = "corners", TitleKey = "settings.nav.corners",
-                Tint = Gradient("#FF34C759", "#FF1F9E46"), Glyph = "\uE739", Create = () => new CornersPage(),
+                Tint = Gradient("#FF34C759", "#FF1F9E46"), Create = () => new CornersPage(),
+                Icon = IconShape("Icon.Corners"), IconFaint = IconShape("Icon.CornersFaint"),
             },
             new()
             {
                 Id = "widgets", TitleKey = "settings.nav.widgets",
-                Tint = Gradient("#FF33B5F5", "#FF0A7AFF"), Glyph = "\uF034", Create = () => new WidgetsPage(),
+                Tint = Gradient("#FF33B5F5", "#FF0A7AFF"), Create = () => new WidgetsPage(),
+                Icon = IconShape("Icon.Widgets"),
+            },
+            new()
+            {
+                Id = "island", TitleKey = "settings.nav.island",
+                Tint = Gradient("#FF48484A", "#FF1C1C1E"), Create = () => new IslandPage(),
+                Icon = IconShape("Icon.Island"),
             },
             new()
             {
                 Id = "desktop", TitleKey = "settings.nav.desktop",
-                Tint = Gradient("#FF5AC8FA", "#FF2F7BFF"), Glyph = "\uE7C4", Create = () => new DesktopPage(),
+                Tint = Gradient("#FF5AC8FA", "#FF2F7BFF"), Create = () => new DesktopPage(),
+                Icon = IconShape("Icon.Desktop"),
             },
             new()
             {
                 Id = "icons", TitleKey = "settings.nav.icons",
-                Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Glyph = "\uED35", Create = () => new AppIconsPage(),
+                Tint = Gradient("#FFFF9F0A", "#FFFF5E3A"), Create = () => new AppIconsPage(),
+                Icon = IconShape("Icon.AppIcons"),
             },
             new()
             {
                 Id = "general", TitleKey = "settings.nav.general",
-                Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Glyph = "\uE713", Create = () => new GeneralPage(),
+                Tint = Gradient("#FF9A9AA1", "#FF6F6F76"), Create = () => new GeneralPage(),
+                Icon = IconShape("Icon.General"),
             },
             new()
             {
                 Id = "exclusions", TitleKey = "settings.nav.exclusions",
-                Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Glyph = "\uE733", Create = () => new ExclusionsPage(),
+                Tint = Gradient("#FFFF6A5F", "#FFE5352B"), Create = () => new ExclusionsPage(),
+                Icon = IconShape("Icon.Exclusions"),
             },
             new()
             {
                 Id = "privacy", TitleKey = "settings.nav.privacy",
-                Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Glyph = "\uEA18", Create = () => new PrivacyPage(),
+                Tint = Gradient("#FF4C9BFF", "#FF2B63E0"), Create = () => new PrivacyPage(),
+                Icon = IconShape("Icon.Privacy"),
             },
             new()
             {
                 Id = "tweaks", TitleKey = "settings.nav.tweaks",
-                Tint = Gradient("#FF8E8E93", "#FF48484A"), Glyph = "\uEC7A", Create = () => new PrivacyPage(SwitchSet.Tweaks),
+                Tint = Gradient("#FF8E8E93", "#FF48484A"), Create = () => new PrivacyPage(SwitchSet.Tweaks),
+                Icon = IconShape("Icon.Tweaks"),
             },
             new()
             {
                 Id = "about", TitleKey = "settings.nav.about",
-                Tint = Gradient("#FF7D7AFF", "#FF5856D6"), Glyph = "\uE946", Create = () => new AboutPage(),
+                Tint = Gradient("#FF7D7AFF", "#FF5856D6"), Create = () => new AboutPage(),
+                Icon = IconShape("Icon.About"),
             },
         };
         _view = CollectionViewSource.GetDefaultView(_items);
@@ -126,8 +144,12 @@ public partial class MainWindow : Window
 
         // This window has the corners it sets (it draws them itself, see UpdateShape).
         _shadow = new WindowShadow(this, CornerRadius, CornerSmoothing);
+        Outline.Visibility = _store.Model.WindowBorders ? Visibility.Visible : Visibility.Collapsed;
         _store.Model.PropertyChanged += (_, e) =>
         {
+            // Window borders off: this window has no outline either, like every other one.
+            if (e.PropertyName == nameof(SettingsModel.WindowBorders))
+                Outline.Visibility = _store.Model.WindowBorders ? Visibility.Visible : Visibility.Collapsed;
             if (e.PropertyName is not (nameof(SettingsModel.CornerRadius) or nameof(SettingsModel.CornerSmoothing))) return;
             UpdateShape();
             _shadow.SetCorners(CornerRadius, CornerSmoothing);
@@ -435,6 +457,8 @@ public partial class MainWindow : Window
             png.Save(fs);
         }
     }
+
+    private static Geometry IconShape(string key) => (Geometry)Application.Current.FindResource(key);
 
     private static Brush Gradient(string top, string bottom)
     {

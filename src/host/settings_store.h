@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include "common/settings.h"
+#include "host/island/island_host.h"
 #include "host/json.h"
 #include "host/widgets/widget_config.h"
 
@@ -33,6 +34,11 @@ struct GenieSettings {
     int cornerRadius = 15;
     int cornerSmoothing = 100;
     bool windowCorners = true;
+    // Corners drawn by Windows: perfectly smooth, in every program, 8 px (the radius and
+    // smoothing above then only shape the settings window). Off: MacWin's own region.
+    bool smoothCorners = true;
+    // The 1 px line Windows (or, on a cut window, the shade) draws around every window.
+    bool windowBorders = true;
     std::vector<std::wstring> excluded;
 };
 
@@ -91,6 +97,7 @@ struct HostSettings {
     widgets::Config widgets;
     DesktopSettings desktop;
     AppearanceSettings appearance;
+    island::Config island;
 };
 
 // settings.json (%APPDATA%\MacWin) <-> HostSettings <-> shared section read by the DLLs.

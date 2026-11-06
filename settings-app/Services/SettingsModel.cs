@@ -156,6 +156,33 @@ public sealed class SettingsModel : INotifyPropertyChanged
     /// <summary>Cut every window to these corners, not only the window in the genie.</summary>
     public bool WindowCorners { get => _windowCorners; set => Set(ref _windowCorners, value); }
 
+    private bool _smoothCorners = true;
+    /// <summary>Corners drawn by Windows (smooth, 8 px, every program) instead of the shape above.</summary>
+    public bool SmoothCorners { get => _smoothCorners; set => Set(ref _smoothCorners, value); }
+
+    private bool _windowBorders = true;
+    /// <summary>The thin line around every window.</summary>
+    public bool WindowBorders { get => _windowBorders; set => Set(ref _windowBorders, value); }
+
+    // The island (settings.json "island"; the host's island::Config).
+    private bool _islandEnabled = true, _islandMusic = true, _islandCalls = true, _islandMirroring = true,
+        _islandCharging = true, _islandLowBattery = true, _islandAirplane = true, _islandMobileData = true,
+        _islandSilent = true, _islandOutput = true, _islandHoverExpand = true;
+    private int _islandMonitor;
+    public bool IslandEnabled { get => _islandEnabled; set => Set(ref _islandEnabled, value); }
+    public bool IslandMusic { get => _islandMusic; set => Set(ref _islandMusic, value); }
+    public bool IslandCalls { get => _islandCalls; set => Set(ref _islandCalls, value); }
+    public bool IslandMirroring { get => _islandMirroring; set => Set(ref _islandMirroring, value); }
+    public bool IslandCharging { get => _islandCharging; set => Set(ref _islandCharging, value); }
+    public bool IslandLowBattery { get => _islandLowBattery; set => Set(ref _islandLowBattery, value); }
+    public bool IslandAirplane { get => _islandAirplane; set => Set(ref _islandAirplane, value); }
+    public bool IslandMobileData { get => _islandMobileData; set => Set(ref _islandMobileData, value); }
+    public bool IslandSilent { get => _islandSilent; set => Set(ref _islandSilent, value); }
+    public bool IslandOutput { get => _islandOutput; set => Set(ref _islandOutput, value); }
+    public bool IslandHoverExpand { get => _islandHoverExpand; set => Set(ref _islandHoverExpand, value); }
+    /// <summary>0: the main monitor, 1: the monitor of the window in front.</summary>
+    public int IslandMonitor { get => _islandMonitor; set => Set(ref _islandMonitor, Math.Clamp(value, 0, 1)); }
+
     /// <summary>0 = Windows 11 (round, 8 px), 1 = macOS (squircle, 15 px).</summary>
     public int CornerShape
     {

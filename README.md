@@ -41,9 +41,11 @@ little quieter about your data. Light, free and open source.
 - ↩️ **Reversible mid-flight** — click again while it is still moving and the genie turns
   around from exactly where it is. Win+D animates every window at once. With Windows'
   *Animation effects* turned off, Lampwin stays still too.
-- ⬛ **Squircle corners** — the macOS shape (100% smoothing) or the Windows 11 rounding,
-  for the animation, the settings window and apps that draw their own title bar
-  (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a matching shadow.
+- ⬛ **Smooth corners** — Windows' own anti-aliased rounding for every program, also the
+  windows Windows leaves square, and a switch for the thin border around windows. Or the
+  macOS squircle with any radius for the animation, the settings window and apps that
+  draw their own title bar (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a
+  matching shadow.
 - 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, the battery,
   the network's speed, a note, a photo, a countdown to a day of your choice and what's
   playing now, light or dark. They
@@ -55,6 +57,9 @@ little quieter about your data. Light, free and open source.
   the program from the file name. A set of macOS-style icons comes included. Save your
   setup as an **icon set**, switch back to the **Windows icons** in one click, or remove
   everything.
+- 🏝️ **Island** — a black pill at the top of the screen, like the Dynamic Island on the
+  iPhone: music with its cover and buttons, calls (Discord, Signal, Teams…), screen
+  mirroring, and short notes for charging, silent mode, headphones and airplane mode.
 - 🪄 **Window overview and hot corners** — every window side by side like Exposé
   (**Ctrl+Alt+↑**, the tray or a hot corner); push the pointer into a corner of the screen
   to show the desktop, Task view, Start or the notifications, lock the PC or turn off the
