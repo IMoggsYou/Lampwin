@@ -47,8 +47,9 @@ struct SharedSettings {
     int32_t genieMeshQuality;      // tiles per side, 8..96
 
     // Window corners: radius in px at 100 % scaling and Figma-style smoothing in percent
-    // (0 = Windows 11's circular corner, 100 = macOS squircle). windowCorners cuts real
-    // windows to that shape (window region); the genie keeps each window's own corner.
+    // (0 = Windows 11's circular corner, 100 = macOS squircle). windowCorners: other programs'
+    // windows get corners too (the host always sets it now); the genie keeps each window's own
+    // corner.
     int32_t cornerRadius;          // 0..40
     int32_t cornerSmoothing;       // 0..100
     int32_t windowCorners;
@@ -66,7 +67,8 @@ struct SharedSettings {
     int32_t reduceMotion;
     // Window corners drawn by Windows (DWM: anti-aliased, 8 px, in every program, also the
     // windows Windows leaves square) instead of MacWin's region of cornerRadius /
-    // cornerSmoothing. Was reserved: older DLLs see 0 and cut windows as before.
+    // cornerSmoothing; the host always sets it now. Was reserved: older DLLs see 0 and cut
+    // windows as before.
     int32_t smoothCorners;
     // No 1 px border around windows: DWM's is turned off, a cut window's shade draws no
     // edge. Was reserved: older DLLs see 0 and leave the borders.

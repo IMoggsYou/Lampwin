@@ -350,7 +350,7 @@ void DrawText(Graphics& g, ID2D1RenderTarget* rt, const std::wstring& text, IDWr
     if (o.lineSpacing > 0) layout->SetLineSpacing(DWRITE_LINE_SPACING_METHOD_UNIFORM, o.lineSpacing, o.lineSpacing * 0.8f);
     // Too long: cut with an ellipsis instead of spilling out of the card.
     ComPtr<IDWriteInlineObject> ellipsis;
-    if (SUCCEEDED(g.DWrite()->CreateEllipsisTrimmingSign(layout.get(), ellipsis.put()))) {
+    if (o.trim && SUCCEEDED(g.DWrite()->CreateEllipsisTrimmingSign(layout.get(), ellipsis.put()))) {
         DWRITE_TRIMMING trim = {DWRITE_TRIMMING_GRANULARITY_CHARACTER, 0, 0};
         layout->SetTrimming(&trim, ellipsis.get());
     }

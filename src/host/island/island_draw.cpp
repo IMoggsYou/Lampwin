@@ -47,13 +47,21 @@ public:
     float Width(const std::wstring& t, IDWriteTextFormat* f) { return widgets::TextWidth(g, t, f); }
     // One line whose baseline is at `baseline` (the widgets' rule).
     void TextAt(const std::wstring& t, IDWriteTextFormat* f, float left, float right, float baseline,
-                const D2D1_COLOR_F& c, DWRITE_TEXT_ALIGNMENT align = DWRITE_TEXT_ALIGNMENT_LEADING) {
+                const D2D1_COLOR_F& c, DWRITE_TEXT_ALIGNMENT align = DWRITE_TEXT_ALIGNMENT_LEADING, bool trim = true) {
         float b, h;
         LineOf(f, &b, &h);
         widgets::TextOptions o;
         o.align = align;
         o.rtl = s.rtl;
+        o.trim = trim;
         widgets::DrawText(g, rt, t, f, {left, baseline - b, right, baseline - b + h + 1}, c, o);
+    }
+    // The box of a line of text whose baseline is at `baseline`.
+    void LineBox(IDWriteTextFormat* f, float baseline, float* top, float* bottom) {
+        float b, h;
+        LineOf(f, &b, &h);
+        *top = baseline - b;
+        *bottom = baseline - b + h + 1;
     }
     // Text in a box, wrapped (two lines at most for the box's height).
     void Wrapped(const std::wstring& t, IDWriteTextFormat* f, D2D1_RECT_F box, const D2D1_COLOR_F& c) {
@@ -211,18 +219,78 @@ D2D1_COLOR_F LitFill(const D2D1_COLOR_F& fill, float lit) {
                        : widgets::Mix(fill, Rgb(0xFFFFFF, fill.a), 0.14f * lit);
 }
 
-// Five level bars `h` high at most, the first at x, around cy. Two waves of different speed
-// make each bar its own; Scene::live eases them to rest (and back) instead of a jump. They
-// rise one after another when the view comes in.
-void Bars(Ctx& c, float x, float cy, float h, const D2D1_COLOR_F& color, float phase) {
+// The level bars sit in a square slot as wide as the cover (kSlot), so the island is the same
+// on both sides: the cover's margin on the left, the bars' on the right.
+const float kSlot = 24, kBarStep = 4.2f, kBarWidth = 2.6f;
+
+// Five level bars `h` high at most, centred in the slot that starts at `slot`, around cy.
+// They show the sound as it plays (Scene::levels, bass to treble); without it, two waves of
+// different speed make each bar its own. Scene::live eases them to rest (and back) instead of
+// a jump, and they rise one after another when the view comes in.
+void Bars(Ctx& c, float slot, float cy, float h, const D2D1_COLOR_F& color, float phase) {
     const float t = c.s.time, rest = 3;
+    const float x = slot + (kSlot - (4 * kBarStep + kBarWidth)) / 2 + kBarWidth / 2;
     for (int i = 0; i < 5; ++i) {
-        const float a = 0.5f + 0.5f * sinf(t * 5.1f + phase + i * 1.7f);
-        const float b = 0.6f + 0.4f * sinf(t * 2.3f + phase * 0.7f + i * 2.9f);
-        const float k = (0.25f + 0.75f * a * b) * Clamp(c.s.live, 0, 1) * EaseOut(Phase(c.s, 0.1f + i * 0.04f, 0.3f));
+        float wave;
+        if (c.s.hasLevels) {
+            wave = Clamp(c.s.levels[i], 0, 1);
+        } else {
+            const float a = 0.5f + 0.5f * sinf(t * 5.1f + phase + i * 1.7f);
+            const float b = 0.6f + 0.4f * sinf(t * 2.3f + phase * 0.7f + i * 2.9f);
+            wave = 0.25f + 0.75f * a * b;
+        }
+        const float k = wave * Clamp(c.s.live, 0, 1) * EaseOut(Phase(c.s, 0.1f + i * 0.04f, 0.3f));
         const float bh = rest + (h - rest) * k;
-        c.Line(x + i * 4.2f, cy - bh / 2, x + i * 4.2f, cy + bh / 2, 2.6f, color);
+        c.Line(x + i * kBarStep, cy - bh / 2, x + i * kBarStep, cy + bh / 2, kBarWidth, color);
     }
+}
+
+// How a line too long for its place (the song's title) moves: it rests at its start, then
+// glides to the left at an even pace until the copy that follows it (one gap behind) stands
+// where it began, and again. Seconds and DIPs.
+const float kGlideRest = 1.6f, kGlideSpeed = 30, kGlideGap = 36, kGlideFade = 12;
+
+// One line from `left` to `right`; a longer one glides along in a loop, its ends fading
+// softly where it goes under. Right-to-left text, read the other way, is cut instead.
+void Glide(Ctx& c, const std::wstring& t, IDWriteTextFormat* f, float left, float right, float baseline,
+           const D2D1_COLOR_F& color) {
+    const float room = right - left, width = c.Width(t, f);
+    if (width <= room + 0.5f || room <= 0 || c.s.rtl || !c.rt) {
+        c.TextAt(t, f, left, right, baseline, color);
+        return;
+    }
+    const float cycle = width + kGlideGap, period = kGlideRest + cycle / kGlideSpeed;
+    const float at = fmodf(std::max(c.s.time, 0.0f), period);
+    const float shift = at < kGlideRest ? 0 : (at - kGlideRest) * kGlideSpeed;
+    float top, bottom;
+    c.LineBox(f, baseline, &top, &bottom);
+    // The left edge fades only while the line moves; at rest its first letter shows whole.
+    const float leftFade = Clamp(shift / kGlideFade, 0, 1), edge = Clamp(kGlideFade / room, 0, 0.5f);
+    const D2D1_GRADIENT_STOP stops[] = {{0, Rgb(0x000000, 1 - leftFade)},
+                                        {edge, Rgb(0x000000, 1)},
+                                        {1 - edge, Rgb(0x000000, 1)},
+                                        {1, Rgb(0x000000, 0)}};
+    ComPtr<ID2D1GradientStopCollection> collection;
+    ComPtr<ID2D1LinearGradientBrush> mask;
+    ComPtr<ID2D1Layer> layer;
+    if (FAILED(c.rt->CreateGradientStopCollection(stops, 4, collection.put())) ||
+        FAILED(c.rt->CreateLinearGradientBrush({{left, 0}, {right, 0}}, collection.get(), mask.put())) ||
+        FAILED(c.rt->CreateLayer(nullptr, layer.put()))) {
+        c.TextAt(t, f, left, right, baseline, color);
+        return;
+    }
+    c.rt->PushLayer(D2D1::LayerParameters({left, top, right, bottom}, nullptr, D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+                                          D2D1::IdentityMatrix(), 1, mask.get()),
+                    layer.get());
+    for (float x = left - shift; x < right; x += cycle) {
+        c.TextAt(t, f, x, x + width + 2, baseline, color, DWRITE_TEXT_ALIGNMENT_LEADING, false);
+    }
+    c.rt->PopLayer();
+}
+
+// Whether `t` needs to glide in `room` DIPs.
+bool Glides(Ctx& c, const std::wstring& t, IDWriteTextFormat* f, float room) {
+    return !c.s.rtl && c.Width(t, f) > room + 0.5f;
 }
 
 // A battery `level` (0 to 100, may be partway) full, 25 x 12 DIPs at x around cy.
@@ -234,7 +302,9 @@ void Battery(Ctx& c, float x, float cy, float level, const D2D1_COLOR_F& color, 
     const float fill = (w - 4) * Clamp(level, 0, 100) / 100.0f;
     if (fill > 0.2f) c.Fill({x + 2, y + 2, x + 2 + std::max(fill, 2.0f), y + h - 2}, 2, color);
     // The bolt drops in once the fill is on its way.
-    if (charging) c.Moving(Glyph::Bolt, x + w / 2 - 6, cy - 6, 12, Faded(P.text, Phase(c.s, 0.2f, 0.15f)), Pop(c.s, 0.2f));
+    if (charging) {
+        c.Moving(Glyph::Bolt, x + w / 2 - 6, cy - 6, 12, Faded(P.text, Phase(c.s, 0.2f, 0.15f)), Pop(c.s, 0.2f));
+    }
 }
 
 // A wide rounded button with a word on it.
@@ -302,7 +372,7 @@ void SongLine(Ctx& c, const std::wstring& now, const std::wstring& before, IDWri
         c.TextAt(now, f, left, right, baseline + 7 * (1 - swap), Faded(color, swap));
         return;
     }
-    c.TextAt(now, f, left, right, baseline, color);
+    Glide(c, now, f, left, right, baseline, color);
 }
 
 // The call's program: its own icon, else a green circle with a phone.
@@ -317,6 +387,25 @@ void CallIcon(Ctx& c, float x, float y, float size) {
 
 const float kLine = 22.5f;   // the baseline of a line of text in the pill
 
+// The compact music pill: the cover, the title and the bars' slot, each 6 DIPs from the edge
+// and 8 apart. Its width follows the title, between these two.
+const float kPillEdge = 6, kPillGap = 8, kPillMin = 120, kPillMax = 300;
+const float kPillText = kPillEdge + kSlot + kPillGap;   // where the title starts and, mirrored, ends
+// Every compact view is as wide as what is on it, between kPillMin and this: no empty black.
+const float kPillWide = 340;
+// Words that start or end a pill without a symbol keep this far from its rounded end.
+const float kPillWords = 16;
+// The battery (25 DIPs and its tip) and the gap before it.
+const float kBatteryWidth = 27.6f, kBatteryGap = 6;
+
+float FitPill(float content, float most = kPillWide) {
+    return Clamp(ceilf(content), kPillMin, most);
+}
+
+// The grown card: the cover's margin (kPad) on the left, the bars' on the right; the words
+// between the cover and the bars' slot.
+const float kCardText = 88, kCardTextEnd = kPad + kSlot + 12;
+
 // ---------------------------------------------------------------------------
 // The views. Each draws into a (w, h) island at the origin.
 // ---------------------------------------------------------------------------
@@ -327,16 +416,17 @@ void MusicView(Ctx& c, float w, float h, std::vector<Hit>* hits) {
     // The title follows the cover in from the side.
     const float slide = 10 * (1 - EaseOut(Phase(c.s, 0.05f, 0.4f)));
     if (!c.s.expanded) {
-        Cover(c, 6, 6, 24, 6);
-        SongLine(c, m.title, c.s.prevTitle, c.Font(12.5f, kSemibold), 38 + slide, w - 42, kLine, P.text);
-        Bars(c, w - 30, 18, 14, c.s.accent, 0);
+        Cover(c, kPillEdge, kPillEdge, kSlot, 6);
+        SongLine(c, m.title, c.s.prevTitle, c.Font(12.5f, kSemibold), kPillText + slide, w - kPillText, kLine,
+                 P.text);
+        Bars(c, w - kPillEdge - kSlot, kCompact / 2, 14, c.s.accent, 0);
         if (hits) hits->push_back({{0, 0, w, h}, Action::Toggle});
         return;
     }
     Cover(c, kPad, kPad, 56, 12);
-    SongLine(c, m.title, c.s.prevTitle, c.Font(15, kSemibold), 88 + slide, w - 56, 42, P.text);
-    SongLine(c, by, c.s.prevBy, c.Font(13, kRegular), 88 + slide, w - 56, 61, P.secondary);
-    Bars(c, w - 41, 37, 16, c.s.accent, 0);
+    SongLine(c, m.title, c.s.prevTitle, c.Font(15, kSemibold), kCardText + slide, w - kCardTextEnd, 42, P.text);
+    SongLine(c, by, c.s.prevBy, c.Font(13, kRegular), kCardText + slide, w - kCardTextEnd, 61, P.secondary);
+    Bars(c, w - kPad - kSlot, 37, 16, c.s.accent, 0);
     float cy = 105;
     if (m.duration > 0) {
         const INT64 total = m.duration / 10000000, now = std::clamp<INT64>(c.s.position / 10000000, 0, total);
@@ -378,10 +468,11 @@ void CallView(Ctx& c, float w, float h, std::vector<Hit>* hits) {
     // The phone rings in: a few quick turns that die away.
     const float ring = c.s.since < 1.2f ? 16 * sinf(c.s.since * 30) * expf(-c.s.since * 4.5f) : 0;
     if (!c.s.expanded) {
-        c.Moving(Glyph::Phone, 12, 8, 20, P.green, Pop(c.s), ring);
-        c.TextAt(time, c.Font(13, kSemibold), 38 + 8 * (1 - EaseOut(Phase(c.s, 0.05f, 0.35f))), w - 50, kLine,
-                 P.green);
-        Bars(c, w - 30, 18, 14, P.green, 0.8f);
+        // The phone in the cover's slot, the bars in theirs: the same margins on both sides.
+        c.Moving(Glyph::Phone, kPillEdge + 2, kPillEdge + 2, 20, P.green, Pop(c.s), ring);
+        c.TextAt(time, c.Font(13, kSemibold), kPillText + 8 * (1 - EaseOut(Phase(c.s, 0.05f, 0.35f))),
+                 w - kPillText, kLine, P.green);
+        Bars(c, w - kPillEdge - kSlot, kCompact / 2, 14, P.green, 0.8f);
         if (hits) hits->push_back({{0, 0, w, h}, Action::Toggle});
         return;
     }
@@ -426,9 +517,11 @@ void MirroringView(Ctx& c, float w, float h, std::vector<Hit>* hits) {
     const std::wstring target = !m.target.empty() ? m.target : c.T(L"host.island.mirroring.duplicate");
     const float slide = 8 * (1 - EaseOut(Phase(c.s, 0.05f, 0.35f)));
     if (!c.s.expanded) {
-        c.Moving(Glyph::Mirroring, 11, 7, 22, P.blue, Pop(c.s));
-        c.TextAt(title, c.Font(12.5f, kSemibold), 40 + slide, w - 40, kLine, P.text);
-        c.Moving(Glyph::Display, w - 31, 8, 20, Faded(P.secondary, Phase(c.s, 0.12f, 0.2f)), Pop(c.s, 0.12f));
+        // Both symbols in the slots the cover and the bars have elsewhere.
+        c.Moving(Glyph::Mirroring, kPillEdge + 1, 7, 22, P.blue, Pop(c.s));
+        c.TextAt(title, c.Font(12.5f, kSemibold), kPillText + slide, w - kPillText, kLine, P.text);
+        c.Moving(Glyph::Display, w - kPillEdge - kSlot + 2, 8, 20, Faded(P.secondary, Phase(c.s, 0.12f, 0.2f)),
+                 Pop(c.s, 0.12f));
         if (hits) hits->push_back({{0, 0, w, h}, Action::Toggle});
         return;
     }
@@ -446,13 +539,16 @@ void MirroringView(Ctx& c, float w, float h, std::vector<Hit>* hits) {
 void BatteryView(Ctx& c, float w, bool low) {
     const D2D1_COLOR_F color = !low ? P.green : c.s.battery <= 10 ? P.red : Rgb(0xFFD60A);
     const std::wstring& title = c.T(low ? L"host.island.lowBattery" : L"host.island.charging");
-    c.TextAt(title, c.Font(13, kSemibold), 16 + 8 * (1 - EaseOut(Phase(c.s, 0, 0.35f))), w / 2 + 30, kLine, P.text);
+    // The words from the left end, the battery at the right one, the number just before it.
+    const float battery = w - kPillWords - kBatteryWidth;
+    c.TextAt(title, c.Font(13, kSemibold), kPillWords + 8 * (1 - EaseOut(Phase(c.s, 0, 0.35f))), battery - 40, kLine,
+             P.text);
     const float fill = low ? 1 : EaseOut(Phase(c.s, 0.05f, 0.85f));
     const float level = c.s.battery * fill;
-    c.TextAt(Percent((int)lroundf(level)), c.Font(13, kSemibold), w - 120, w - 50, kLine, color,
+    c.TextAt(Percent((int)lroundf(level)), c.Font(13, kSemibold), battery - 60, battery - kBatteryGap, kLine, color,
              DWRITE_TEXT_ALIGNMENT_TRAILING);
     const float blink = low && c.s.since < 1.6f ? 0.55f + 0.45f * cosf(c.s.since * 3.14159f * 2.5f) : 1;
-    Battery(c, w - 44, 18, level, Faded(color, blink), !low);
+    Battery(c, battery, kCompact / 2, level, Faded(color, blink), !low);
 }
 
 // Silent: the bell shakes like the one on the iPhone's switch, and its back turns red.
@@ -463,17 +559,19 @@ void SoundView(Ctx& c, float w, bool silent, std::vector<Hit>* hits) {
     const float shake = c.s.since < 1.4f ? 24 * sinf(c.s.since * 26) * expf(-c.s.since * 4) : 0;
     if (silent) c.Moving(Glyph::Bell, 18, 9, 18, P.text, 1, shake, 0.5f, 0.1f, &back);
     else c.Moving(Glyph::Bell, 18, 9, 18, P.text, 1, shake, 0.5f, 0.1f);
-    c.TextAt(c.T(silent ? L"host.island.silent" : L"host.island.sound"), c.Font(13, kSemibold), 60, w - 16, kLine,
-             silent ? P.red : P.text, DWRITE_TEXT_ALIGNMENT_TRAILING);
+    c.TextAt(c.T(silent ? L"host.island.silent" : L"host.island.sound"), c.Font(13, kSemibold), 60, w - kPillWords,
+             kLine, silent ? P.red : P.text, DWRITE_TEXT_ALIGNMENT_TRAILING);
     if (hits) hits->push_back({{0, 0, w, kCompact}, Action::ToggleMute});
 }
 
 // The plane flies in from the left.
 void AirplaneOffView(Ctx& c, float w) {
     const float fly = 1 - EaseOut(Phase(c.s, 0, 0.5f));
-    c.Moving(Glyph::Airplane, 12 - 14 * fly, 7 + 4 * fly, 22, Faded(P.secondary, 1 - fly), 1);
-    c.TextAt(c.T(L"host.island.airplane"), c.Font(13, kSemibold), 42, w - 60, kLine, P.text);
-    c.TextAt(c.T(L"host.island.off"), c.Font(13, kSemibold), w - 80, w - 16, kLine, P.secondary,
+    c.Moving(Glyph::Airplane, kPillEdge + 1 - 14 * fly, 7 + 4 * fly, 22, Faded(P.secondary, 1 - fly), 1);
+    IDWriteTextFormat* f = c.Font(13, kSemibold);
+    const float off = c.Width(c.T(L"host.island.off"), f);
+    c.TextAt(c.T(L"host.island.airplane"), f, kPillText, w - kPillWords - off - 10, kLine, P.text);
+    c.TextAt(c.T(L"host.island.off"), f, w - kPillWords - off - 2, w - kPillWords, kLine, P.secondary,
              DWRITE_TEXT_ALIGNMENT_TRAILING);
 }
 
@@ -488,10 +586,11 @@ void NoticeCard(Ctx& c, float w, float h, Glyph glyph, const D2D1_COLOR_F& color
 }
 
 void OutputView(Ctx& c, float w) {
-    c.Moving(c.s.headphones ? Glyph::Headphones : Glyph::Speaker, 18, 17, 30, P.text, Pop(c.s));
+    // The symbol as far from the left end as the words are from the right one.
+    c.Moving(c.s.headphones ? Glyph::Headphones : Glyph::Speaker, 17, 17, 30, P.text, Pop(c.s));
     const float slide = 8 * (1 - EaseOut(Phase(c.s, 0.06f, 0.35f)));
-    c.TextAt(c.T(L"host.island.connected"), c.Font(12, kSemibold), 62 + slide, w - 24, 28, P.secondary);
-    c.TextAt(c.s.output, c.Font(15, kSemibold), 62 + slide, w - 24, 47, P.text);
+    c.TextAt(c.T(L"host.island.connected"), c.Font(12, kSemibold), 59 + slide, w - 17, 28, P.secondary);
+    c.TextAt(c.s.output, c.Font(15, kSemibold), 59 + slide, w - 17, 47, P.text);
 }
 
 }  // namespace
@@ -507,38 +606,62 @@ std::wstring Clock(INT64 seconds) {
     return buf;
 }
 
+bool Scrolls(widgets::Graphics& g, const Scene& s) {
+    if (s.view != View::Music || !s.media) return false;
+    Ctx c(g, nullptr, s);
+    if (!s.expanded) return Glides(c, s.media->title, c.Font(12.5f, kSemibold), Size(g, s).width - 2 * kPillText);
+    const float room = 360 - kCardText - kCardTextEnd;
+    const std::wstring& by = s.media->artist.empty() ? s.media->app : s.media->artist;
+    return Glides(c, s.media->title, c.Font(15, kSemibold), room) || Glides(c, by, c.Font(13, kRegular), room);
+}
+
 D2D1_SIZE_F Size(widgets::Graphics& g, const Scene& s) {
     Ctx c(g, nullptr, s);
     switch (s.view) {
         case View::None: return {120, 24};
-        case View::Music:
-            if (!s.expanded) return {248, kCompact};
-            return {360, s.media && s.media->duration > 0 ? 176.0f : 136.0f};
-        case View::Call: return s.expanded ? D2D1::SizeF(360, 150) : D2D1::SizeF(220, kCompact);
+        case View::Music: {
+            if (s.expanded) return {360, s.media && s.media->duration > 0 ? 176.0f : 136.0f};
+            // As wide as its title needs, within limits; a longer title glides.
+            const float tw = s.media ? c.Width(s.media->title, c.Font(12.5f, kSemibold)) : 0;
+            return {FitPill(2 * kPillText + tw + 2, kPillMax), kCompact};
+        }
+        case View::Call: {
+            if (s.expanded) return {360, 150};
+            // The phone and the bars in their slots, the call's time between them.
+            const float tw = c.Width(Clock(s.callSeconds), c.Font(13, kSemibold));
+            return {FitPill(2 * kPillText + tw), kCompact};
+        }
         case View::Mirroring: {
             if (s.expanded) return {360, 136};
             const float tw = c.Width(c.T(L"host.island.mirroring"), c.Font(12.5f, kSemibold));
-            return {Clamp(80 + tw, 200, 320), kCompact};
+            return {FitPill(2 * kPillText + tw + 2), kCompact};
         }
         case View::Charging:
-        case View::LowBattery: return {280, kCompact};
+        case View::LowBattery: {
+            IDWriteTextFormat* f = c.Font(13, kSemibold);
+            const wchar_t* title = s.view == View::LowBattery ? L"host.island.lowBattery" : L"host.island.charging";
+            const float tw = c.Width(c.T(title), f);
+            const float pw = c.Width(L"100%", f);
+            return {FitPill(kPillWords + tw + 16 + pw + kBatteryGap + kBatteryWidth + kPillWords), kCompact};
+        }
         case View::Silent:
         case View::Sound: {
+            // The bell's capsule (6 to 48), a gap, the words, the end.
             const float tw = c.Width(c.T(s.view == View::Silent ? L"host.island.silent" : L"host.island.sound"),
                                      c.Font(13, kSemibold));
-            return {Clamp(80 + tw, 200, 320), kCompact};
+            return {FitPill(48 + 14 + tw + kPillWords + 2), kCompact};
         }
         case View::AirplaneOff: {
             const float tw = c.Width(c.T(L"host.island.airplane"), c.Font(13, kSemibold)) +
                              c.Width(c.T(L"host.island.off"), c.Font(13, kSemibold));
-            return {Clamp(84 + tw, 240, 340), kCompact};
+            return {FitPill(kPillText + tw + 12 + kPillWords + 2), kCompact};
         }
         case View::AirplaneOn:
         case View::MobileData: return {360, 146};
         case View::Output: {
             const float tw = std::max(c.Width(s.output, c.Font(15, kSemibold)),
                                       c.Width(c.T(L"host.island.connected"), c.Font(12, kSemibold)));
-            return {Clamp(90 + tw, 240, 380), 64};
+            return {FitPill(59 + tw + 17 + 2, 380), 64};
         }
     }
     return {120, 24};

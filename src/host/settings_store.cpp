@@ -35,7 +35,9 @@ void WriteList(wchar_t* dst, const std::vector<std::wstring>& items) {
 }
 
 bool ReadUtf8File(const std::wstring& path, std::wstring* out) {
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+    // Shared for deleting too: the settings app replaces the file while MacWin may be reading it,
+    // and the replace must not fail because of this read.
+    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) return false;
     LARGE_INTEGER size;
@@ -313,8 +315,6 @@ void SettingsStore::Load() {
     s_.genie.meshQuality = Clamp(g->GetInt(L"meshQuality", d.genie.meshQuality), 8, 96);
     s_.genie.cornerRadius = Clamp(g->GetInt(L"cornerRadius", d.genie.cornerRadius), 0, 40);
     s_.genie.cornerSmoothing = Clamp(g->GetInt(L"cornerSmoothing", d.genie.cornerSmoothing), 0, 100);
-    s_.genie.windowCorners = g->GetBool(L"windowCorners", d.genie.windowCorners);
-    s_.genie.smoothCorners = g->GetBool(L"smoothCorners", d.genie.smoothCorners);
     s_.genie.windowBorders = g->GetBool(L"windowBorders", d.genie.windowBorders);
     const json::Value* icons = Typed(&root, L"appIcons", json::Value::Object);
     s_.appIcons = icons ? icons->GetBool(L"enabled", d.appIcons) : d.appIcons;
@@ -341,6 +341,7 @@ void SettingsStore::Load() {
         island::Config& i = s_.island;
         i.enabled = is->GetBool(L"enabled", d.island.enabled);
         i.music = is->GetBool(L"music", d.island.music);
+        i.youtube = is->GetBool(L"youtube", d.island.youtube);
         i.calls = is->GetBool(L"calls", d.island.calls);
         i.mirroring = is->GetBool(L"mirroring", d.island.mirroring);
         i.charging = is->GetBool(L"charging", d.island.charging);
@@ -397,8 +398,6 @@ bool SettingsStore::Save() const {
     json::Set(&g, L"meshQuality", json::Number(s.genie.meshQuality));
     json::Set(&g, L"cornerRadius", json::Number(s.genie.cornerRadius));
     json::Set(&g, L"cornerSmoothing", json::Number(s.genie.cornerSmoothing));
-    json::Set(&g, L"windowCorners", json::Bool(s.genie.windowCorners));
-    json::Set(&g, L"smoothCorners", json::Bool(s.genie.smoothCorners));
     json::Set(&g, L"windowBorders", json::Bool(s.genie.windowBorders));
     json::Set(&g, L"excludedPrograms", json::Strings(s.genie.excluded));
     json::Set(&root, L"genie", g);
@@ -430,6 +429,7 @@ bool SettingsStore::Save() const {
     json::Value is = oldIsland ? *oldIsland : json::Object();
     json::Set(&is, L"enabled", json::Bool(s.island.enabled));
     json::Set(&is, L"music", json::Bool(s.island.music));
+    json::Set(&is, L"youtube", json::Bool(s.island.youtube));
     json::Set(&is, L"calls", json::Bool(s.island.calls));
     json::Set(&is, L"mirroring", json::Bool(s.island.mirroring));
     json::Set(&is, L"charging", json::Bool(s.island.charging));
@@ -447,15 +447,19 @@ bool SettingsStore::Save() const {
     std::string bytes((size_t)n, '\0');
     WideCharToMultiByte(CP_UTF8, 0, t.c_str(), (int)t.size(), &bytes[0], n, nullptr, nullptr);
 
-    // Write to a temp file and swap it in, so a crash never leaves half a file.
-    std::wstring tmp = path_ + L".tmp";
+    // Write to a temp file and swap it in, so a crash never leaves half a file. Its name is
+    // this process's own: the settings app swaps in a file of its own at the same time.
+    std::wstring tmp = path_ + L"." + std::to_wstring(GetCurrentProcessId()) + L".tmp";
     HANDLE h = CreateFileW(tmp.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (h == INVALID_HANDLE_VALUE) return false;
     DWORD written = 0;
     bool ok = WriteFile(h, bytes.data(), (DWORD)bytes.size(), &written, nullptr) && written == bytes.size();
     CloseHandle(h);
     ok = ok && MoveFileExW(tmp.c_str(), path_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH);
-    if (!ok) Log(L"settings: saving %ls failed: %lu", path_.c_str(), GetLastError());
+    if (!ok) {
+        Log(L"settings: saving %ls failed: %lu", path_.c_str(), GetLastError());
+        DeleteFileW(tmp.c_str());
+    }
     return ok;
 }
 
@@ -484,8 +488,10 @@ void SettingsStore::Write(bool enabled) {
     v->genieMeshQuality = s_.genie.meshQuality;
     v->cornerRadius = s_.genie.cornerRadius;
     v->cornerSmoothing = s_.genie.cornerSmoothing;
-    v->windowCorners = s_.genie.windowCorners ? 1 : 0;
-    v->smoothCorners = s_.genie.smoothCorners ? 1 : 0;
+    // Round corners on every program's windows, always the smooth ones Windows draws (the
+    // switches for both are gone; DLLs still read them).
+    v->windowCorners = 1;
+    v->smoothCorners = 1;
     v->hideBorders = s_.genie.windowBorders ? 0 : 1;
     v->appIcons = s_.appIcons ? 1 : 0;
     v->reduceMotion = ReduceMotion() ? 1 : 0;

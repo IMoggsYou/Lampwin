@@ -12,10 +12,11 @@
 // Windows 11's corners. Maximized and full-screen windows stay square, and Windows 11's
 // own 8 px circular corner is left to DWM.
 //
-// With smooth corners (the default) nothing is cut: Windows itself draws every corner,
-// anti-aliased, 8 px, and MacWin asks it to round the windows it would leave square
-// (UpdateLook). The region below only gives other radii and the squircle, whose edge is
-// whole pixels. Borders turned off: no DWM border on any window, no edge on the shade.
+// The host now always asks for smooth corners, so nothing is cut: Windows itself draws every
+// corner, anti-aliased, 8 px, and MacWin asks it to round the windows it would leave square
+// (UpdateLook). The region below is kept for older settings files' sake (a host that sets
+// smoothCorners to 0) and gives other radii and the squircle, whose edge is whole pixels.
+// Borders turned off: no DWM border on any window, no edge on the shade.
 //
 // The region is the client area, which a region does not change (DWM's extended frame
 // bounds collapse to the window rect once a region is set). It follows the window from

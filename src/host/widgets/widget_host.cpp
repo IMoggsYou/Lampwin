@@ -566,6 +566,7 @@ void Host::ApplyUpdate(Update* u) {
     rtl_ = u->rtl;
     texts_ = std::move(u->texts);
     config_ = u->config;
+    if (config_.youtube != before.youtube && media_.Running()) media_.SetYouTube(config_.youtube);
 
     std::vector<std::unique_ptr<Widget>> next;
     std::vector<Widget*> changed;   // a new look, note or picture: drawn again
@@ -1151,7 +1152,7 @@ void Host::MediaChanged() {
     bool shown = false;
     for (const auto& w : widgets_) shown = shown || (w->shown && w->item.kind == Kind::NowPlaying);
     if (shown && !locked_ && !displayOff_) {
-        media_.Start(control_, WM_APP_MEDIA);
+        media_.Start(control_, WM_APP_MEDIA, false, config_.youtube);
     } else {
         media_.Stop();
     }

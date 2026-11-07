@@ -204,6 +204,11 @@ public partial class MainWindow : Window
         UpdateStatus();
     }
 
+    /// <summary>The pages' ids in the sidebar's order (for --page when this window is already open).</summary>
+    internal static readonly string[] PageIds =
+        ["animations", "corners", "widgets", "island", "desktop", "icons", "general", "exclusions", "privacy", "tweaks",
+         "about"];
+
     /// <summary>Index of a page by its id ("general") or its title in any language.</summary>
     public int PageIndex(string? page)
     {
@@ -356,7 +361,13 @@ public partial class MainWindow : Window
     private void BounceIcon(NavItem item)
     {
         if (Nav.ItemContainerGenerator.ContainerFromItem(item) is not ListBoxItem box) return;
-        if (FindTile(box) is not { RenderTransform: ScaleTransform scale }) return;
+        if (FindTile(box) is not { } tile) return;
+        // A transform from the item template is shared and frozen: animate a copy of its own.
+        if (tile.RenderTransform is not ScaleTransform { IsFrozen: false } scale)
+        {
+            scale = new ScaleTransform();
+            tile.RenderTransform = scale;
+        }
         var bounce = new DoubleAnimation(0.78, 1, TimeSpan.FromMilliseconds(420))
         {
             EasingFunction = new BackEase { EasingMode = EasingMode.EaseOut, Amplitude = 0.7 },

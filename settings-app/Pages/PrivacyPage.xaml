@@ -11,6 +11,10 @@
             <StackPanel>
                 <c:SettingRow x:Name="SummaryRow" Title="{l:Tr settings.privacy.summary.title}">
                     <StackPanel Orientation="Horizontal">
+                        <!-- After a change the taskbar, Start or File Explorer only show once Explorer restarts -->
+                        <Button x:Name="ExplorerButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
+                                Visibility="Collapsed" Content="{l:Tr settings.privacy.restartExplorer}"
+                                Click="RestartExplorer_Click"/>
                         <Button x:Name="DiscardButton" Style="{StaticResource MacButton}" Margin="0,0,8,0"
                                 Content="{l:Tr settings.privacy.discard}" Click="Discard_Click"/>
                         <Button x:Name="ApplyButton" Style="{StaticResource MacPrimaryButton}"

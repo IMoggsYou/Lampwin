@@ -17,6 +17,7 @@ struct Config {
     // What it shows.
     bool music = true, calls = true, mirroring = true, charging = true, lowBattery = true, airplane = true,
          mobileData = true, silent = true, output = true;
+    bool youtube = false;        // YouTube videos count as music (the widget's Now playing too)
     bool hoverExpand = true;     // the pointer over it shows more; else a click does
     bool followActive = false;   // on the monitor of the window in front, else the main one
 

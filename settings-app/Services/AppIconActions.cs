@@ -218,7 +218,8 @@ public static class AppIconActions
         }
         catch (Exception ex)
         {
-            App.Report(ex);
+            // Quiet work at start: a failure goes to the log, not in the way; next start tries again.
+            App.Log($"Icons: couldn't add the bundled icons: {ex}");
         }
         finally
         {

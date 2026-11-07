@@ -2,6 +2,7 @@
 // MacWin - Copyright (C) 2026 IMoggsYou. Created by IMoggsYou: https://github.com/IMoggsYou/Lampwin
 
 using System.IO;
+using System.Threading;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -115,12 +116,11 @@ public sealed class SettingsStore
             m.MeshQuality = Num(genie, "meshQuality", 48);
             m.CornerRadius = Num(genie, "cornerRadius", 15);
             m.CornerSmoothing = Num(genie, "cornerSmoothing", 100);
-            m.WindowCorners = Bool(genie, "windowCorners", true);
-            m.SmoothCorners = Bool(genie, "smoothCorners", true);
             m.WindowBorders = Bool(genie, "windowBorders", true);
             var island = _root["island"] as JsonObject ?? new JsonObject();
             m.IslandEnabled = Bool(island, "enabled", true);
             m.IslandMusic = Bool(island, "music", true);
+            m.IslandYouTube = Bool(island, "youtube", false);
             m.IslandCalls = Bool(island, "calls", true);
             m.IslandMirroring = Bool(island, "mirroring", true);
             m.IslandCharging = Bool(island, "charging", true);
@@ -222,12 +222,14 @@ public sealed class SettingsStore
         genie["meshQuality"] = (int)m.MeshQuality;
         genie["cornerRadius"] = (int)m.CornerRadius;
         genie["cornerSmoothing"] = (int)m.CornerSmoothing;
-        genie["windowCorners"] = m.WindowCorners;
-        genie["smoothCorners"] = m.SmoothCorners;
+        // Every program's windows always get Windows' smooth corners now: no switches left.
+        genie.Remove("windowCorners");
+        genie.Remove("smoothCorners");
         genie["windowBorders"] = m.WindowBorders;
         var island = _root["island"] as JsonObject ?? new JsonObject();
         island["enabled"] = m.IslandEnabled;
         island["music"] = m.IslandMusic;
+        island["youtube"] = m.IslandYouTube;
         island["calls"] = m.IslandCalls;
         island["mirroring"] = m.IslandMirroring;
         island["charging"] = m.IslandCharging;
@@ -265,18 +267,28 @@ public sealed class SettingsStore
         appearance["nightStart"] = m.NightStart;
         _root["appearance"] = appearance;
 
+        // A temporary file of our own: MacWin writes settings.json.tmp when it saves.
+        string tmp = $"{FilePath}.{Environment.ProcessId}.tmp";
         try
         {
-            string tmp = FilePath + ".tmp";
             File.WriteAllText(tmp, _root.ToJsonString(WriteOptions) + "\n");
             _lastWrite = DateTime.UtcNow;
             File.Move(tmp, FilePath, overwrite: true);
             _lastWrite = DateTime.UtcNow;
             HostControl.NotifyReload();
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // The file is briefly locked (MacWin writing it): try again shortly.
+            // The file is briefly locked or about to be replaced (MacWin reading or writing it,
+            // a virus scanner): try again shortly, nothing is lost.
+            App.Log($"Settings: saving again shortly ({ex.Message})");
+            try
+            {
+                File.Delete(tmp);
+            }
+            catch (Exception cleanup) when (cleanup is IOException or UnauthorizedAccessException)
+            {
+            }
             _saveTimer.Start();
         }
     }
@@ -410,12 +422,29 @@ public sealed class SettingsStore
 
     private static JsonObject ReadRoot()
     {
-        try
+        // MacWin may be swapping in a new file this very moment: a few tries, and shared for
+        // deleting so its swap doesn't fail because of this read. Giving up too early would
+        // start from empty settings.
+        for (int attempt = 0; ; attempt++)
         {
-            if (File.Exists(FilePath) && JsonNode.Parse(File.ReadAllText(FilePath)) is JsonObject obj) return obj;
+            try
+            {
+                if (!File.Exists(FilePath)) return new JsonObject();
+                using var stream = new FileStream(FilePath, FileMode.Open, FileAccess.Read,
+                                                  FileShare.ReadWrite | FileShare.Delete);
+                using var reader = new StreamReader(stream);
+                return JsonNode.Parse(reader.ReadToEnd()) as JsonObject ?? new JsonObject();
+            }
+            catch (Exception ex) when (attempt < 5 && ex is IOException or UnauthorizedAccessException)
+            {
+                Thread.Sleep(40);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+            {
+                App.Log($"Settings: can't read {FilePath}: {ex.Message}");
+                return new JsonObject();
+            }
         }
-        catch (Exception ex) when (ex is IOException or JsonException) { }
-        return new JsonObject();
     }
 
     private static bool Bool(JsonObject o, string key, bool fallback) =>

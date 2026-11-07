@@ -87,6 +87,7 @@ struct TextOptions {
     bool wrap = false;
     bool rtl = false;
     float lineSpacing = 0;   // 0: the font's own
+    bool trim = true;        // too long: cut with an ellipsis; else drawn whole (the caller clips)
 };
 void DrawText(Graphics& g, ID2D1RenderTarget* rt, const std::wstring& text, IDWriteTextFormat* font,
               const D2D1_RECT_F& box, const D2D1_COLOR_F& color, const TextOptions& o = {});

@@ -43,9 +43,7 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
   Lampwin też przestaje animować.
 - ⬛ **Gładkie rogi** — wygładzone zaokrąglenie samego Windows w każdym programie, także
   w oknach, które Windows zostawia kwadratowe, i przełącznik cienkiego obramowania okien.
-  Albo squircle z macOS o dowolnym promieniu dla animacji, okna ustawień i programów,
-  które same rysują pasek tytułu (Chrome, Edge, Brave, Discord, VS Code, Spotify…),
-  z dopasowanym cieniem.
+  Squircle z macOS o dowolnym promieniu jest używany w animacji i w oknie ustawień.
 - 🗓️ **Widżety na pulpicie** — zegar, kalendarz, pogoda, wskaźniki systemu, bateria,
   szybkość sieci, notatka, zdjęcie, odliczanie do wybranego dnia i to, co teraz gra, jasne
   albo ciemne. Leżą na
@@ -60,6 +58,9 @@ Windows wysyła mniej danych o Tobie. Lekki, darmowy i open source.
 - 🏝️ **Wyspa** — czarna pigułka u góry ekranu, jak Dynamic Island w iPhonie: muzyka
   z okładką i przyciskami, rozmowy (Discord, Signal, Teams…), dublowanie ekranu i krótkie
   powiadomienia o ładowaniu, wyciszeniu, słuchawkach i trybie samolotowym.
+  Muzyka pochodzi tylko ze Spotify, Apple Music, Amazon Music, TIDAL i YouTube Music (filmy
+  z YouTube tylko przy przełączniku YouTube w ustawieniach Wyspy, domyślnie wyłączonym);
+  filmy, Netflix, rozmowy i inne dźwięki nie są pokazywane jako muzyka.
 - 🪄 **Przegląd okien i gorące narożniki** — wszystkie okna obok siebie jak w Exposé
   (**Ctrl+Alt+↑**, menu w zasobniku albo gorący narożnik); wsuń wskaźnik w narożnik
   ekranu, żeby pokazać pulpit, widok zadań, menu Start albo powiadomienia, zablokować
@@ -196,7 +197,10 @@ Ikony aplikacji, strony Prywatność i Ulepszenia, gorące narożniki, przegląd
 harmonogram jasny / ciemny (wschód i zachód słońca są liczone na Twoim komputerze) i
 pozostałe widżety działają w całości na Twoim komputerze.
 Widżet Teraz gra pokazuje to samo co przyciski multimediów Windows (utwór, wykonawcę,
-aplikację); odczytuje to na Twoim komputerze i tylko wtedy, gdy widżet jest na pulpicie.
+aplikację), z tych samych aplikacji muzycznych co Wyspa; odczytuje to na Twoim komputerze
+i tylko wtedy, gdy widżet jest na pulpicie. Słupki poziomu na Wyspie pokazują dźwięk
+aplikacji muzycznej (a podczas rozmowy poziom mikrofonu), odczytywany na Twoim komputerze
+tylko wtedy, gdy słupki są widoczne; żaden dźwięk nie jest nagrywany, zapisywany ani wysyłany.
 
 ## Pytania i odpowiedzi
 
@@ -228,8 +232,8 @@ przy każdym logowaniu.
 <details>
 <summary><b>Dlaczego Eksplorator plików i Notatnik zostają przy rogach Windows 11?</b></summary>
 
-Okna z systemowym paskiem tytułu psują się po zmianie kształtu. Lampwin daje squircle
-dżinowi, swojemu oknu i programom, które same rysują pasek tytułu.
+Okna z systemowym paskiem tytułu psują się po zmianie kształtu. Dlatego każdy program ma
+rogi zaokrąglone przez Windows; Lampwin daje squircle dżinowi i swojemu oknu ustawień.
 </details>
 
 <details>

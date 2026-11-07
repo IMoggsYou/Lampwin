@@ -10,6 +10,7 @@
 #include <memory>
 #include <vector>
 #include "host/i18n.h"
+#include "host/island/island_audio.h"
 #include "host/island/island_draw.h"
 #include "host/island/island_sources.h"
 #include "host/log.h"
@@ -190,6 +191,17 @@ private:
     Audio audio_;
     Watcher watcher_;
     widgets::MediaWatcher media_;
+    // The sound behind the level bars: the music app's own, the microphone's in a call. Only
+    // while those bars show; nothing is recorded or kept.
+    Spectrum spectrum_;
+    MicMeter mic_;
+    bool micOn_ = false;
+    std::wstring soundSource_;   // the app the spectrum listens to
+    DWORD soundPid_ = 0;
+    float micLevels_[5] = {};    // the last five readings of the microphone, newest last
+    float micStep_ = 0;
+    void FollowSound();
+    bool Levels(float out[5]) const;
 
     // What goes on.
     widgets::MediaInfo music_;
@@ -235,6 +247,8 @@ private:
 };
 
 Island::~Island() {
+    spectrum_.Stop();
+    mic_.Stop();
     media_.Stop();
     watcher_.Stop();
     audio_.Stop();
@@ -275,7 +289,7 @@ bool Island::Create() {
     ReadConfig();
     audio_.Start(hwnd_, WM_APP_CHANGE);
     watcher_.Start(hwnd_, WM_APP_CHANGE);
-    media_.Start(hwnd_, WM_APP_MEDIA, true);
+    media_.Start(hwnd_, WM_APP_MEDIA, true, config_.youtube);
     ReadEverything();
     Log(L"island: on (battery %d, wireless %d, mobile broadband %d)", caps_.battery, caps_.wireless, caps_.cellular);
     Update();
@@ -339,7 +353,41 @@ void Island::OnMedia(widgets::MediaInfo* info) {
         art_ = music_.art ? DecodeCover(g_.Wic(), *music_.art, 128) : nullptr;
         accent_ = AccentOf(art_.get());
     }
+    // Another app plays: find its process again (looked up only now, not every frame).
+    if (music_.source != soundSource_) {
+        soundSource_ = music_.source;
+        soundPid_ = 0;
+    }
     Update();
+}
+
+// Listens to the music app while its bars show, and to the microphone during a call; both
+// stop as soon as the bars are gone.
+void Island::FollowSound() {
+    const bool music = visible_ && !suppressed_ && shown_ == View::Music && music_.playing;
+    if (music) {
+        if (!soundPid_ && !soundSource_.empty()) soundPid_ = AudioProcessFor(soundSource_);
+        spectrum_.Start(soundPid_);
+    } else {
+        spectrum_.Stop();
+    }
+    const bool call = visible_ && !suppressed_ && shown_ == View::Call && !micMuted_;
+    if (call && !micOn_) micOn_ = mic_.Start();
+    if (!call && micOn_) {
+        mic_.Stop();
+        micOn_ = false;
+        for (float& v : micLevels_) v = 0;
+    }
+}
+
+// The bars' heights from the sound, if there is any to read.
+bool Island::Levels(float out[5]) const {
+    if (shown_ == View::Music) return spectrum_.Read(out);
+    if (shown_ == View::Call && micOn_) {
+        for (int i = 0; i < 5; ++i) out[i] = micLevels_[i];
+        return true;
+    }
+    return false;
 }
 
 void Island::Note(View view, ULONGLONG ms) {
@@ -465,6 +513,7 @@ void Island::Update() {
         ShowWindow(hwnd_, SW_SHOWNOACTIVATE);
         SetWindowPos(hwnd_, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
     }
+    FollowSound();
     if (shown_ != View::None) {
         const D2D1_SIZE_F size = Size(g_, SceneFor(shown_, expanded_));
         w_.target = size.width;
@@ -535,6 +584,7 @@ Scene Island::SceneFor(View view, bool expanded) const {
     s.output = output_;
     s.headphones = headphones_;
     s.live = std::min(std::max(live_.x, 0.0f), 1.0f);
+    if (view == shown_) s.hasLevels = Levels(s.levels);
     if (motion_) {
         s.since = time_ - faceStart_;
         s.hover = lit_;
@@ -563,6 +613,17 @@ void Island::Animate() {
     last_ = now;
     dt = std::min(dt, 1.0f / 30);
     time_ += dt;
+    // The microphone's level walks along the bars, a new reading every 70 ms: the call's voice
+    // seen as it goes, rather than five bars jumping together. A square root, because a
+    // speaking voice peaks far below full scale.
+    if (micOn_) {
+        micStep_ += dt;
+        if (micStep_ >= 0.07f) {
+            micStep_ = 0;
+            for (int i = 0; i < 4; ++i) micLevels_[i] = micLevels_[i + 1];
+            micLevels_[4] = std::min(sqrtf(mic_.Peak()) * 1.3f, 1.0f);
+        }
+    }
     // A few small steps: the springs stay stable at any frame rate.
     live_.target = BarsLive() ? 1.0f : 0.0f;
     hoverAmount_.target = hover_ != Action::None ? 1.0f : 0.0f;
@@ -585,11 +646,14 @@ void Island::Animate() {
         frameMs_ = 0;
         last_.QuadPart = 0;
         ShowWindow(hwnd_, SW_HIDE);
+        FollowSound();
         return;
     }
     Render();
-    // Smooth while it moves; the level bars (and the song's progress under them) need fewer.
-    const UINT pace = moving ? 15 : BarsLive() ? 33 : 0;
+    // Smooth while it moves; the level bars (and the song's progress under them) and a title
+    // gliding along need fewer.
+    const bool steady = BarsLive() || (shown_ != View::None && Scrolls(g_, SceneFor(shown_, expanded_)));
+    const UINT pace = moving ? 15 : steady ? 33 : 0;
     if (pace != frameMs_) {
         frameMs_ = pace;
         if (pace) SetTimer(hwnd_, kFrameTimer, pace, nullptr);
@@ -621,8 +685,11 @@ void Island::Render() {
                           layer.get());
         }
         const Scene s = SceneFor(shown_, expanded_);
-        const float w = std::max(w_.x, 24.0f), h = std::max(h_.x, 20.0f);
-        const float cx = kBoxW / 2;
+        // Its edges on whole pixels: sharp, not smeared over two.
+        const float left = roundf((kBoxW / 2 - std::max(w_.x, 24.0f) / 2) * unit_) / unit_;
+        const float right = roundf((kBoxW / 2 + std::max(w_.x, 24.0f) / 2) * unit_) / unit_;
+        const float w = right - left, h = roundf(std::max(h_.x, 20.0f) * unit_) / unit_;
+        const float cx = (left + right) / 2;
         // The bubble comes out from under the island's edge.
         if (bubbleIn_.x > 0.01f && bubble_ != View::None) {
             const float in = std::min(std::max(bubbleIn_.x, 0.0f), 1.2f);
@@ -687,13 +754,18 @@ void Island::Click(POINT px) {
             if (Expandable(shown_) && (!expanded_ || !config_.hoverExpand)) expanded_ = !expanded_;
             break;
         case Action::PlayPause:
-            PressMediaKey(VK_MEDIA_PLAY_PAUSE);
+            // To the app shown, not to whatever Windows' media keys would reach (a film, say).
+            if (!media_.Send(widgets::MediaCommand::PlayPause)) PressMediaKey(VK_MEDIA_PLAY_PAUSE);
             music_.playing = !music_.playing;   // Windows tells the truth in a moment
             playStart_ = time_;
             if (music_.playing) musicSeen_ = GetTickCount64();
             break;
-        case Action::Next: PressMediaKey(VK_MEDIA_NEXT_TRACK); break;
-        case Action::Previous: PressMediaKey(VK_MEDIA_PREV_TRACK); break;
+        case Action::Next:
+            if (!media_.Send(widgets::MediaCommand::Next)) PressMediaKey(VK_MEDIA_NEXT_TRACK);
+            break;
+        case Action::Previous:
+            if (!media_.Send(widgets::MediaCommand::Previous)) PressMediaKey(VK_MEDIA_PREV_TRACK);
+            break;
         case Action::MicMute:
             audio_.SetMicMuted(!micMuted_);
             micMuted_ = audio_.MicMuted();
@@ -739,6 +811,7 @@ LRESULT Island::Handle(UINT m, WPARAM wp, LPARAM lp) {
     switch (m) {
         case WM_APP_CONFIG:
             ReadConfig();
+            media_.SetYouTube(config_.youtube);
             caps_ = DetectCapabilities();
             if (visible_) Place();
             Update();
@@ -910,6 +983,10 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
     media.artist = L"The Lanterns";
     media.app = L"Spotify";
     media.duration = 211 * 10000000LL;
+    // A short title (the pill narrows to it) and one too long for it (it glides).
+    widgets::MediaInfo shortSong = media, longSong = media;
+    shortSong.title = L"Halo";
+    longSong.title = L"The Long Way Home Through the Northern Lights (Extended Night Drive Mix)";
     CallInfo call = {true, L"Discord", L"", 0, true};
     MirrorInfo mirror = {true, true, L"Living Room TV"};
 
@@ -918,8 +995,10 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
         bool expanded;
         View bubble = View::None;
         bool micMuted = false;
+        const widgets::MediaInfo* song = nullptr;
     } samples[] = {
-        {View::Music, false},           {View::Music, false, View::Call}, {View::Call, false},
+        {View::Music, false},           {View::Music, false, View::None, false, &shortSong},
+        {View::Music, false, View::None, false, &longSong}, {View::Music, false, View::Call}, {View::Call, false},
         {View::Mirroring, false},       {View::Charging, false},          {View::LowBattery, false},
         {View::Silent, false},          {View::Sound, false},             {View::AirplaneOff, false},
         {View::Output, false},          {View::Music, true},              {View::Call, true},
@@ -927,7 +1006,7 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
         {View::MobileData, false},
     };
 
-    auto make = [&](View view, bool expanded, View bubble, bool micMuted) {
+    auto make = [&](View view, bool expanded, View bubble, bool micMuted, const widgets::MediaInfo* song) {
         Scene s;
         s.view = view;
         s.expanded = expanded;
@@ -935,7 +1014,7 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
         s.time = 0.7f;
         s.texts = &texts;
         s.rtl = i18n::IsRightToLeft();
-        s.media = &media;
+        s.media = song ? song : &media;
         s.position = 50 * 10000000LL;
         s.call = &call;
         s.micMuted = micMuted;
@@ -967,7 +1046,7 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
     backdrop(rt, W, H);
     float x = 20, y = 20, rowH = 0;
     for (const Sample& sample : samples) {
-        const Scene s = make(sample.view, sample.expanded, sample.bubble, sample.micMuted);
+        const Scene s = make(sample.view, sample.expanded, sample.bubble, sample.micMuted, sample.song);
         const D2D1_SIZE_F size = Size(g, s);
         const float total = size.width + (s.bubble != View::None ? kBubbleGap + kBubble : 0);
         if (x + total > W - 20) {
@@ -990,8 +1069,10 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
     struct Motion {
         View view;
         bool expanded;
-        bool swap;   // play and pause instead of the view coming in
-    } motions[] = {{View::Music, false, false}, {View::Music, true, false}, {View::Music, true, true},
+        bool swap;    // play and pause instead of the view coming in
+        bool glide;   // a long title gliding along (seconds 0 to 7 instead)
+    } motions[] = {{View::Music, false, false, true}, {View::Music, true, false, true},
+                   {View::Music, false, false}, {View::Music, true, false}, {View::Music, true, true},
                    {View::Call, false, false},  {View::Call, true, false},  {View::Charging, false, false},
                    {View::Silent, false, false}, {View::AirplaneOff, false, false}, {View::Output, false, false},
                    {View::MobileData, false, false}};
@@ -1002,12 +1083,12 @@ int IslandSnapshot(const std::wstring& dir, const std::wstring& language) {
     backdrop(rt, MW, MH);
     y = 20;
     for (const Motion& m : motions) {
-        Scene s = make(m.view, m.expanded, View::None, false);
+        Scene s = make(m.view, m.expanded, View::None, false, m.glide ? &longSong : nullptr);
         const D2D1_SIZE_F size = Size(g, s);
         for (size_t i = 0; i < ARRAYSIZE(times); ++i) {
             if (m.swap) s.playSwap = std::min(times[i] / 0.42f, 1.0f);
-            else s.since = times[i];
-            s.time = 0.7f + times[i];
+            else if (!m.glide) s.since = times[i];
+            s.time = m.glide ? i * 1.0f : 0.7f + times[i];
             Draw(g, rt, s, 20 + 380.0f * i + 180, y, size.width, size.height, 1, nullptr);
         }
         y += 196;

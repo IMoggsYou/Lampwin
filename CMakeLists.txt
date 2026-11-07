@@ -101,6 +101,7 @@ if(MACWIN_BITS EQUAL 64)
     src/host/desktop/hot_corners.cpp
     src/host/desktop/overview.cpp
     src/host/desktop/sun.cpp
+    src/host/island/island_audio.cpp
     src/host/island/island_draw.cpp
     src/host/island/island_glyphs.cpp
     src/host/island/island_host.cpp

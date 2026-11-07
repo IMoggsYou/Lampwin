@@ -29,14 +29,11 @@ struct GenieSettings {
     int unhideDurationMs = 450;
     int meshQuality = 48;
     // Window corners: radius at 100 % scaling and Figma-style smoothing in percent
-    // (0 = Windows 11's circular corner, 100 = macOS squircle). windowCorners gives real
-    // windows that shape; the genie keeps each window's own corner (see IpcServer).
+    // (0 = Windows 11's circular corner, 100 = macOS squircle) for the settings window. Every
+    // other program's windows always get the round corners Windows draws (smooth, 8 px), also
+    // the ones Windows leaves square; the genie keeps each window's own corner (see IpcServer).
     int cornerRadius = 15;
     int cornerSmoothing = 100;
-    bool windowCorners = true;
-    // Corners drawn by Windows: perfectly smooth, in every program, 8 px (the radius and
-    // smoothing above then only shape the settings window). Off: MacWin's own region.
-    bool smoothCorners = true;
     // The 1 px line Windows (or, on a cut window, the shade) draws around every window.
     bool windowBorders = true;
     std::vector<std::wstring> excluded;

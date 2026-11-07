@@ -64,8 +64,10 @@ public static partial class PrivacyCatalog
             [UserValue(@"Software\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy", "HasAccepted", 0, 1)]),
 
         // Suggestions and tips
-        new("startRecommendations", "suggestions", [UserValue(ExplorerAdvanced, "Start_IrisRecommendations", 0, 1)]),
-        new("accountNotifications", "suggestions", [UserValue(ExplorerAdvanced, "Start_AccountNotifications", 0, 1)]),
+        new("startRecommendations", "suggestions", [UserValue(ExplorerAdvanced, "Start_IrisRecommendations", 0, 1)],
+            Explorer: true),
+        new("accountNotifications", "suggestions", [UserValue(ExplorerAdvanced, "Start_AccountNotifications", 0, 1)],
+            Explorer: true),
         new("settingsSuggestions", "suggestions",
             [UserValue(ContentDelivery, "SubscribedContent-338393Enabled", 0, 1),
              UserValue(ContentDelivery, "SubscribedContent-353694Enabled", 0, 1),
@@ -76,20 +78,28 @@ public static partial class PrivacyCatalog
         new("welcome", "suggestions",
             [UserValue(ContentDelivery, "SubscribedContent-310093Enabled", 0, 1),
              UserValue(@"Software\Microsoft\Windows\CurrentVersion\UserProfileEngagement", "ScoobeSystemSettingEnabled", 0, 1)]),
+        // Windows installing promoted apps by itself (SystemPaneSuggestions is Windows 10's and
+        // stays for the backups that have it; the Start menu's own suggestions are
+        // startRecommendations).
         new("suggestedApps", "suggestions",
             [UserValue(ContentDelivery, "SilentInstalledAppsEnabled", 0, 1),
              UserValue(ContentDelivery, "SystemPaneSuggestionsEnabled", 0, 1),
              UserValue(ContentDelivery, "PreInstalledAppsEnabled", 0, 1),
              UserValue(ContentDelivery, "OemPreInstalledAppsEnabled", 0, 1)]),
+        // Windows Spotlight brings its own facts with each picture: these tips only exist over
+        // the user's own picture or slideshow.
         new("lockScreenTips", "suggestions",
             [UserValue(ContentDelivery, "RotatingLockScreenOverlayEnabled", 0, 1),
-             UserValue(ContentDelivery, "SubscribedContent-338387Enabled", 0, 1)]),
-        new("explorerAds", "suggestions", [UserValue(ExplorerAdvanced, "ShowSyncProviderNotifications", 0, 1)]),
+             UserValue(ContentDelivery, "SubscribedContent-338387Enabled", 0, 1)],
+            Needs: PrivacyNeed.OwnLockScreenPicture),
+        new("explorerAds", "suggestions", [UserValue(ExplorerAdvanced, "ShowSyncProviderNotifications", 0, 1)],
+            Explorer: true),
 
         // Search and activity
         new("webSearch", "search",
             [UserValue(@"Software\Policies\Microsoft\Windows\Explorer", "DisableSearchBoxSuggestions", 1, null),
-             UserValue(@"Software\Microsoft\Windows\CurrentVersion\Search", "BingSearchEnabled", 0, null)]),
+             UserValue(@"Software\Microsoft\Windows\CurrentVersion\Search", "BingSearchEnabled", 0, null)],
+            Explorer: true),
         new("searchHighlights", "search", [UserValue(SearchSettings, "IsDynamicSearchBoxEnabled", 0, 1)]),
         new("searchHistory", "search", [UserValue(SearchSettings, "IsDeviceSearchHistoryEnabled", 0, 1)]),
         new("cloudSearch", "search",
@@ -99,19 +109,28 @@ public static partial class PrivacyCatalog
             [MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\System", "PublishUserActivities", 0),
              MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\System", "UploadUserActivities", 0)]),
 
-        // Copilot and AI
+        // Copilot and AI. The Copilot in Windows 11 23H2 (a side pane) obeys the policy; since
+        // 24H2 Copilot is an app of its own, which only goes away when it is uninstalled.
         new("copilot", "ai",
             [UserValue(@"Software\Policies\Microsoft\Windows\WindowsCopilot", "TurnOffWindowsCopilot", 1, null),
-             UserValue(ExplorerAdvanced, "ShowCopilotButton", 0, null)]),
+             UserValue(ExplorerAdvanced, "ShowCopilotButton", 0, null)],
+            Explorer: true),
+        new("copilotApp", "ai", [new PackageAction("Microsoft.Copilot_8wekyb3d8bbwe", "9NHT9RB2F4HD")]),
+        // Recall: no snapshots, and (24H2 and later) the feature itself removed.
         new("recall", "ai",
             [UserValue(WindowsAI, "DisableAIDataAnalysis", 1, null),
-             MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 1)]),
+             MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableAIDataAnalysis", 1),
+             MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "AllowRecallEnablement", 0)],
+            Needs: PrivacyNeed.CopilotPlus),
         new("clickToDo", "ai",
             [UserValue(WindowsAI, "DisableClickToDo", 1, null),
-             MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableClickToDo", 1)]),
+             MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\WindowsAI", "DisableClickToDo", 1)],
+            Needs: PrivacyNeed.CopilotPlus),
 
-        // Other
-        new("windowsWidgets", "other", [MachinePolicy(@"SOFTWARE\Policies\Microsoft\Dsh", "AllowNewsAndInterests", 0)]),
+        // Other. The Widgets button is protected from other programs since 2024; the policy
+        // is what turns Widgets off, once Explorer restarts.
+        new("windowsWidgets", "other", [MachinePolicy(@"SOFTWARE\Policies\Microsoft\Dsh", "AllowNewsAndInterests", 0)],
+            Explorer: true),
         new("deliveryOptimization", "other",
             [MachinePolicy(@"SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization", "DODownloadMode", 0)]),
     ];
