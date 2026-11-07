@@ -25,9 +25,11 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 - The island's level bars move with the music itself: the sound of the music app, split into
   bass to treble, and the microphone's level during a call. The sound is only read while the
   bars show; nothing is recorded or sent anywhere.
-- The music pill is as wide as its song needs: a short title gets a narrow pill, a long one
-  glides along smoothly instead of being cut. The cover and the level bars sit the same
-  distance from both ends, and the island's edges fall on whole pixels.
+- Every pill of the island is as wide as what is on it – music, a call, mirroring, charging,
+  low battery, sound on or off, airplane mode, new headphones – with the same margins at both
+  ends, instead of fixed widths with empty black between. A long song title glides along
+  smoothly instead of being cut, and the island's edges fall on whole pixels.
+- The headphones symbol is drawn anew: one smooth band joined to round cups.
 - Window corners: the switches for smooth corners and for other programs' windows are gone.
   Every program's windows always get the smooth round corners Windows draws, also the ones
   Windows leaves square. The tray menu's "Window corners on" went with them.
