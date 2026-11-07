@@ -40,7 +40,8 @@ internal static class Native
     /// Waits for every window that answers: call it off the UI thread.</summary>
     internal static void NotifyShellSettingsChanged()
     {
-        foreach (string area in new[] { "TraySettings", "ShellState" })
+        // "Policy": Explorer reads the policies again (the Widgets button, the search box).
+        foreach (string area in new[] { "TraySettings", "ShellState", "Policy" })
             SendMessageTimeout((IntPtr)HWND_BROADCAST, WM_SETTINGCHANGE, IntPtr.Zero, area, SMTO_ABORTIFHUNG, 1000, out _);
         SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST, IntPtr.Zero, IntPtr.Zero);
     }

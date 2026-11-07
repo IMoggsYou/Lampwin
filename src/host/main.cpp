@@ -66,7 +66,6 @@ enum MenuId : UINT {
     ID_SETTINGS = 100,
     ID_ENABLED,
     ID_WIDGETS,
-    ID_CORNERS,
     ID_OVERVIEW,
     ID_DEVMODE,
     ID_OPEN_LOG,
@@ -443,7 +442,9 @@ void App::ApplySettings(bool save) {
 
 // The widgets get their settings and texts as a copy: their thread never reads ours.
 void App::ApplyWidgets() {
-    widgets_.Apply(settings_.Get().widgets, i18n::All(L"host.widgets."), i18n::LocaleName(), i18n::IsRightToLeft());
+    widgets::Config config = settings_.Get().widgets;
+    config.youtube = settings_.Get().island.youtube;   // one choice for the island and the widget
+    widgets_.Apply(config, i18n::All(L"host.widgets."), i18n::LocaleName(), i18n::IsRightToLeft());
 }
 
 // The island too gets a copy, and its texts.
@@ -604,8 +605,6 @@ void App::ShowMenu() {
     }
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     AppendMenuW(menu, MF_STRING | rtl | (s.enabled ? MF_CHECKED : 0), ID_ENABLED, i18n::T(L"host.menu.enabled").c_str());
-    AppendMenuW(menu, MF_STRING | rtl | (s.genie.windowCorners ? MF_CHECKED : 0), ID_CORNERS,
-                i18n::T(L"host.menu.corners").c_str());
     if (!s.widgets.items.empty()) {
         AppendMenuW(menu, MF_STRING | rtl | (s.widgets.show ? MF_CHECKED : 0), ID_WIDGETS,
                     i18n::T(L"host.menu.widgets").c_str());
@@ -641,10 +640,6 @@ void App::ShowMenu() {
             m.widgets.show = !m.widgets.show;
             settings_.Save();
             ApplyWidgets();
-            break;
-        case ID_CORNERS:
-            m.genie.windowCorners = !m.genie.windowCorners;
-            ApplySettings(true);
             break;
         case ID_OVERVIEW:
             ToggleOverview();

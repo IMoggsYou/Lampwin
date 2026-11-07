@@ -142,7 +142,7 @@ public partial class App : Application
 
     // --page for the window that is already open: the same ids as MainWindow.PageIndex.
     private static int PageIndexOf(string? page) =>
-        page is null ? -1 : Array.IndexOf(new[] { "animations", "corners", "widgets", "icons", "general", "exclusions", "privacy", "about" }, page.ToLowerInvariant());
+        page is null ? -1 : Array.IndexOf(MacWin.Settings.MainWindow.PageIds, page.ToLowerInvariant());
 
     private static string? ArgValue(string[] args, string name)
     {

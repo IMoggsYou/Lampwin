@@ -61,6 +61,8 @@ struct Scene {
     bool rtl = false;
     // Music
     const widgets::MediaInfo* media = nullptr;
+    bool hasLevels = false;            // the sound as it plays, five bands (bass to treble), 0 to 1
+    float levels[5] = {};
     IWICBitmapSource* art = nullptr;   // the cover, premultiplied; nullptr: the music tile
     D2D1_COLOR_F accent = {0.98f, 0.14f, 0.23f, 1};   // the bars: the cover's colour
     INT64 position = 0;                // where the song is now (100 ns)
@@ -104,6 +106,10 @@ void Draw(widgets::Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float cx,
 // The bubble (a second activity), `size` across, centred on (cx, cy).
 void DrawBubble(widgets::Graphics& g, ID2D1RenderTarget* rt, const Scene& s, float cx, float cy, float size,
                 float content);
+
+// Whether something on the island moves by itself (a title too long for its place glides
+// along): frames are needed even when nothing else moves.
+bool Scrolls(widgets::Graphics& g, const Scene& s);
 
 // The colour that stands for a cover in the level bars (its most colourful average).
 D2D1_COLOR_F AccentOf(IWICBitmapSource* art);

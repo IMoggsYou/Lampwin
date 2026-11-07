@@ -115,6 +115,77 @@ internal sealed class WindowsPrivacySystem : IPrivacySystem, IDisposable
             // Best effort: the start type decides after the next restart.
         }
     }
+
+    // Every app package registered for the user has a key here, named after its full name
+    // ("Microsoft.Copilot_1.25.0.0_x64__8wekyb3d8bbwe"): its name, then the publisher id last.
+    private const string Packages =
+        @"Software\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages";
+
+    public bool? IsPackageInstalled(string family)
+    {
+        using var k = _user.OpenSubKey(Packages);
+        if (k is null) return null;
+        int cut = family.LastIndexOf('_');
+        if (cut <= 0) return null;
+        string name = family[..cut] + "_", publisher = "__" + family[(cut + 1)..];
+        return k.GetSubKeyNames().Any(n => n.StartsWith(name, StringComparison.OrdinalIgnoreCase) &&
+                                           n.EndsWith(publisher, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public void RemovePackage(string family)
+    {
+        // What Settings → Apps → Uninstall does, for this user only. The name is checked
+        // first: it goes into a command line.
+        int cut = family.LastIndexOf('_');
+        string name = cut > 0 ? family[..cut] : "";
+        if (name.Length == 0 || !name.All(c => char.IsAsciiLetterOrDigit(c) || c == '.'))
+            throw new InvalidDataException("Bad package name " + family);
+        var (exit, output) = Tools.Run(@"WindowsPowerShell\v1.0\powershell.exe",
+                                       $"-NoProfile -NonInteractive -Command \"Get-AppxPackage -Name '{name}' | Remove-AppxPackage\"",
+                                       TimeSpan.FromMinutes(2));
+        if (exit != 0) throw new InvalidOperationException($"Remove-AppxPackage failed ({exit}): {output.Trim()}");
+    }
+
+    public void OpenStore(string productId)
+    {
+        if (!productId.All(char.IsAsciiLetterOrDigit)) throw new InvalidDataException("Bad Store id " + productId);
+        try
+        {
+            Process.Start(new ProcessStartInfo("ms-windows-store://pdp/?ProductId=" + productId) { UseShellExecute = true });
+        }
+        catch (Win32Exception ex)
+        {
+            throw new InvalidOperationException("The Microsoft Store didn't open: " + ex.Message, ex);
+        }
+    }
+
+    public bool Has(PrivacyNeed need) => need switch
+    {
+        // Recall and Click to Do come with the AI components of a Copilot+ PC.
+        PrivacyNeed.CopilotPlus => HasSystemApp("MicrosoftWindows.Client.AIX_"),
+        // Windows' tips on the lock screen only show over the user's own picture or slideshow.
+        PrivacyNeed.OwnLockScreenPicture =>
+            ReadValue(PrivacyHive.User, @"Software\Microsoft\Windows\CurrentVersion\ContentDeliveryManager",
+                      "RotatingLockScreenEnabled") != RegData.Dword(1),
+        _ => true,
+    };
+
+    private static bool HasSystemApp(string prefix)
+    {
+        try
+        {
+            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "SystemApps");
+            return Directory.Exists(folder) && Directory.EnumerateDirectories(folder, prefix + "*").Any();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Restarts File Explorer (the taskbar and Start too) so it shows what changed:
+    /// Windows starts it again by itself, as the signed-in user.</summary>
+    public static void RestartExplorer() => Tools.Run("taskkill.exe", "/f /im explorer.exe", TimeSpan.FromSeconds(20));
 }
 
 internal static class Tools
@@ -144,8 +215,16 @@ internal static class Tools
             }
             throw new TimeoutException(exe + " did not finish");
         }
-        copy.Wait(timeout);
-        return (p.ExitCode, Decode(output.ToArray()) + error.Result);
+        try
+        {
+            copy.Wait(timeout);
+            return (p.ExitCode, Decode(output.ToArray()) + error.Result);
+        }
+        catch (AggregateException ex) when (ex.InnerException is not null)
+        {
+            // The output pipe broke (the program ended oddly): one error the callers know.
+            throw new InvalidOperationException(exe + ": " + ex.InnerException.Message, ex.InnerException);
+        }
     }
 
     // schtasks writes its XML in UTF-16; its messages (only logged) in the console's code page,
@@ -194,8 +273,13 @@ internal static class PrivacyRunner
             {
                 states[tweak.Id] = engine.GetState(tweak);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException or
-                                       InvalidOperationException or InvalidDataException or Win32Exception or TimeoutException)
+            catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException)
+            {
+                App.Log($"Privacy: not allowed to read {tweak.Id}: {ex.Message}");
+                states[tweak.Id] = TweakState.Denied;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidOperationException or InvalidDataException or
+                                       Win32Exception or TimeoutException)
             {
                 App.Log($"Privacy: can't read {tweak.Id}: {ex.Message}");
                 states[tweak.Id] = TweakState.Unavailable;
@@ -208,20 +292,35 @@ internal static class PrivacyRunner
 
     // Only the Privacy page's switches ever need administrator rights (tests/settings checks
     // that the Tweaks page's don't); the helper takes nothing but those.
+    // The switches that need them go to the helper; the user's own (apps above all, which must
+    // be removed for this user and not for the administrator who answered the prompt) are
+    // changed here.
     public static Task<IReadOnlyList<PrivacyResult>> ApplyAsync(SwitchSet set, IReadOnlyList<PrivacyChange> changes) =>
-        Task.Run(() => AfterChange(set, set == SwitchSet.Privacy && changes.Any(c => c.Tweak.NeedsAdmin) && !IsElevated
-            ? RunElevated("apply", PrivacyCatalog.FormatChanges(changes), changes.Select(c => c.Tweak.Id))
-            : Here(set, engine => engine.Apply(changes))));
+        Task.Run(() =>
+        {
+            var elevated = set == SwitchSet.Privacy && !IsElevated ? changes.Where(c => c.Tweak.NeedsAdmin).ToList() : [];
+            var here = changes.Except(elevated).ToList();
+            var results = new List<PrivacyResult>();
+            if (here.Count > 0) results.AddRange(Here(set, engine => engine.Apply(here)));
+            if (elevated.Count > 0)
+                results.AddRange(RunElevated("apply", PrivacyCatalog.FormatChanges(elevated), elevated.Select(c => c.Tweak.Id)));
+            return AfterChange(results);
+        });
 
     public static Task<IReadOnlyList<PrivacyResult>> RestoreAsync(SwitchSet set) =>
-        Task.Run(() => AfterChange(set, set == SwitchSet.Privacy && NeedsAdminToRestore() && !IsElevated
-            ? RunElevated("restore", null, [""])
-            : Here(set, engine => engine.RestoreAll(set.All))));
+        Task.Run(() =>
+        {
+            bool elevated = set == SwitchSet.Privacy && NeedsAdminToRestore() && !IsElevated;
+            var results = new List<PrivacyResult>(Here(set, engine => engine.RestoreAll(
+                elevated ? set.All.Where(t => !t.NeedsAdmin).ToList() : set.All)));
+            if (elevated) results.AddRange(RunElevated("restore", null, [""]));
+            return AfterChange(results);
+        });
 
-    // Explorer reads the Tweaks page's values when it is told that settings changed.
-    private static IReadOnlyList<PrivacyResult> AfterChange(SwitchSet set, IReadOnlyList<PrivacyResult> results)
+    // Explorer, Start and the taskbar read their settings and policies again when told so.
+    private static IReadOnlyList<PrivacyResult> AfterChange(IReadOnlyList<PrivacyResult> results)
     {
-        if (set.OnMeansChanged && results.Any(r => r.Ok)) Native.NotifyShellSettingsChanged();
+        if (results.Any(r => r.Ok)) Native.NotifyShellSettingsChanged();
         return results;
     }
 
@@ -319,7 +418,10 @@ internal static class PrivacyRunner
         {
             using var system = new WindowsPrivacySystem(sid);
             var engine = new PrivacyEngine(system, new PrivacyBackupFile(backup));
-            results = changes is not null ? engine.Apply(changes) : engine.RestoreAll(PrivacyCatalog.All);
+            // Only switches that need administrator rights: the user's own are changed by the
+            // window that asked, as that user.
+            results = changes is not null ? engine.Apply(changes.Where(c => c.Tweak.NeedsAdmin).ToList())
+                                          : engine.RestoreAll(PrivacyCatalog.All.Where(t => t.NeedsAdmin).ToList());
         }
         catch (Exception ex)
         {

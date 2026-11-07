@@ -52,6 +52,8 @@ struct Config {
     bool autoPlace = true;
     Place place;
     std::vector<Item> items;
+    // Now playing: YouTube videos count as music too (the island's choice, not saved here).
+    bool youtube = false;
 
     bool operator==(const Config& o) const = default;
 };

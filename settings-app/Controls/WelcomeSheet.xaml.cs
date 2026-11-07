@@ -70,8 +70,6 @@ public partial class WelcomeSheet : UserControl
             m.Style = 1;
             m.OpenEffect = m.CloseEffect = 1;
             m.CornerShape = 1;
-            m.WindowCorners = true;
-            m.SmoothCorners = false;   // the squircle on other programs' windows too
             m.Corners = [1, 0, 0, 2];
             m.OverviewHotkey = true;
         }
@@ -84,7 +82,6 @@ public partial class WelcomeSheet : UserControl
             m.OpenDurationMs = 300;
             m.CloseDurationMs = 250;
             m.CornerShape = 0;
-            m.SmoothCorners = true;
             m.OverviewHotkey = true;
         }
         if (AddWidgets.IsChecked == true && m.Widgets.Count == 0)

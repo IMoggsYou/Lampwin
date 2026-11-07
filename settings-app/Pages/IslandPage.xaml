@@ -23,6 +23,12 @@
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandMusic}"/>
                 </c:SettingRow>
                 <Rectangle Style="{StaticResource RowSeparator}"/>
+                <c:SettingRow Title="{l:Tr settings.island.youtube.title}"
+                              Description="{l:Tr settings.island.youtube.description}">
+                    <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandYouTube}"
+                              IsEnabled="{Binding IslandMusic}"/>
+                </c:SettingRow>
+                <Rectangle Style="{StaticResource RowSeparator}"/>
                 <c:SettingRow Title="{l:Tr settings.island.calls.title}"
                               Description="{l:Tr settings.island.calls.description}">
                     <CheckBox Style="{StaticResource MacSwitch}" IsChecked="{Binding IslandCalls}"/>

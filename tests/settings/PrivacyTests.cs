@@ -44,6 +44,8 @@ internal static class Program
             Run(nameof(TaskXmlIsRead), TaskXmlIsRead);
             Run(nameof(HelperArgumentsAreStrict), HelperArgumentsAreStrict);
             Run(nameof(AdminIsNeededWhereWindowsRequiresIt), AdminIsNeededWhereWindowsRequiresIt);
+            Run(nameof(AppSwitchUninstallsAndOffersTheStore), AppSwitchUninstallsAndOffersTheStore);
+            Run(nameof(MissingFeatureHidesOnlyUntouchedSwitches), MissingFeatureHidesOnlyUntouchedSwitches);
             AppIconTests.RunAll(Run, Check, _temp);
             SettingsTransferTests.RunAll(Run, Check);
         }
@@ -86,6 +88,36 @@ internal static class Program
     }
 
     private static PrivacyTweak Tweak(string id) => PrivacyCatalog.Find(id) ?? throw new InvalidOperationException(id);
+
+    // Copilot's app: uninstalled for the user (never by the administrator helper), and put back
+    // through the Microsoft Store.
+    private static void AppSwitchUninstallsAndOffersTheStore()
+    {
+        var (pc, engine, _) = NewPc();
+        pc.AddDefaults();
+        var tweak = Tweak("copilotApp");
+        var app = (PackageAction)tweak.Actions[0];
+        Check(!tweak.NeedsAdmin, "removing an app needs no administrator rights");
+        Check(engine.GetState(tweak) == TweakState.On, "an installed app shows on");
+        Check(engine.Apply([new PrivacyChange(tweak, TurnOff: true)]).All(r => r.Ok), "the app is removed");
+        Check(!pc.Packages.Contains(app.Family) && engine.GetState(tweak) == TweakState.Off, "the app is gone");
+        Check(engine.Apply([new PrivacyChange(tweak, TurnOff: false)]).All(r => r.Ok), "back on is fine");
+        Check(pc.StoreOpened.SequenceEqual([app.StoreProductId]), "back on opens the app's Store page");
+    }
+
+    // A switch for a feature the PC doesn't have shows as not available, unless MacWin turned it
+    // before (then it must stay usable, to turn it back).
+    private static void MissingFeatureHidesOnlyUntouchedSwitches()
+    {
+        var (pc, engine, _) = NewPc();
+        pc.AddDefaults();
+        pc.Missing.Add(PrivacyNeed.CopilotPlus);
+        var recall = Tweak("recall");
+        Check(engine.GetState(recall) == TweakState.Unavailable, "no Recall on this PC: not available");
+        var first = (RegistryAction)recall.Actions[0];
+        pc.WriteValue(first.Hive, first.Key, first.Name, first.Off);
+        Check(engine.GetState(recall) != TweakState.Unavailable, "a switch MacWin changed stays usable");
+    }
 
     // --- the catalogue ---
 
@@ -457,6 +489,7 @@ internal sealed class FakePc : IPrivacySystem
         foreach (var action in PrivacyCatalog.All.SelectMany(t => t.Actions))
         {
             if (action is TaskAction task) Tasks[task.Path] = true;
+            else if (action is PackageAction package) Packages.Add(package.Family);
             else if (action is RegistryAction reg && reg.On is not null)
             {
                 Keys.Add(KeyName(reg.Hive, reg.Key));
@@ -504,4 +537,23 @@ internal sealed class FakePc : IPrivacySystem
     }
 
     public void SetServiceRunning(string name, bool running) => ServiceCalls.Add($"{name}:{(running ? "start" : "stop")}");
+
+    /// <summary>The user's apps by family name.</summary>
+    public HashSet<string> Packages { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public List<string> StoreOpened { get; } = new();
+
+    /// <summary>What this PC lacks (everything else is there).</summary>
+    public HashSet<PrivacyNeed> Missing { get; } = new();
+
+    public bool? IsPackageInstalled(string family) => Packages.Contains(family);
+
+    public void RemovePackage(string family)
+    {
+        Changing();
+        Packages.Remove(family);
+    }
+
+    public void OpenStore(string productId) => StoreOpened.Add(productId);
+
+    public bool Has(PrivacyNeed need) => !Missing.Contains(need);
 }

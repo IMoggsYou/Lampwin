@@ -41,11 +41,9 @@ little quieter about your data. Light, free and open source.
 - ↩️ **Reversible mid-flight** — click again while it is still moving and the genie turns
   around from exactly where it is. Win+D animates every window at once. With Windows'
   *Animation effects* turned off, Lampwin stays still too.
-- ⬛ **Smooth corners** — Windows' own anti-aliased rounding for every program, also the
-  windows Windows leaves square, and a switch for the thin border around windows. Or the
-  macOS squircle with any radius for the animation, the settings window and apps that
-  draw their own title bar (Chrome, Edge, Brave, Discord, VS Code, Spotify, …), with a
-  matching shadow.
+- ⬛ **Smooth corners** — every program's windows get Windows' own anti-aliased rounding,
+  also the windows Windows leaves square, and a switch for the thin border around windows.
+  The macOS squircle with any radius is used for the animation and the settings window.
 - 🗓️ **Desktop widgets** — a clock, a calendar, the weather, system gauges, the battery,
   the network's speed, a note, a photo, a countdown to a day of your choice and what's
   playing now, light or dark. They
@@ -60,6 +58,9 @@ little quieter about your data. Light, free and open source.
 - 🏝️ **Island** — a black pill at the top of the screen, like the Dynamic Island on the
   iPhone: music with its cover and buttons, calls (Discord, Signal, Teams…), screen
   mirroring, and short notes for charging, silent mode, headphones and airplane mode.
+  Music comes only from Spotify, Apple Music, Amazon Music, TIDAL and YouTube Music (YouTube
+  videos only with the island's YouTube switch, off by default); films, Netflix, calls and
+  other sounds are not shown as music.
 - 🪄 **Window overview and hot corners** — every window side by side like Exposé
   (**Ctrl+Alt+↑**, the tray or a hot corner); push the pointer into a corner of the screen
   to show the desktop, Task view, Start or the notifications, lock the PC or turn off the
@@ -191,8 +192,11 @@ Lampwin collects nothing. It goes online for two things only:
 App icons, the Privacy and Tweaks pages, hot corners, the window overview, the light / dark
 schedule (sunrise and sunset are worked out on your PC) and the other widgets work entirely
 on your PC. The Now playing
-widget shows what Windows' own media controls show (the song, the artist, the app); it reads
-that on your PC, only while the widget is on the desktop.
+widget shows what Windows' own media controls show (the song, the artist, the app), from the
+same music apps as the island; it reads that on your PC, only while the widget is on the
+desktop. The island's level bars follow the sound of the music app (and the microphone's
+level during a call), read on your PC only while the bars show; no sound is recorded, kept
+or sent anywhere.
 
 ## FAQ
 
@@ -224,8 +228,9 @@ sign-in.
 <details>
 <summary><b>Why do File Explorer and Notepad keep the Windows 11 corners?</b></summary>
 
-Windows with the system title bar break when their shape is changed. Lampwin gives the
-squircle to the genie, its own window and apps that draw their own title bar.
+Windows draws the title bar of these programs itself, and it breaks when their shape is
+changed. So every program keeps Windows' rounded corners; Lampwin gives the squircle to the
+genie and to its own settings window.
 </details>
 
 <details>

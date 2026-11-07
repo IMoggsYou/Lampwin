@@ -54,13 +54,14 @@ show the window before it is visible.
 
 ## Window corners
 
-`src/hook/effects/corners.cpp` has two ways. With smooth corners (the default) DWM draws
-every corner: windows it would leave square get `DWMWCP_ROUND`, and with borders off every
-window gets `DWMWA_COLOR_NONE` (`UpdateLook`; the program's own values are given back).
-Otherwise it cuts windows that draw their own title bar (Chromium, Electron) to a
-squircle with `SetWindowRgn`, turns off the DWM border and backdrop for them, and adds
-two helper windows: a DirectComposition "shade" for the shadow and antialiased edge, and
-a transparent "grip" so the resize border still works.
+`src/hook/effects/corners.cpp` leaves every corner to DWM: windows it would leave square get
+`DWMWCP_ROUND`, and with borders off every window gets `DWMWA_COLOR_NONE` (`UpdateLook`; the
+program's own values are given back). The host always publishes `windowCorners=1` and
+`smoothCorners=1`. The region path only remains for a host that sets `smoothCorners=0`: it
+cuts windows that draw their own title bar (Chromium, Electron) to a squircle with
+`SetWindowRgn`, turns off the DWM border and backdrop for them, and adds two helper windows:
+a DirectComposition "shade" for the shadow and antialiased edge, and a transparent "grip" so
+the resize border still works.
 
 ## Island
 
@@ -72,7 +73,10 @@ icon (the CapabilityAccessManager consent store) for calls, the display paths fo
 mirroring, airplane mode, the mobile broadband adapter, Core Audio for mute and the default
 output, and the power status; `widgets::MediaWatcher` with details gives the music, its
 cover and timeline. Its buttons press the media keys, mute the default microphone, stop a
-duplicated display or open Windows' settings pages. Springs move its shape; a change of
+duplicated display or open Windows' settings pages. `src/host/island/island_audio.cpp`
+listens to the music app's own sound (per-process WASAPI loopback, falling back to the whole
+output) and splits it into five bands with an FFT, only while the bars show; the call's bars
+use the microphone's peak meter. Springs move its shape; a change of
 view cross-fades, and each view's symbols come in over `Scene::since` (frames run only
 while something moves). `MacWin.exe --island-snapshot <dir>` draws every view, and in
 `island-motion.png` how each one comes in, frame by frame.

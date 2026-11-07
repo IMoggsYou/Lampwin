@@ -152,14 +152,6 @@ public sealed class SettingsModel : INotifyPropertyChanged
         }
     }
 
-    private bool _windowCorners = true;
-    /// <summary>Cut every window to these corners, not only the window in the genie.</summary>
-    public bool WindowCorners { get => _windowCorners; set => Set(ref _windowCorners, value); }
-
-    private bool _smoothCorners = true;
-    /// <summary>Corners drawn by Windows (smooth, 8 px, every program) instead of the shape above.</summary>
-    public bool SmoothCorners { get => _smoothCorners; set => Set(ref _smoothCorners, value); }
-
     private bool _windowBorders = true;
     /// <summary>The thin line around every window.</summary>
     public bool WindowBorders { get => _windowBorders; set => Set(ref _windowBorders, value); }
@@ -171,6 +163,10 @@ public sealed class SettingsModel : INotifyPropertyChanged
     private int _islandMonitor;
     public bool IslandEnabled { get => _islandEnabled; set => Set(ref _islandEnabled, value); }
     public bool IslandMusic { get => _islandMusic; set => Set(ref _islandMusic, value); }
+
+    private bool _islandYouTube;
+    /// <summary>YouTube videos count as music too, in the island and the Now playing widget.</summary>
+    public bool IslandYouTube { get => _islandYouTube; set => Set(ref _islandYouTube, value); }
     public bool IslandCalls { get => _islandCalls; set => Set(ref _islandCalls, value); }
     public bool IslandMirroring { get => _islandMirroring; set => Set(ref _islandMirroring, value); }
     public bool IslandCharging { get => _islandCharging; set => Set(ref _islandCharging, value); }

@@ -37,6 +37,7 @@ public partial class PrivacyPage : UserControl
     private string? _work;       // the status while reading or changing; null when idle
     private string? _message;    // what the last change did, until a switch is turned
     private bool _hasBackup;
+    private bool _explorerPending;   // a change that shows once Explorer restarts
     private readonly SwitchSet _set;
 
     public PrivacyPage() : this(SwitchSet.Privacy)
@@ -55,6 +56,17 @@ public partial class PrivacyPage : UserControl
             if (_work is null) await RefreshAsync();
         };
     }
+
+    // Why a switch can't be used: what it is for isn't on this PC (a Copilot+ PC's AI, a lock
+    // screen picture of the user's own), Windows doesn't let this app read it, or it doesn't exist.
+    private static string UnavailableText(Row row) => row.State == TweakState.Denied
+        ? Loc.T("settings.privacy.denied")
+        : row.Tweak.Needs switch
+        {
+            PrivacyNeed.CopilotPlus => Loc.T("settings.privacy.needs.copilotPlus"),
+            PrivacyNeed.OwnLockScreenPicture => Loc.T("settings.privacy.needs.ownLockScreenPicture"),
+            _ => Loc.T("settings.privacy.unavailable"),
+        };
 
     private void BuildRows()
     {
@@ -119,7 +131,7 @@ public partial class PrivacyPage : UserControl
             foreach (var row in _rows)
             {
                 row.State = states.GetValueOrDefault(row.Tweak.Id, TweakState.Unavailable);
-                if (row.State == TweakState.Unavailable || row.Desired == row.IsOn(_set)) row.Desired = null;
+                if (!Usable(row) || row.Desired == row.IsOn(_set)) row.Desired = null;
             }
             _hasBackup = hasBackup;
             _read = true;
@@ -140,9 +152,9 @@ public partial class PrivacyPage : UserControl
         bool busy = _work is not null;
         foreach (var row in _rows)
         {
-            bool available = row.State != TweakState.Unavailable;
+            bool available = Usable(row);
             row.Setting.IsEnabled = !busy && available;
-            row.Setting.Description = _read && !available ? Loc.T("settings.privacy.unavailable") : Loc.T(row.Tweak.DescriptionKey);
+            row.Setting.Description = _read && !available ? UnavailableText(row) : Loc.T(row.Tweak.DescriptionKey);
             row.Toggle.IsChecked = row.Desired ?? row.IsOn(_set);
             row.Pending.Visibility = row.Desired is null ? Visibility.Collapsed : Visibility.Visible;
         }
@@ -154,6 +166,9 @@ public partial class PrivacyPage : UserControl
         ApplyButton.Visibility = DiscardButton.Visibility = BottomBar.Visibility = waiting;
         BottomRow.Description = SummaryRow.Description;
         ApplyButton.IsEnabled = DiscardButton.IsEnabled = BottomApplyButton.IsEnabled = BottomDiscardButton.IsEnabled = !busy;
+
+        ExplorerButton.Visibility = _explorerPending && pending == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ExplorerButton.IsEnabled = !busy;
 
         RestoreRow.Description = Text(_hasBackup ? "restore.description" : "restore.none");
         RestoreButton.IsEnabled = _hasBackup && !busy;
@@ -188,6 +203,33 @@ public partial class PrivacyPage : UserControl
             foreach (var row in _rows) row.Desired = null;
         }
         _message = Summary(results, "status.applied");
+        if (results.Any(r => r.Ok && _set.Find(r.Id)?.Explorer == true))
+        {
+            _explorerPending = true;
+            if (results.All(r => r.Ok)) _message = Loc.T("settings.privacy.status.explorer");
+        }
+        await RefreshAsync();
+    }
+
+    private static bool Usable(Row row) => row.State is TweakState.On or TweakState.Off;
+
+    private async void RestartExplorer_Click(object sender, RoutedEventArgs e)
+    {
+        if (_work is not null) return;
+        _work = Loc.T("settings.privacy.status.restartingExplorer");
+        UpdateUi();
+        try
+        {
+            await Task.Run(WindowsPrivacySystem.RestartExplorer);
+            _explorerPending = false;
+            _message = Text("status.applied");
+        }
+        catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException or
+                                   TimeoutException)
+        {
+            App.Log($"Privacy: Explorer didn't restart: {ex.Message}");
+        }
+        _work = null;
         await RefreshAsync();
     }
 

@@ -45,6 +45,17 @@ public sealed record RegistryAction(PrivacyHive Hive, string Key, string Name, R
         Hive == PrivacyHive.Machine || Key.StartsWith(@"Software\Policies\", StringComparison.OrdinalIgnoreCase);
 }
 
+/// <summary>An app of the user's (an MSIX package, by its family name) that is uninstalled to
+/// block the feature, the way Settings → Apps does; back on opens its page in the Microsoft Store
+/// (an app can't be put back silently). Never needs administrator rights, so it never runs in
+/// the elevated helper (which may be another account).</summary>
+public sealed record PackageAction(string Family, string StoreProductId) : PrivacyAction
+{
+    public override string BackupKey => "package|" + Family;
+
+    public override bool NeedsAdmin => false;
+}
+
 /// <summary>A scheduled task that is disabled to block the feature.</summary>
 public sealed record TaskAction(string Path) : PrivacyAction
 {
@@ -53,11 +64,18 @@ public sealed record TaskAction(string Path) : PrivacyAction
     public override bool NeedsAdmin => true;
 }
 
+/// <summary>What a switch is for, beyond its values existing: a Copilot+ PC's AI features, a lock
+/// screen that shows Windows' tips (not Windows Spotlight, which has its own).</summary>
+public enum PrivacyNeed { None, CopilotPlus, OwnLockScreenPicture }
+
 /// <summary>One switch of the Privacy page (or of the Tweaks page). Its texts are
 /// settings.&lt;texts&gt;.&lt;id&gt;.title and .description. <see cref="Service"/>: a service that is
-/// stopped when the switch is turned off and started again when it is turned back on.</summary>
+/// stopped when the switch is turned off and started again when it is turned back on.
+/// <see cref="Needs"/>: shown as not available where that is missing (unless MacWin already
+/// changed it, so it can always be put back). <see cref="Explorer"/>: the taskbar, Start or
+/// File Explorer only show the change once Explorer restarts.</summary>
 public sealed record PrivacyTweak(string Id, string Group, PrivacyAction[] Actions, string? Service = null,
-                                  string Texts = "privacy")
+                                  string Texts = "privacy", PrivacyNeed Needs = PrivacyNeed.None, bool Explorer = false)
 {
     public string TitleKey => $"settings.{Texts}.{Id}.title";
 
@@ -67,8 +85,9 @@ public sealed record PrivacyTweak(string Id, string Group, PrivacyAction[] Actio
 }
 
 /// <summary>On: Windows does it (its default). Off: blocked. Unavailable: none of what the
-/// switch changes exists on this PC.</summary>
-public enum TweakState { On, Off, Unavailable }
+/// switch changes exists on this PC, or what it is for (<see cref="PrivacyTweak.Needs"/>).
+/// Denied: Windows doesn't let this app read it.</summary>
+public enum TweakState { On, Off, Unavailable, Denied }
 
 public sealed record PrivacyChange(PrivacyTweak Tweak, bool TurnOff);
 
@@ -104,6 +123,15 @@ public interface IPrivacySystem
     /// <summary>Best effort: a service that doesn't stop or start is not an error (the
     /// start type decides after the next restart).</summary>
     void SetServiceRunning(string name, bool running);
+
+    /// <summary>Whether the user has the app; null when that can't be told.</summary>
+    bool? IsPackageInstalled(string family);
+
+    void RemovePackage(string family);
+
+    void OpenStore(string productId);
+
+    bool Has(PrivacyNeed need);
 }
 
 /// <summary>The value or task state before MacWin first changed it.</summary>
@@ -226,14 +254,18 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
 
     public TweakState GetState(PrivacyTweak tweak)
     {
-        bool any = false, allApplied = true;
+        bool any = false, allApplied = true, anyApplied = false;
         foreach (var action in tweak.Actions)
         {
             var state = GetState(action);
             if (state == ActionState.NotApplicable) continue;
             any = true;
             allApplied &= state == ActionState.Applied;
+            anyApplied |= state == ActionState.Applied && action is not PackageAction;
         }
+        // For a feature this PC doesn't have, a switch would only pretend; one MacWin already
+        // turned stays, so it can be turned back.
+        if (tweak.Needs != PrivacyNeed.None && !anyApplied && !system.Has(tweak.Needs)) return TweakState.Unavailable;
         return !any ? TweakState.Unavailable : allApplied ? TweakState.Off : TweakState.On;
     }
 
@@ -246,6 +278,13 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
                 return system.ReadValue(reg.Hive, reg.Key, reg.Name) == reg.Off ? ActionState.Applied : ActionState.NotApplied;
             case TaskAction task:
                 return system.IsTaskEnabled(task.Path) switch
+                {
+                    null => ActionState.NotApplicable,
+                    false => ActionState.Applied,
+                    true => ActionState.NotApplied,
+                };
+            case PackageAction package:
+                return system.IsPackageInstalled(package.Family) switch
                 {
                     null => ActionState.NotApplicable,
                     false => ActionState.Applied,
@@ -305,7 +344,9 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
                 if (change.Tweak.Service is string service && done.Count > 0) system.SetServiceRunning(service, !change.TurnOff);
                 var expected = change.TurnOff ? TweakState.Off : TweakState.On;
                 var now = GetState(change.Tweak);
-                results.Add(now == expected || now == TweakState.Unavailable
+                // An app to put back is only offered in the Store: done once its page opened.
+                bool storeOpened = !change.TurnOff && done.Any(d => d.Action is PackageAction);
+                results.Add(now == expected || now == TweakState.Unavailable || storeOpened
                     ? new PrivacyResult(change.Tweak.Id, true)
                     : new PrivacyResult(change.Tweak.Id, false, PrivacyErrors.NotKept));
             }
@@ -401,13 +442,14 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
     {
         RegistryAction reg => BackupEntry.FromValue(system.ReadValue(reg.Hive, reg.Key, reg.Name)),
         TaskAction task => BackupEntry.FromTask(system.IsTaskEnabled(task.Path) ?? true),
+        PackageAction package => BackupEntry.FromTask(system.IsPackageInstalled(package.Family) ?? true),
         _ => throw new NotSupportedException(action.GetType().Name),
     };
 
     private static bool IsOff(PrivacyAction action, BackupEntry original) => action switch
     {
         RegistryAction reg => !original.Absent && original.Kind == reg.Off.Kind.ToString() && original.Data == reg.Off.Text,
-        TaskAction => original.Enabled == false,
+        TaskAction or PackageAction => original.Enabled == false,
         _ => false,
     };
 
@@ -415,6 +457,7 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
     {
         if (action is RegistryAction reg) system.WriteValue(reg.Hive, reg.Key, reg.Name, reg.Off);
         else if (action is TaskAction task) system.SetTaskEnabled(task.Path, false);
+        else if (action is PackageAction package) system.RemovePackage(package.Family);
     }
 
     private void WriteOn(PrivacyAction action)
@@ -425,6 +468,7 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
             else system.WriteValue(reg.Hive, reg.Key, reg.Name, reg.On);
         }
         else if (action is TaskAction task) system.SetTaskEnabled(task.Path, true);
+        else if (action is PackageAction package) system.OpenStore(package.StoreProductId);
     }
 
     private void Restore(PrivacyAction action, BackupEntry entry)
@@ -439,6 +483,11 @@ public sealed class PrivacyEngine(IPrivacySystem system, PrivacyBackupFile backu
         else if (action is TaskAction task && system.IsTaskEnabled(task.Path) is not null)
         {
             system.SetTaskEnabled(task.Path, entry.Enabled ?? true);
+        }
+        else if (action is PackageAction package && entry.Enabled == true &&
+                 system.IsPackageInstalled(package.Family) == false)
+        {
+            system.OpenStore(package.StoreProductId);
         }
     }
 

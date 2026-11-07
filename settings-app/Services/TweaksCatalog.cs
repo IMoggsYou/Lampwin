@@ -34,16 +34,18 @@ public static class TweaksCatalog
         Tweak("endTask", "taskbar", ExplorerAdvanced + @"\TaskbarDeveloperSettings", "TaskbarEndTask", 1, null),
 
         // Start (Settings > Personalization > Start)
-        Tweak("startMorePins", "start", ExplorerAdvanced, "Start_Layout", 1, null),
+        // The Start menu of Windows 11 before its 2025 redesign; the new one has no such choice.
+        Tweak("startMorePins", "start", ExplorerAdvanced, "Start_Layout", 1, null, explorer: true),
     ];
 
     public static PrivacyTweak? Find(string id) => All.FirstOrDefault(t => t.Id == id);
 
-    private static PrivacyTweak Tweak(string id, string group, string key, string name, int changed, int? windows) =>
+    private static PrivacyTweak Tweak(string id, string group, string key, string name, int changed, int? windows,
+                                      bool explorer = false) =>
         new(id, group,
             [new RegistryAction(PrivacyHive.User, key, name, RegData.Dword(changed),
                                 windows is int value ? RegData.Dword(value) : null)],
-            Texts: "tweaks");
+            Texts: "tweaks", Explorer: explorer);
 }
 
 /// <summary>The switches one page shows: the Privacy page's or the Tweaks page's.</summary>

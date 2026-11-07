@@ -9,6 +9,48 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Added
+
+- **YouTube** (Settings → Island): videos on YouTube count as music too, in the island and
+  the Now playing widget. Off by default.
+
+### Changed
+
+- The island and the Now playing widget only show music – from Spotify, Apple Music,
+  Amazon Music, TIDAL and YouTube Music. Films (Netflix and others), calls and other sounds
+  no longer show up there, and the island's buttons play, pause and skip in that music app
+  rather than in whatever Windows' media keys would reach.
+- The island's level bars move with the music itself: the sound of the music app, split into
+  bass to treble, and the microphone's level during a call. The sound is only read while the
+  bars show; nothing is recorded or sent anywhere.
+- The music pill is as wide as its song needs: a short title gets a narrow pill, a long one
+  glides along smoothly instead of being cut. The cover and the level bars sit the same
+  distance from both ends, and the island's edges fall on whole pixels.
+- Window corners: the switches for smooth corners and for other programs' windows are gone.
+  Every program's windows always get the smooth round corners Windows draws, also the ones
+  Windows leaves square. The tray menu's "Window corners on" went with them.
+- Privacy: the Copilot app of Windows 11 24H2 and later has its own switch, which uninstalls
+  it for your account (turned back on, its Microsoft Store page opens). Recall is now removed
+  from Windows too, not only paused. Recall, Click to Do and the lock screen tips show as not
+  available where this PC can't have them (no Copilot+ PC, Windows Spotlight on the lock
+  screen) instead of a switch that does nothing, and a setting Windows doesn't let Lampwin
+  read says so.
+- Privacy and Tweaks: after a change that only shows once Explorer restarts (Widgets, the
+  search box, Start and taskbar settings) a "Restart Explorer" button appears, and Explorer is
+  told about every change right away.
+
+### Fixed
+
+- "Something went wrong in the settings window" could appear while switching pages or
+  saving settings: the icon bounce of the sidebar, saving at the same moment as Lampwin,
+  adding the bundled app icons at start and a broken output pipe on the Privacy page no
+  longer end in that message. Settings that couldn't be saved at once are saved again shortly
+  instead of being lost.
+- Settings → Privacy: switches that need administrator rights and your own ones applied
+  together no longer change your own ones in the administrator's account.
+- Opening a page with `--page` while the settings window is open goes to the right page again
+  (Island, Desktop and Tweaks were missing).
+
 ## [2.0.0] - 2026-11-06
 
 ### Added
