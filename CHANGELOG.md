@@ -9,6 +9,8 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-11-09
+
 ### Fixed
 
 - Riot Vanguard still warned that Lampwin interrupts the game: Windows kept trying to load
@@ -419,7 +421,8 @@ The first public release.
 - Updates are downloaded only from github.com over HTTPS and run only when their SHA-256
   matches the release's `SHA256SUMS.txt`.
 
-[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/IMoggsYou/Lampwin/compare/v2.1.1...HEAD
+[2.1.1]: https://github.com/IMoggsYou/Lampwin/compare/v2.1.0...v2.1.1
 [2.1.0]: https://github.com/IMoggsYou/Lampwin/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/IMoggsYou/Lampwin/compare/v1.6.1...v2.0.0
 [1.6.1]: https://github.com/IMoggsYou/Lampwin/compare/v1.6.0...v1.6.1
