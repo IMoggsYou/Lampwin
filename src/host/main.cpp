@@ -10,6 +10,7 @@
 #include <string>
 #include <vector>
 #include "common/names.h"
+#include "common/strutil.h"
 #include "host/app_icon.h"
 #include "host/crash.h"
 #include "host/desktop/appearance.h"
@@ -43,6 +44,7 @@ const UINT WM_APP_ISLAND = WM_APP + 8;
 const UINT_PTR kPreloadTimer = 1;
 const UINT_PTR kUpdateTimer = 2;
 const UINT_PTR kAppearanceTimer = 3;
+const UINT_PTR kGameTimer = 4;
 const UINT kFirstUpdateCheckMs = 60 * 1000;           // after start: let the session settle
 const UINT kUpdateCheckEveryMs = 3 * 60 * 60 * 1000;  // the updater checks at most once a day
 const int kHotkeyQuit = 1;
@@ -55,6 +57,15 @@ const wchar_t kReleasesUrl[] = L"https://github.com/IMoggsYou/Lampwin/releases";
 // battery saver of older versions (1 on). Windows sends the current value when we register.
 const GUID kEnergySaverStatus = {0x550e8400, 0xe29b, 0x41d4, {0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00}};
 const GUID kPowerSavingStatus = {0xe00958c0, 0xc213, 0x4ace, {0xac, 0x77, 0xfe, 0xcc, 0xed, 0x2e, 0xee, 0xa5}};
+
+// Games from Riot, Steam and Epic. Their anti-cheat (Riot Vanguard above all) reports
+// each attempt to load the DLL into them, and Windows makes one at every window event of
+// theirs while WH_CBT is installed, so the hook comes off while one of them runs.
+bool IsLauncherGame(const mw::ImageNames& n) {
+    return wcscmp(n.baseNoExt, L"league of legends") == 0 || wcscmp(n.baseNoExt, L"valorant-win64-shipping") == 0 ||
+           wcsstr(n.full, L"\\steamapps\\common\\") ||
+           (wcsstr(n.full, L"\\epic games\\") && !wcsstr(n.full, L"\\epic games\\launcher\\"));
+}
 
 // Windows' "Animation effects" (Settings > Accessibility > Visual effects).
 bool SystemAnimationsOn() {
@@ -98,6 +109,7 @@ private:
     void OnIslandRequest(WPARAM request, LPARAM lp);
     void ApplyDesktop();
     void ToggleOverview();
+    void CheckGame();
     void OnHotCorner(CornerAction action, POINT pt);
     void OnPowerSetting(const POWERBROADCAST_SETTING* setting);
     void OnWidgetRequest(WPARAM request, LPARAM lp);
@@ -122,6 +134,7 @@ private:
     bool installAfterDownload_ = false;
     HICON iconOn_ = nullptr, iconOff_ = nullptr;
     bool trayAdded_ = false;
+    HANDLE game_ = nullptr;   // the running game WH_CBT is off for
 
     HANDLE shutdownEvent_ = nullptr;
     HANDLE aliveMutex_ = nullptr;
@@ -234,6 +247,7 @@ bool App::Init(HINSTANCE hInst) {
     }
     injector_.BeginPreload();
     SetTimer(hwnd_, kPreloadTimer, 2000, nullptr);
+    SetTimer(hwnd_, kGameTimer, 2000, nullptr);
     // 32-bit programs: MacWinHelper32.exe gets MacWinHook32.dll into them.
     helper32_.Start(ExeDir() + L"\\MacWinHelper32.exe", instance, hwnd_, WM_APP_HELPER_EXITED);
 
@@ -289,6 +303,7 @@ void App::Shutdown() {
     if (shutdownEvent_) SetEvent(shutdownEvent_);
     helper32_.Stop();
     injector_.Stop();
+    if (game_) CloseHandle(game_);
     if (trayAdded_) {
         NOTIFYICONDATAW nid = {sizeof(nid)};
         nid.hWnd = hwnd_;
@@ -591,6 +606,24 @@ void App::ReloadSettings() {
     }
 }
 
+void App::CheckGame() {
+    if (game_) {
+        if (WaitForSingleObject(game_, 0) != WAIT_OBJECT_0) return;
+        CloseHandle(game_);
+        game_ = nullptr;
+        injector_.SetPaused(false);
+        injector_.BeginPreload();
+        SetTimer(hwnd_, kPreloadTimer, 2000, nullptr);
+        return;
+    }
+    DWORD pid = 0;
+    GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+    mw::ImageNames names;
+    if (!mw::ProcessImageNames(pid, &names) || !IsLauncherGame(names)) return;
+    game_ = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    if (game_) injector_.SetPaused(true);
+}
+
 void App::ShowMenu() {
     const HostSettings& s = settings_.Get();
     HMENU menu = CreatePopupMenu();
@@ -753,6 +786,8 @@ LRESULT App::Handle(UINT msg, WPARAM wp, LPARAM lp) {
             if (wp == kPreloadTimer) {
                 KillTimer(hwnd_, kPreloadTimer);
                 injector_.EndPreload();
+            } else if (wp == kGameTimer) {
+                CheckGame();
             } else if (wp == kAppearanceTimer) {
                 appearance_.Check();
             } else if (wp == kUpdateTimer) {
