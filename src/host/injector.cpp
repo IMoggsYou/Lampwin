@@ -40,7 +40,7 @@ bool Injector::Start(const std::wstring& dllPath) {
 }
 
 void Injector::BeginPreload() {
-    if (!getMsgProc_ || getMsg_) return;
+    if (!getMsgProc_ || getMsg_ || !cbt_) return;
     getMsg_ = SetWindowsHookExW(WH_GETMESSAGE, getMsgProc_, dll_, 0);
     if (!getMsg_) {
         Log(L"injector: SetWindowsHookEx(WH_GETMESSAGE) failed: %lu", GetLastError());
@@ -55,6 +55,19 @@ void Injector::EndPreload() {
         getMsg_ = nullptr;
         Log(L"injector: preload hook removed");
     }
+}
+
+void Injector::SetPaused(bool paused) {
+    if (!cbtProc_ || paused == Paused()) return;
+    if (paused) {
+        EndPreload();
+        UnhookWindowsHookEx(cbt_);
+        cbt_ = nullptr;
+    } else {
+        cbt_ = SetWindowsHookExW(WH_CBT, cbtProc_, dll_, 0);
+        if (!cbt_) Log(L"injector: SetWindowsHookEx(WH_CBT) failed: %lu", GetLastError());
+    }
+    Log(L"injector: WH_CBT %ls", paused ? L"paused for a game" : L"back");
 }
 
 void Injector::Stop() {

@@ -9,6 +9,12 @@ a release turns that section into the new version (see [AGENTS.md](AGENTS.md#rel
 
 ## [Unreleased]
 
+### Fixed
+
+- Riot Vanguard still warned that Lampwin interrupts the game: Windows kept trying to load
+  Lampwin into it. While a Riot, Steam or Epic Games game is in the foreground and until it
+  closes, Lampwin no longer offers itself to any new program, so it never reaches the game.
+
 ## [2.1.0] - 2026-11-07
 
 ### Added

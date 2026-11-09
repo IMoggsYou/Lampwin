@@ -15,6 +15,11 @@ public:
     // already running load the DLL now rather than at their next window event.
     void BeginPreload();
     void EndPreload();
+    // Takes WH_CBT off while a game runs: Windows otherwise tries to load the DLL into the
+    // game at each of its window events, and its anti-cheat reports every try. Programs
+    // that already have the DLL keep it (it holds its own reference).
+    void SetPaused(bool paused);
+    bool Paused() const { return dll_ && !cbt_; }
     void Stop();
 
 private:
